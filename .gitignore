@@ -11,6 +11,7 @@ backend/node_modules/
 backend/prisma/dev.db*
 app/.dart_tool/
 app/build/
+app/android/build/
 app/.flutter-plugins*
 app/ios/Pods/
 app/ios/.symlinks/
