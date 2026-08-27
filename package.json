@@ -1,0 +1,32 @@
+{
+  "name": "toolbox-one",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "setup": "node scripts/env.mjs init-local && pnpm install --frozen-lockfile",
+    "env:init:local": "node scripts/env.mjs init-local",
+    "env:init:prod": "node scripts/env.mjs init-prod",
+    "env:check:prod": "node scripts/env.mjs check-prod",
+    "dev": "pnpm --parallel --filter @toolbox/admin --filter @toolbox/backend run dev",
+    "dev:admin": "pnpm --dir admin dev",
+    "dev:backend": "pnpm --dir backend dev",
+    "build": "pnpm --dir backend build && pnpm --dir admin build",
+    "build:admin": "pnpm --dir admin build",
+    "build:backend": "pnpm --dir backend build",
+    "test": "pnpm --dir backend test && pnpm --dir admin test",
+    "test:admin": "pnpm --dir admin test",
+    "test:backend": "pnpm --dir backend test",
+    "lint": "pnpm --dir backend lint && pnpm --dir admin lint",
+    "typecheck": "pnpm --dir backend exec tsc --noEmit && pnpm --dir admin exec tsc --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "local:up": "bash scripts/local-up.sh",
+    "local:down": "docker compose -f docker-compose.dev.yml down",
+    "local:logs": "docker compose -f docker-compose.dev.yml logs -f --tail=150",
+    "prod:deploy": "bash scripts/prod-deploy.sh",
+    "prod:backup": "bash scripts/prod-backup.sh",
+    "prod:restore": "bash scripts/prod-restore.sh",
+    "prod:down": "docker compose -f docker-compose.prod.yml down",
+    "prod:logs": "docker compose -f docker-compose.prod.yml logs -f --tail=150",
+    "app:signing:init": "bash scripts/android-signing.sh"
+  }
+}

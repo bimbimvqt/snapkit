@@ -1,0 +1,304 @@
+"use client";
+
+import { type CSSProperties, useMemo, useState } from "react";
+import {
+  Check,
+  Layers3,
+  Monitor,
+  Moon,
+  Navigation,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Smartphone,
+  Sun,
+} from "lucide-react";
+import Button from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SeraSectionTitle, SeraSurface } from "@/components/sera/surface";
+import { cn } from "@/lib/utils";
+
+type Flag = {
+  key: string;
+  description: string | null;
+  enabled: boolean;
+  rollout: number;
+};
+type ThemePreset = "midnight_lime" | "ocean_cyan" | "violet_pulse" | "sunset_coral" | "mint_light";
+type ThemeMode = "dark" | "light" | "system";
+type NavigationStyle = "floating" | "glass" | "solid";
+type ThemeSettings = { preset: ThemePreset; mode: ThemeMode; navigationStyle: NavigationStyle };
+type MobileConfig = Record<string, unknown> & { theme?: Partial<ThemeSettings> };
+
+const defaultTheme: ThemeSettings = {
+  preset: "midnight_lime",
+  mode: "dark",
+  navigationStyle: "floating",
+};
+
+const presets: Array<{
+  id: ThemePreset;
+  name: string;
+  description: string;
+  colors: [string, string, string];
+  canvas: string;
+  surface: string;
+  ink: string;
+}> = [
+  { id: "midnight_lime", name: "Midnight Lime", description: "Xanh đêm cao cấp", colors: ["#55D6A7", "#B7F34D", "#0B1513"], canvas: "#0B1513", surface: "#172622", ink: "#F2F8F5" },
+  { id: "ocean_cyan", name: "Ocean Cyan", description: "Trong trẻo, công nghệ", colors: ["#22D3EE", "#67E8F9", "#07151C"], canvas: "#07151C", surface: "#102733", ink: "#ECFEFF" },
+  { id: "violet_pulse", name: "Violet Pulse", description: "Sáng tạo, hiện đại", colors: ["#A78BFA", "#E879F9", "#100C1C"], canvas: "#100C1C", surface: "#221936", ink: "#FAF5FF" },
+  { id: "sunset_coral", name: "Sunset Coral", description: "Ấm áp, nổi bật", colors: ["#FB7185", "#FDBA74", "#1C1012"], canvas: "#1C1012", surface: "#321C20", ink: "#FFF7ED" },
+  { id: "mint_light", name: "Mint Light", description: "Sáng, nhẹ và tối giản", colors: ["#0F9F72", "#84CC16", "#F3FAF7"], canvas: "#F3FAF7", surface: "#FFFFFF", ink: "#13231D" },
+];
+
+const modes = [
+  { id: "dark" as const, name: "Tối", icon: Moon },
+  { id: "light" as const, name: "Sáng", icon: Sun },
+  { id: "system" as const, name: "Theo máy", icon: Monitor },
+];
+
+const navigationStyles = [
+  { id: "floating" as const, name: "Floating", description: "Thanh nổi bo tròn, khoảng thở rộng" },
+  { id: "glass" as const, name: "Glass", description: "Bề mặt trong mờ, viền tinh tế" },
+  { id: "solid" as const, name: "Solid", description: "Thanh liền chắc chắn, tối giản" },
+];
+
+function parseTheme(config: MobileConfig): ThemeSettings {
+  const input = config.theme ?? {};
+  return {
+    preset: presets.some((item) => item.id === input.preset) ? input.preset! : defaultTheme.preset,
+    mode: modes.some((item) => item.id === input.mode) ? input.mode! : defaultTheme.mode,
+    navigationStyle: navigationStyles.some((item) => item.id === input.navigationStyle)
+      ? input.navigationStyle!
+      : defaultTheme.navigationStyle,
+  };
+}
+
+function ChoiceCard({
+  selected,
+  onClick,
+  children,
+  className,
+  label,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        "relative min-h-12 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)]",
+        selected && "border-[var(--brand)] bg-[color-mix(in_srgb,var(--brand)_9%,var(--surface-raised))] shadow-[0_12px_32px_color-mix(in_srgb,var(--brand)_12%,transparent)]",
+        className,
+      )}
+    >
+      {selected && (
+        <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-[var(--brand)] text-white">
+          <Check size={14} strokeWidth={3} />
+        </span>
+      )}
+      {children}
+    </button>
+  );
+}
+
+function PhonePreview({ theme }: { theme: ThemeSettings }) {
+  const preset = presets.find((item) => item.id === theme.preset) ?? presets[0];
+  const light = theme.mode === "light" || (theme.mode === "system" && theme.preset === "mint_light");
+  const canvas = light ? "#F3F7F5" : preset.canvas;
+  const surface = light ? "#FFFFFF" : preset.surface;
+  const ink = light ? "#13231D" : preset.ink;
+  const style = {
+    "--phone-canvas": canvas,
+    "--phone-surface": surface,
+    "--phone-ink": ink,
+    "--phone-brand": preset.colors[0],
+    "--phone-accent": preset.colors[1],
+  } as CSSProperties;
+
+  return (
+    <div className="mx-auto w-full max-w-[290px] rounded-[38px] border-[7px] border-[#07110e] bg-[var(--phone-canvas)] p-3 shadow-[0_28px_80px_rgba(0,0,0,.28)]" style={style}>
+      <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-[color-mix(in_srgb,var(--phone-ink)_25%,transparent)]" />
+      <div className="px-2 text-[var(--phone-ink)]">
+        <div className="mb-5 flex items-center justify-between">
+          <span className="grid size-9 place-items-center rounded-xl bg-[var(--phone-accent)] text-[#102019]"><ShieldCheck size={18} /></span>
+          <span className="rounded-full bg-[var(--phone-surface)] px-2.5 py-1 text-[9px] font-bold">PRIVATE</span>
+        </div>
+        <p className="text-[9px] font-bold uppercase tracking-[.14em] text-[var(--phone-brand)]">Toolbox One</p>
+        <p className="mt-1 text-lg font-extrabold tracking-tight">Nhẹ máy. Gọn việc.</p>
+        <div className="mt-4 rounded-2xl bg-[var(--phone-surface)] p-3">
+          <span className="grid size-8 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--phone-brand)_18%,transparent)] text-[var(--phone-brand)]"><Layers3 size={16} /></span>
+          <div className="mt-6 h-2 w-24 rounded-full bg-[var(--phone-ink)]" />
+          <div className="mt-2 h-1.5 w-32 rounded-full bg-[color-mix(in_srgb,var(--phone-ink)_22%,transparent)]" />
+        </div>
+      </div>
+      <div className={cn(
+        "mt-6 grid grid-cols-4 gap-1 px-2 py-2 text-[var(--phone-ink)]",
+        theme.navigationStyle === "solid" && "-mx-3 -mb-3 bg-[var(--phone-surface)]",
+        theme.navigationStyle !== "solid" && "rounded-2xl border border-[color-mix(in_srgb,var(--phone-ink)_10%,transparent)] bg-[color-mix(in_srgb,var(--phone-surface)_88%,transparent)] shadow-lg",
+        theme.navigationStyle === "glass" && "bg-[color-mix(in_srgb,var(--phone-surface)_68%,transparent)]",
+      )}>
+        {[Smartphone, Layers3, Navigation, Monitor].map((Icon, index) => (
+          <span key={index} className={cn("grid min-h-10 place-items-center rounded-xl", index === 0 && "bg-[var(--phone-accent)] text-[#102019]")}>
+            <Icon size={15} />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { initialFlags: Flag[]; mobileConfig: unknown }) {
+  const safeConfig = initialConfig && typeof initialConfig === "object" && !Array.isArray(initialConfig)
+    ? initialConfig as MobileConfig
+    : {};
+  const [flags, setFlags] = useState(initialFlags);
+  const [theme, setTheme] = useState(() => parseTheme(safeConfig));
+  const [persistedTheme, setPersistedTheme] = useState(() => parseTheme(safeConfig));
+  const [mobileConfig, setMobileConfig] = useState<MobileConfig>(safeConfig);
+  const [savingFlag, setSavingFlag] = useState<string>();
+  const [savedFlag, setSavedFlag] = useState<string>();
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [themeMessage, setThemeMessage] = useState<{ kind: "success" | "error"; text: string }>();
+  const dirty = useMemo(() => JSON.stringify(theme) !== JSON.stringify(persistedTheme), [theme, persistedTheme]);
+
+  async function toggle(flag: Flag) {
+    setSavingFlag(flag.key);
+    setSavedFlag(undefined);
+    const next = { ...flag, enabled: !flag.enabled };
+    try {
+      const response = await fetch("/backend/api/admin/flags", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: next.key, enabled: next.enabled, rollout: next.rollout }),
+      });
+      if (!response.ok) throw new Error();
+      setFlags((items) => items.map((item) => item.key === next.key ? next : item));
+      setSavedFlag(flag.key);
+    } finally {
+      setSavingFlag(undefined);
+    }
+  }
+
+  async function saveTheme() {
+    setSavingTheme(true);
+    setThemeMessage(undefined);
+    try {
+      const response = await fetch("/backend/api/admin/config", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ theme }),
+      });
+      const body = await response.json().catch(() => null) as { data?: { mobileConfig: MobileConfig }; error?: { message?: string } } | null;
+      if (!response.ok || !body?.data) throw new Error(body?.error?.message ?? "Không thể lưu cấu hình");
+      setMobileConfig(body.data.mobileConfig);
+      setPersistedTheme(theme);
+      setThemeMessage({ kind: "success", text: "Đã phát hành theme mới cho ứng dụng." });
+    } catch (error) {
+      setThemeMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình" });
+    } finally {
+      setSavingTheme(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <SeraSurface className="overflow-hidden">
+        <div className="grid xl:grid-cols-[1fr_360px]">
+          <div className="p-6 sm:p-7">
+            <SeraSectionTitle
+              eyebrow="App appearance"
+              title="Theme hiển thị"
+              action={<Badge size="xs" className="bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] text-[var(--brand)]" iconLeft={<ShieldCheck size={13} />}>Remote</Badge>}
+            />
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Chọn bộ màu, chế độ sáng tối và kiểu điều hướng. App nhận cấu hình sau lần đồng bộ kế tiếp mà không cần phát hành bản mới.</p>
+
+            <div className="mt-7">
+              <p className="label mb-3">Bộ màu</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {presets.map((preset) => (
+                  <ChoiceCard key={preset.id} selected={theme.preset === preset.id} onClick={() => setTheme((value) => ({ ...value, preset: preset.id }))} label={`Chọn theme ${preset.name}`}>
+                    <div className="mb-4 flex gap-2">
+                      {preset.colors.map((color) => <span key={color} className="size-7 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: color }} />)}
+                    </div>
+                    <strong className="block pr-8 text-sm">{preset.name}</strong>
+                    <span className="mt-1 block text-xs text-[var(--ink-muted)]">{preset.description}</span>
+                  </ChoiceCard>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-6 lg:grid-cols-2">
+              <div>
+                <p className="label mb-3">Chế độ</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {modes.map(({ id, name, icon: Icon }) => (
+                    <ChoiceCard key={id} selected={theme.mode === id} onClick={() => setTheme((value) => ({ ...value, mode: id }))} label={`Chọn chế độ ${name}`} className="grid place-items-center px-2 py-3 text-center">
+                      <Icon size={18} />
+                      <span className="mt-2 block text-xs font-bold">{name}</span>
+                    </ChoiceCard>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="label mb-3">Bottom navigation</p>
+                <div className="grid gap-2">
+                  {navigationStyles.map((item) => (
+                    <ChoiceCard key={item.id} selected={theme.navigationStyle === item.id} onClick={() => setTheme((value) => ({ ...value, navigationStyle: item.id }))} label={`Chọn kiểu ${item.name}`} className="px-4 py-3">
+                      <strong className="block pr-8 text-sm">{item.name}</strong>
+                      <span className="mt-1 block text-xs text-[var(--ink-muted)]">{item.description}</span>
+                    </ChoiceCard>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7 flex flex-wrap items-center gap-3 border-t pt-5">
+              <Button onClick={saveTheme} loading={savingTheme} disabled={!dirty || savingTheme} iconLeft={<Save size={16} />} className="min-w-40 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu và phát hành</Button>
+              {themeMessage && <p role="status" className={cn("text-sm", themeMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{themeMessage.text}</p>}
+              {!themeMessage && dirty && <p className="text-xs text-[var(--ink-muted)]">Có thay đổi chưa lưu</p>}
+            </div>
+          </div>
+          <aside className="border-t bg-[var(--surface-raised)] p-6 xl:border-l xl:border-t-0">
+            <p className="label mb-5 text-center">Live preview</p>
+            <PhonePreview theme={theme} />
+            <p className="mt-5 text-center text-xs leading-5 text-[var(--ink-muted)]">Preview mô phỏng màu và kiểu bottom bar trước khi phát hành.</p>
+          </aside>
+        </div>
+      </SeraSurface>
+
+      <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
+        <SeraSurface className="p-6">
+          <SeraSectionTitle eyebrow="Feature flags" title="Điều khiển rollout" />
+          <div className="mt-7 grid gap-3">
+            {flags.map((flag) => (
+              <div key={flag.key} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2"><strong className="font-mono text-sm">{flag.key}</strong>{savedFlag === flag.key && <Check size={15} className="text-[var(--brand)]" />}</div>
+                  <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{flag.description} · rollout {flag.rollout}%</p>
+                </div>
+                <Button variant={flag.enabled ? "default" : "outline"} loading={savingFlag === flag.key} iconLeft={savingFlag === flag.key ? <RefreshCw size={16} /> : undefined} onClick={() => toggle(flag)} className={flag.enabled ? "min-w-24 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]" : "min-w-24 rounded-xl border-[var(--line)]"}>{flag.enabled ? "Đang bật" : "Đang tắt"}</Button>
+              </div>
+            ))}
+          </div>
+        </SeraSurface>
+        <SeraSurface className="p-6">
+          <SeraSectionTitle eyebrow="Runtime" title="Mobile config" action={<Badge size="xs" className="bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] text-[var(--brand)]" iconLeft={<ShieldCheck size={13} />}>Public-safe</Badge>} />
+          <details className="mt-6 rounded-2xl border bg-[#08110f] text-[#b9d1c9]">
+            <summary className="cursor-pointer px-4 py-3 text-xs font-bold">Xem JSON nâng cao</summary>
+            <pre className="overflow-auto border-t p-4 font-mono text-xs leading-6">{JSON.stringify(mobileConfig, null, 2)}</pre>
+          </details>
+          <p className="mt-4 text-xs leading-5 text-[var(--ink-muted)]">Ad unit thật và secret thanh toán phải đặt bằng biến môi trường, không lưu trong JSON public.</p>
+        </SeraSurface>
+      </div>
+    </div>
+  );
+}

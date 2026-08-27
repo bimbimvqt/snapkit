@@ -1,0 +1,4 @@
+{
+  "APP_ENV": "production",
+  "API_BASE_URL": "https://snapkit.45-119-214-94.sslip.io"
+}

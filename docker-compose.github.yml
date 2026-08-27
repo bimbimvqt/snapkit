@@ -1,0 +1,22 @@
+services:
+  migrate:
+    image: ${GHCR_IMAGE_PREFIX:?GHCR_IMAGE_PREFIX is required}-migrate:${IMAGE_TAG:?IMAGE_TAG is required}
+
+  backend:
+    image: ${GHCR_IMAGE_PREFIX:?GHCR_IMAGE_PREFIX is required}-backend:${IMAGE_TAG:?IMAGE_TAG is required}
+
+  admin:
+    image: ${GHCR_IMAGE_PREFIX:?GHCR_IMAGE_PREFIX is required}-admin:${IMAGE_TAG:?IMAGE_TAG is required}
+
+  nginx:
+    ports: !reset []
+    networks:
+      default: {}
+      mam_edge:
+        aliases:
+          - snapkit-web
+
+networks:
+  mam_edge:
+    external: true
+    name: ${EDGE_NETWORK_NAME:-mam_edge}

@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.prod.example
+node_modules
+admin/node_modules
+admin/.next
+backend/node_modules
+backend/.next
+app/.dart_tool
+app/build
+app/ios/Pods
+app/ios/.symlinks
+.android-signing.env
+app/android/keystore
+**/.DS_Store
