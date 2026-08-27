@@ -72,6 +72,11 @@ fi
 
 "${compose[@]}" up -d --no-build --remove-orphans
 
+# Bind-mounted Nginx configuration can change without altering the container
+# definition, so validate and reload it on every release.
+"${compose[@]}" exec -T nginx nginx -t
+"${compose[@]}" exec -T nginx nginx -s reload
+
 healthy=false
 for attempt in $(seq 1 45); do
   if curl --fail --silent --show-error "$PUBLIC_URL/healthz" >/dev/null && \
