@@ -25,12 +25,15 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-      target: builder
+      target: migrator
     env_file: .env.prod
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["sh", "-c", "pnpm -C backend db:deploy && pnpm -C backend db:seed"]
+    command:
+      - sh
+      - -c
+      - cd backend/migrator && ./node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/tsx prisma/seed.ts
     restart: "no"
     logging: *default-logging
 

@@ -1,6 +1,7 @@
 packages:
   - admin
   - backend
+  - backend/migrator
 
 allowBuilds:
   '@prisma/client': true

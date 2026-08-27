@@ -133,6 +133,21 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@20.19.43)(vite@8.2.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
 
+  backend/migrator:
+    dependencies:
+      '@prisma/client':
+        specifier: 6.19.0
+        version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
+      prisma:
+        specifier: 6.19.0
+        version: 6.19.0(typescript@5.9.3)
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
+
 packages:
 
   '@alloc/quick-lru@5.2.0':

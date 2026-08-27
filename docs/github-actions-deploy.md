@@ -2,7 +2,7 @@
 
 Pipeline được thiết kế cho repository `bimbimvqt/snapkit`:
 
-1. Pull request hoặc push vào branch khác `main`: chạy typecheck, lint, test, Next.js build, Flutter analyze/test và debug APK compile.
+1. Pull request hoặc chạy CI thủ công: chạy typecheck, lint, test, Next.js build, Flutter analyze/test và debug APK compile.
 2. Push vào `main`: chạy lại quality gate, build ba image bất biến trên GitHub (`admin`, `backend`, `migrate`) và push lên GHCR theo commit SHA.
 3. Job `production` kết nối VPS bằng SSH, upload source vận hành cùng `.env.prod`, pull đúng image SHA, backup PostgreSQL, migrate, healthcheck và authenticated smoke test.
 4. Nếu healthcheck hoặc smoke test lỗi, container được đưa về image SHA thành công trước đó. Database backup được giữ tại `backups/`; rollback schema database không chạy tự động.
@@ -116,13 +116,18 @@ git commit -m "feat: release snapkit"
 git push origin main
 ```
 
-Deploy thủ công: vào `Actions → Build and deploy production → Run workflow`.
+Deploy thủ công: vào `Actions → Build and deploy production → Run workflow`, chọn branch `main`, hoặc chạy:
+
+```bash
+gh workflow run production.yml --ref main
+```
 
 Theo dõi bằng CLI:
 
 ```bash
-gh run list --workflow production.yml
-gh run watch
+gh run list --workflow production.yml --limit 5
+RUN_ID="$(gh run list --workflow production.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "$RUN_ID"
 ```
 
 Trên server:

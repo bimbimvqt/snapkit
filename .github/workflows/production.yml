@@ -70,7 +70,7 @@ jobs:
             target: runner
           - name: migrate
             dockerfile: backend/Dockerfile
-            target: builder
+            target: migrator
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -144,13 +144,46 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/snapkit_deploy
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/snapkit_deploy ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host snapkit-production
+            HostName $PROD_HOST
+            Port $PROD_PORT
+            User $PROD_USER
+            IdentityFile ~/.ssh/snapkit_deploy
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+            ConnectionAttempts 3
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+            ControlMaster auto
+            ControlPersist 15m
+            ControlPath ~/.ssh/snapkit-%C
+          EOF
+          chmod 600 ~/.ssh/config ~/.ssh/snapkit_deploy ~/.ssh/known_hosts
+
+          # Public port 22 receives frequent unauthenticated probes. Establish one
+          # authenticated master connection and reuse it throughout this job.
+          connected=false
+          for attempt in 1 2 3 4 5 6; do
+            if ssh -MNf snapkit-production; then
+              connected=true
+              break
+            fi
+            sleep $((attempt * 5))
+          done
+          [[ "$connected" == "true" ]] || { echo "Unable to establish production SSH connection" >&2; exit 1; }
+          ssh -O check snapkit-production
 
       - name: Upload release source and production environment
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/snapkit_deploy -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" "mkdir -p '$PROD_PATH'"
+          # PROD_PATH is validated before use and intentionally expanded locally.
+          # shellcheck disable=SC2029
+          ssh snapkit-production "mkdir -p '$PROD_PATH'"
           rsync -az --delete \
             --exclude='.git/' \
             --exclude='.github/' \
@@ -165,12 +198,12 @@ jobs:
             --exclude='app/build/' \
             --exclude='app/android/keystore/' \
             --exclude='backups/' \
-            -e "ssh -i ~/.ssh/snapkit_deploy -p $PROD_PORT" \
-            ./ "$PROD_USER@$PROD_HOST:$PROD_PATH/"
+            -e ssh \
+            ./ "snapkit-production:$PROD_PATH/"
           umask 077
           printf '%s\n' "$PROD_ENV_FILE" > .env.prod.deploy
-          rsync -az -e "ssh -i ~/.ssh/snapkit_deploy -p $PROD_PORT" \
-            .env.prod.deploy "$PROD_USER@$PROD_HOST:$PROD_PATH/.env.prod"
+          rsync -az -e ssh \
+            .env.prod.deploy "snapkit-production:$PROD_PATH/.env.prod"
           rm -f .env.prod.deploy
 
       - name: Authenticate server to GHCR
@@ -179,13 +212,19 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/snapkit_deploy -p "$PROD_PORT" \
-            "$PROD_USER@$PROD_HOST" \
+          printf '%s' "$GHCR_TOKEN" | ssh snapkit-production \
             "docker login ghcr.io --username '${{ github.actor }}' --password-stdin"
 
       - name: Deploy immutable release
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/snapkit_deploy -p "$PROD_PORT" "$PROD_USER@$PROD_HOST" \
+          # Deployment values are validated and intentionally expanded locally.
+          # shellcheck disable=SC2029
+          ssh snapkit-production \
             "cd '$PROD_PATH' && GHCR_IMAGE_PREFIX='ghcr.io/${{ github.repository }}' IMAGE_TAG='${{ github.sha }}' PUBLIC_URL='$PROD_PUBLIC_URL' bash scripts/github-deploy.sh"
+
+      - name: Close SSH control connection
+        if: always()
+        shell: bash
+        run: ssh -O exit snapkit-production || true

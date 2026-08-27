@@ -113,7 +113,7 @@ Repository có GitHub Actions để build admin/backend thành Docker image trê
 
 Hướng dẫn thiết lập VPS, SSH deploy key, GitHub Environment, Variables và Secrets nằm tại [docs/github-actions-deploy.md](docs/github-actions-deploy.md).
 
-- `.github/workflows/ci.yml`: CI cho pull request và branch phát triển.
+- `.github/workflows/ci.yml`: CI cho pull request hoặc khi chạy thủ công.
 - `.github/workflows/production.yml`: quality gate → GHCR images → production deploy.
 - `scripts/github-deploy.sh`: backup, migrate, healthcheck, smoke test và rollback container.
 - `docker-compose.github.yml`: dùng image bất biến từ GHCR.
