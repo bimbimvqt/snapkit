@@ -155,6 +155,15 @@ class ApiClient {
     } catch (_) {}
   }
 
+  Future<bool> syncMediaScanBatch(Map<String, Object?> payload) async {
+    try {
+      await dio.post('/api/v1/media-scans', data: payload);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Map<String, dynamic> _dataMap(Map<String, dynamic>? envelope) {
     final data = envelope?['data'];
     if (data is Map<String, dynamic>) return data;

@@ -1,6 +1,6 @@
 # Snapkit App
 
-Flutter iOS/Android app cho Media Cleaner và QR Studio. Media được xử lý cục bộ; package này gọi public API của `backend/` và không chứa server secret.
+Flutter iOS/Android app cho Media Cleaner và QR Studio. Media được xử lý cục bộ; khi cấu hình quản trị bật đồng bộ, app chỉ gửi thumbnail JPEG nén cùng metadata giới hạn, không gửi file gốc hoặc tên file. Package này gọi public API của `backend/` và không chứa server secret.
 
 ## Kiến trúc UI
 

@@ -10,7 +10,26 @@ export const themeSchema = z.object({
   navigationStyle: z.enum(["floating", "glass", "solid"]),
 });
 
-const updateSchema = z.object({ theme: themeSchema });
+export const cleanerSchema = z
+  .object({
+    maxScanAssets: z.number().int().min(50).max(5000),
+    similarImageLimit: z.number().int().min(20).max(2000),
+    largeVideoThresholdMb: z.number().int().min(10).max(4096),
+    adminSyncEnabled: z.boolean(),
+    adminSyncLimit: z.number().int().min(0).max(5000),
+  })
+  .refine((input) => input.similarImageLimit <= input.maxScanAssets, {
+    message: "Số ảnh so trùng không được lớn hơn tổng media mỗi lượt",
+    path: ["similarImageLimit"],
+  })
+  .refine((input) => input.adminSyncLimit <= input.maxScanAssets, {
+    message: "Số thumbnail đồng bộ không được lớn hơn tổng media mỗi lượt",
+    path: ["adminSyncLimit"],
+  });
+
+const updateSchema = z
+  .object({ theme: themeSchema.optional(), cleaner: cleanerSchema.optional() })
+  .refine((input) => input.theme !== undefined || input.cleaner !== undefined, "Không có cấu hình để cập nhật");
 
 export async function GET() {
   if (!(await requireAdmin())) return fail("Không có quyền truy cập", 403, "FORBIDDEN");
@@ -32,7 +51,11 @@ export async function PATCH(request: Request) {
     const before = await db.appConfig.findUnique({ where: { key: "mobile" } });
     const current = before?.value;
     const currentObject = current && typeof current === "object" && !Array.isArray(current) ? current : {};
-    const value = { ...currentObject, theme: input.theme };
+    const value = {
+      ...currentObject,
+      ...(input.theme === undefined ? {} : { theme: input.theme }),
+      ...(input.cleaner === undefined ? {} : { cleaner: input.cleaner }),
+    };
     const config = await db.appConfig.upsert({
       where: { key: "mobile" },
       update: { value },
@@ -42,7 +65,7 @@ export async function PATCH(request: Request) {
     await db.auditLog.create({
       data: {
         actorId: admin.userId,
-        action: "mobile_config.theme_update",
+        action: input.cleaner === undefined ? "mobile_config.theme_update" : "mobile_config.cleaner_update",
         entity: "AppConfig",
         entityId: "mobile",
         before: before?.value === null ? Prisma.JsonNull : before?.value,

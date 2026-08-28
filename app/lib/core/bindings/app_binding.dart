@@ -54,6 +54,7 @@ class AppBinding extends Bindings {
       CleanerController(
         repository: Get.find<CleanerRepository>(),
         isFeatureEnabled: () => RemoteConfig.instance.enabled('media_cleaner'),
+        scanSettings: () => RemoteConfig.instance.cleaner,
       ),
       permanent: true,
     );

@@ -1,3 +1,4 @@
+import 'cleaner_scan_settings.dart';
 import 'media_scan_result.dart';
 
 class CleanerDeleteReport {
@@ -8,7 +9,8 @@ class CleanerDeleteReport {
 }
 
 abstract interface class CleanerRepository {
-  Future<MediaScanResult> scan();
+  Future<MediaScanResult> scan(CleanerScanSettings settings, {required void Function(MediaScanProgress) onProgress});
+  Future<bool> syncScan(MediaScanResult result, CleanerScanSettings settings);
   Future<CleanerDeleteReport> deleteSelected(MediaScanResult result, Set<String> selectedIds);
   Future<void> trackScan(MediaScanResult result);
   Future<void> reportCleanup(MediaScanResult result, CleanerDeleteReport report);

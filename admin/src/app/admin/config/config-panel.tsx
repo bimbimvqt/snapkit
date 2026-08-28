@@ -3,6 +3,8 @@
 import { type CSSProperties, useMemo, useState } from "react";
 import {
   Check,
+  CloudUpload,
+  Images,
   Layers3,
   Monitor,
   Moon,
@@ -10,6 +12,7 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  SlidersHorizontal,
   Smartphone,
   Sun,
 } from "lucide-react";
@@ -34,12 +37,30 @@ type ThemePreset =
 type ThemeMode = "dark" | "light" | "system";
 type NavigationStyle = "floating" | "glass" | "solid";
 type ThemeSettings = { preset: ThemePreset; mode: ThemeMode; navigationStyle: NavigationStyle };
-type MobileConfig = Record<string, unknown> & { theme?: Partial<ThemeSettings> };
+type CleanerSettings = {
+  maxScanAssets: number;
+  similarImageLimit: number;
+  largeVideoThresholdMb: number;
+  adminSyncEnabled: boolean;
+  adminSyncLimit: number;
+};
+type MobileConfig = Record<string, unknown> & {
+  theme?: Partial<ThemeSettings>;
+  cleaner?: Partial<CleanerSettings>;
+};
 
 const defaultTheme: ThemeSettings = {
   preset: "midnight_lime",
   mode: "dark",
   navigationStyle: "floating",
+};
+
+const defaultCleaner: CleanerSettings = {
+  maxScanAssets: 500,
+  similarImageLimit: 180,
+  largeVideoThresholdMb: 100,
+  adminSyncEnabled: true,
+  adminSyncLimit: 500,
 };
 
 const presets: Array<{
@@ -153,6 +174,56 @@ function parseTheme(config: MobileConfig): ThemeSettings {
   };
 }
 
+function parseCleaner(config: MobileConfig): CleanerSettings {
+  const input = config.cleaner ?? {};
+  return {
+    maxScanAssets: typeof input.maxScanAssets === "number" ? input.maxScanAssets : defaultCleaner.maxScanAssets,
+    similarImageLimit: typeof input.similarImageLimit === "number" ? input.similarImageLimit : defaultCleaner.similarImageLimit,
+    largeVideoThresholdMb: typeof input.largeVideoThresholdMb === "number" ? input.largeVideoThresholdMb : defaultCleaner.largeVideoThresholdMb,
+    adminSyncEnabled: typeof input.adminSyncEnabled === "boolean" ? input.adminSyncEnabled : defaultCleaner.adminSyncEnabled,
+    adminSyncLimit: typeof input.adminSyncLimit === "number" ? input.adminSyncLimit : defaultCleaner.adminSyncLimit,
+  };
+}
+
+function NumberSetting({
+  id,
+  label,
+  description,
+  value,
+  min,
+  max,
+  suffix,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  suffix: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label htmlFor={id} className="rounded-2xl border bg-[var(--surface-raised)] p-4">
+      <span className="block text-sm font-bold">{label}</span>
+      <span className="mt-1 block min-h-10 text-xs leading-5 text-[var(--ink-muted)]">{description}</span>
+      <span className="mt-3 flex items-center rounded-xl border bg-[var(--surface)] focus-within:border-[var(--brand)] focus-within:ring-4 focus-within:ring-[color-mix(in_srgb,var(--brand)_14%,transparent)]">
+        <input
+          id={id}
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="min-h-12 min-w-0 flex-1 bg-transparent px-4 text-sm font-bold outline-none"
+        />
+        <span className="px-4 text-xs text-[var(--ink-muted)]">{suffix}</span>
+      </span>
+    </label>
+  );
+}
+
 function ChoiceCard({
   selected,
   onClick,
@@ -246,13 +317,22 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   const [flags, setFlags] = useState(initialFlags);
   const [theme, setTheme] = useState(() => parseTheme(safeConfig));
   const [persistedTheme, setPersistedTheme] = useState(() => parseTheme(safeConfig));
+  const [cleaner, setCleaner] = useState(() => parseCleaner(safeConfig));
+  const [persistedCleaner, setPersistedCleaner] = useState(() => parseCleaner(safeConfig));
   const [mobileConfig, setMobileConfig] = useState<MobileConfig>(safeConfig);
   const [savingFlag, setSavingFlag] = useState<string>();
   const [savedFlag, setSavedFlag] = useState<string>();
   const [flagError, setFlagError] = useState("");
   const [savingTheme, setSavingTheme] = useState(false);
   const [themeMessage, setThemeMessage] = useState<{ kind: "success" | "error"; text: string }>();
+  const [savingCleaner, setSavingCleaner] = useState(false);
+  const [cleanerMessage, setCleanerMessage] = useState<{ kind: "success" | "error"; text: string }>();
   const dirty = useMemo(() => JSON.stringify(theme) !== JSON.stringify(persistedTheme), [theme, persistedTheme]);
+  const cleanerDirty = useMemo(
+    () => JSON.stringify(cleaner) !== JSON.stringify(persistedCleaner),
+    [cleaner, persistedCleaner],
+  );
+  const cleanerValid = cleaner.similarImageLimit <= cleaner.maxScanAssets && cleaner.adminSyncLimit <= cleaner.maxScanAssets;
 
   async function toggle(flag: Flag) {
     setSavingFlag(flag.key);
@@ -305,8 +385,69 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
     }
   }
 
+  async function saveCleaner() {
+    setSavingCleaner(true);
+    setCleanerMessage(undefined);
+    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
+    try {
+      const response = await fetch("/backend/api/admin/config", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ cleaner }),
+      });
+      const body = await response.json().catch(() => null) as { data?: { mobileConfig: MobileConfig }; error?: { message?: string } } | null;
+      if (!response.ok || !body?.data) {
+        failureMessage = body?.error?.message ?? "Không thể lưu cấu hình quét";
+        throw new Error();
+      }
+      setMobileConfig(body.data.mobileConfig);
+      setPersistedCleaner(cleaner);
+      setCleanerMessage({ kind: "success", text: "Đã phát hành cấu hình quét mới cho ứng dụng." });
+    } catch {
+      setCleanerMessage({ kind: "error", text: failureMessage });
+    } finally {
+      setSavingCleaner(false);
+    }
+  }
+
   return (
     <div className="grid gap-5">
+      <SeraSurface className="p-6 sm:p-7">
+        <SeraSectionTitle
+          eyebrow="Media cleaner"
+          title="Giới hạn quét và đồng bộ"
+          action={<Badge size="xs" className="bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] text-[var(--brand)]" iconLeft={<SlidersHorizontal size={13} />}>Remote</Badge>}
+        />
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--ink-muted)]">
+          Các giá trị này được app lấy từ remote config. Tăng giới hạn giúp phủ nhiều media hơn nhưng làm lượt quét lâu hơn và dùng thêm pin.
+        </p>
+
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <NumberSetting id="max-scan-assets" label="Media mỗi lượt" description="Tổng số ảnh và video tối đa được đọc trong một lần quét." value={cleaner.maxScanAssets} min={50} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, maxScanAssets: value }))} />
+          <NumberSetting id="similar-image-limit" label="Ảnh so trùng" description="Số ảnh tối đa được tạo perceptual hash để tìm ảnh gần giống." value={cleaner.similarImageLimit} min={20} max={2000} suffix="ảnh" onChange={(value) => setCleaner((current) => ({ ...current, similarImageLimit: value }))} />
+          <NumberSetting id="large-video-threshold" label="Ngưỡng video lớn" description="Video từ dung lượng này trở lên sẽ được gợi ý dọn dẹp." value={cleaner.largeVideoThresholdMb} min={10} max={4096} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, largeVideoThresholdMb: value }))} />
+          <NumberSetting id="admin-sync-limit" label="Thumbnail gửi Admin" description="Số thumbnail nén tối đa được đồng bộ sau mỗi lượt quét." value={cleaner.adminSyncLimit} min={0} max={5000} suffix="ảnh" onChange={(value) => setCleaner((current) => ({ ...current, adminSyncLimit: value }))} />
+        </div>
+
+        <button
+          type="button"
+          aria-pressed={cleaner.adminSyncEnabled}
+          onClick={() => setCleaner((current) => ({ ...current, adminSyncEnabled: !current.adminSyncEnabled }))}
+          className="mt-4 flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] motion-reduce:transition-none"
+        >
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand)]"><CloudUpload size={20} /></span>
+          <span className="min-w-0 flex-1"><strong className="block text-sm">Đồng bộ thumbnail lên Admin</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Chỉ gửi thumbnail JPEG nén và metadata; không gửi file ảnh/video gốc hoặc tên file.</span></span>
+          <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${cleaner.adminSyncEnabled ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${cleaner.adminSyncEnabled ? "translate-x-6" : "translate-x-1"}`} /></span>
+        </button>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-5">
+          <Button onClick={saveCleaner} loading={savingCleaner} disabled={!cleanerDirty || !cleanerValid || savingCleaner} iconLeft={<Images size={16} />} className="min-w-48 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu cấu hình quét</Button>
+          {cleanerMessage && <p role="status" className={cn("text-sm", cleanerMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{cleanerMessage.text}</p>}
+          {!cleanerValid && <p role="alert" className="text-sm text-[var(--danger)]">Số ảnh so trùng và thumbnail đồng bộ không được vượt quá tổng media mỗi lượt.</p>}
+          {!cleanerMessage && cleanerDirty && <p className="text-xs text-[var(--ink-muted)]">Có thay đổi chưa lưu</p>}
+        </div>
+      </SeraSurface>
+
       <SeraSurface className="overflow-hidden">
         <div className="grid xl:grid-cols-[1fr_360px]">
           <div className="p-6 sm:p-7">

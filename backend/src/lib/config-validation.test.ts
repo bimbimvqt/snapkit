@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { themeSchema } from "@/app/api/admin/config/route";
+import { cleanerSchema, themeSchema } from "@/app/api/admin/config/route";
+import { mediaScanBatchSchema } from "@/app/api/v1/media-scans/route";
 import { qrStyleSchema } from "@/app/api/v1/qr/route";
 
 describe("mobile appearance config", () => {
@@ -27,6 +28,64 @@ describe("mobile appearance config", () => {
     expect(() =>
       themeSchema.parse({ preset: "custom", mode: "dark", navigationStyle: "legacy" }),
     ).toThrow();
+  });
+});
+
+describe("media cleaner config", () => {
+  it("accepts bounded scan and sync settings", () => {
+    expect(
+      cleanerSchema.parse({
+        maxScanAssets: 800,
+        similarImageLimit: 240,
+        largeVideoThresholdMb: 150,
+        adminSyncEnabled: true,
+        adminSyncLimit: 500,
+      }),
+    ).toMatchObject({ maxScanAssets: 800, adminSyncLimit: 500 });
+  });
+
+  it("rejects unsafe scan limits", () => {
+    expect(() =>
+      cleanerSchema.parse({
+        maxScanAssets: 50_000,
+        similarImageLimit: 10,
+        largeVideoThresholdMb: 1,
+        adminSyncEnabled: true,
+        adminSyncLimit: 50_000,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("media scan batch validation", () => {
+  it("accepts a privacy-safe thumbnail batch", () => {
+    expect(
+      mediaScanBatchSchema.parse({
+        clientScanId: "123e4567-e89b-42d3-a456-426614174000",
+        deviceId: "device-12345678",
+        scannedCount: 1,
+        imageCount: 1,
+        videoCount: 0,
+        duplicateCount: 1,
+        screenshotCount: 0,
+        largeVideoCount: 0,
+        durationMs: 250,
+        maxScanAssets: 500,
+        similarImageLimit: 180,
+        largeVideoThresholdMb: 100,
+        assets: [
+          {
+            assetId: "private-device-id",
+            type: "IMAGE",
+            categories: ["SIMILAR"],
+            bytes: 2048,
+            width: 1200,
+            height: 900,
+            thumbnailBase64: "YWJj",
+          },
+        ],
+      }),
+    ).toMatchObject({ scannedCount: 1 });
   });
 });
 

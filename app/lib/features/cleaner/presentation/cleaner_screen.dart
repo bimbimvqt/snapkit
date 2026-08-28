@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/styles/app_colors.dart';
 import '../../../core/styles/app_dimensions.dart';
@@ -45,11 +47,16 @@ class CleanerScreen extends GetView<CleanerController> {
                                 eyebrow: 'Private media lab',
                                 title: 'Dọn bộ nhớ thông minh',
                                 description:
-                                    'Phân tích thumbnail độ phân giải thấp ngay trên máy. Không upload ảnh/video.',
+                                    'Phân tích trên máy. Theo cấu hình hệ thống, thumbnail nén có thể được đồng bộ để quản trị theo dõi; file gốc không được upload.',
                               ),
                               SizedBox(height: 22.h),
                               if (controller.status == CleanerStatus.initial) _HeroScan(onScan: controller.scan),
-                              if (controller.isLoading) const _ScanningCard(),
+                              if (controller.isLoading || controller.isRefreshing)
+                                _ScanningCard(
+                                  scanned: controller.scannedItems,
+                                  total: controller.totalItems,
+                                  progress: controller.scanProgress,
+                                ),
                               if (controller.status == CleanerStatus.error && errorMessage != null)
                                 _ErrorCard(message: errorMessage, onRetry: controller.scan),
                               if (result != null) ...[
@@ -57,6 +64,8 @@ class CleanerScreen extends GetView<CleanerController> {
                                   result: result,
                                   selected: controller.selectedIds.length,
                                   refreshing: controller.isRefreshing,
+                                  syncing: controller.isSyncing,
+                                  syncSucceeded: controller.syncSucceeded,
                                   onScan: controller.scan,
                                 ),
                                 if (errorMessage != null) ...[
@@ -193,26 +202,99 @@ class _HeroScan extends StatelessWidget {
 }
 
 class _ScanningCard extends StatelessWidget {
-  const _ScanningCard();
+  const _ScanningCard({required this.scanned, required this.total, required this.progress});
+
+  final int scanned;
+  final int total;
+  final double progress;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: EdgeInsets.all(AppDimensions.space28),
-      child: Column(
-        children: [
-          CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
-          SizedBox(height: 18.h),
-          Text('Đang phân tích an toàn…', style: AppTextStyles.bodyStrong),
-          SizedBox(height: 6.h),
-          Text(
-            'Có thể mất một lúc với thư viện lớn',
-            style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasTotal = total > 0;
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.space24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 58.r,
+                  height: 58.r,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(AppDimensions.radius20),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.square(
+                        dimension: 42.r,
+                        child: CircularProgressIndicator(
+                          value: hasTotal ? progress : null,
+                          strokeWidth: 4,
+                          backgroundColor: scheme.surfaceContainerHighest,
+                          color: scheme.primary,
+                        ),
+                      ),
+                      Icon(Icons.image_search_rounded, size: 20.sp, color: scheme.onPrimaryContainer),
+                    ],
+                  ),
+                ),
+                SizedBox(width: AppDimensions.space16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Đang phân tích thư viện', style: AppTextStyles.titleMedium),
+                      SizedBox(height: AppDimensions.space4),
+                      AnimatedSwitcher(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 200),
+                        child: Text(
+                          hasTotal ? 'Đã quét $scanned / $total mục' : 'Đang chuẩn bị danh sách media…',
+                          key: ValueKey('$scanned-$total'),
+                          style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasTotal)
+                  Text('${(progress * 100).round()}%', style: AppTextStyles.bodyStrong.copyWith(color: scheme.primary)),
+              ],
+            ),
+            SizedBox(height: AppDimensions.space20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppDimensions.radius12),
+              child: LinearProgressIndicator(
+                value: hasTotal ? progress : null,
+                minHeight: 9.h,
+                backgroundColor: scheme.surfaceContainerHighest,
+                color: scheme.secondary,
+              ),
+            ),
+            SizedBox(height: AppDimensions.space12),
+            Row(
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 16.sp, color: scheme.onSurfaceVariant),
+                SizedBox(width: AppDimensions.space8),
+                Expanded(
+                  child: Text(
+                    'Bạn có thể giữ app mở để lượt quét hoàn tất nhanh hơn.',
+                    style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ErrorCard extends StatelessWidget {
@@ -238,11 +320,20 @@ class _ErrorCard extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.result, required this.selected, required this.refreshing, required this.onScan});
+  const _Summary({
+    required this.result,
+    required this.selected,
+    required this.refreshing,
+    required this.syncing,
+    required this.syncSucceeded,
+    required this.onScan,
+  });
 
   final MediaScanResult result;
   final int selected;
   final bool refreshing;
+  final bool syncing;
+  final bool? syncSucceeded;
   final VoidCallback onScan;
 
   @override
@@ -261,6 +352,21 @@ class _Summary extends StatelessWidget {
                   'Đã quét ${result.scanned} mục · chọn $selected',
                   style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
+                if (syncing || syncSucceeded != null) ...[
+                  SizedBox(height: AppDimensions.space4),
+                  Text(
+                    syncing
+                        ? 'Đang đồng bộ thumbnail nén lên Admin…'
+                        : syncSucceeded == true
+                        ? 'Đã đồng bộ dữ liệu theo dõi'
+                        : 'Chưa thể đồng bộ dữ liệu theo dõi',
+                    style: AppTextStyles.caption.copyWith(
+                      color: syncSucceeded == false
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -315,7 +421,7 @@ class _GroupCard extends StatelessWidget {
               return Material(
                 color: AppColors.transparent,
                 child: InkWell(
-                  onTap: () => onChanged(asset.id, !checked),
+                  onTap: () => _showMediaPreview(context, group.assets, initialIndex: index),
                   borderRadius: BorderRadius.circular(14.r),
                   child: Stack(
                     fit: StackFit.expand,
@@ -333,17 +439,48 @@ class _GroupCard extends StatelessWidget {
                       Positioned(
                         top: 6.h,
                         right: 6.w,
-                        child: Container(
-                          width: 28.r,
-                          height: 28.r,
-                          decoration: BoxDecoration(
-                            color: checked ? scheme.secondary : AppColors.black.withValues(alpha: .65),
-                            shape: BoxShape.circle,
+                        child: Material(
+                          color: checked ? scheme.secondary : AppColors.black.withValues(alpha: .65),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: () => onChanged(asset.id, !checked),
+                            customBorder: const CircleBorder(),
+                            child: SizedBox.square(
+                              dimension: 48.r,
+                              child: Icon(
+                                checked ? Icons.check_rounded : Icons.add_rounded,
+                                size: 19.sp,
+                                color: checked ? AppColors.darkInk : AppColors.white,
+                              ),
+                            ),
                           ),
-                          child: Icon(
-                            checked ? Icons.check_rounded : Icons.add_rounded,
-                            size: 17.sp,
-                            color: checked ? AppColors.darkInk : AppColors.white,
+                        ),
+                      ),
+                      Positioned(
+                        left: 6.w,
+                        bottom: 6.h,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 5.h),
+                          decoration: BoxDecoration(
+                            color: AppColors.black.withValues(alpha: .68),
+                            borderRadius: BorderRadius.circular(AppDimensions.radius12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                asset.type == AssetType.video ? Icons.play_arrow_rounded : Icons.zoom_out_map_rounded,
+                                size: 14.sp,
+                                color: AppColors.white,
+                              ),
+                              if (asset.type == AssetType.video) ...[
+                                SizedBox(width: AppDimensions.space4),
+                                Text(
+                                  _duration(asset.duration),
+                                  style: AppTextStyles.caption.copyWith(color: AppColors.white),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
@@ -368,6 +505,202 @@ IconData _groupIcon(MediaGroupType type) => switch (type) {
 String _bytes(int value) => value >= 1073741824
     ? '${(value / 1073741824).toStringAsFixed(1)} GB'
     : '${(value / 1048576).toStringAsFixed(0)} MB';
+
+String _duration(int seconds) => '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+Future<void> _showMediaPreview(BuildContext context, List<AssetEntity> assets, {required int initialIndex}) =>
+    showDialog<void>(
+      context: context,
+      barrierColor: AppColors.black.withValues(alpha: .92),
+      builder: (context) => _MediaPreviewDialog(assets: assets, initialIndex: initialIndex),
+    );
+
+class _MediaPreviewDialog extends StatefulWidget {
+  const _MediaPreviewDialog({required this.assets, required this.initialIndex});
+
+  final List<AssetEntity> assets;
+  final int initialIndex;
+
+  @override
+  State<_MediaPreviewDialog> createState() => _MediaPreviewDialogState();
+}
+
+class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
+  late final PageController _pageController;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog.fullscreen(
+    backgroundColor: AppColors.black,
+    child: Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          itemCount: widget.assets.length,
+          onPageChanged: (value) => setState(() => _index = value),
+          itemBuilder: (context, index) => _MediaPreviewItem(asset: widget.assets[index]),
+        ),
+        SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.space12),
+            child: Row(
+              children: [
+                Material(
+                  color: AppColors.black.withValues(alpha: .6),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    onPressed: () => Get.back<void>(),
+                    tooltip: 'Đóng xem trước',
+                    icon: const Icon(Icons.close_rounded, color: AppColors.white),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.black.withValues(alpha: .6),
+                    borderRadius: BorderRadius.circular(AppDimensions.radius20),
+                  ),
+                  child: Text(
+                    '${_index + 1} / ${widget.assets.length}',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MediaPreviewItem extends StatelessWidget {
+  const _MediaPreviewItem({required this.asset});
+
+  final AssetEntity asset;
+
+  @override
+  Widget build(BuildContext context) => asset.type == AssetType.video
+      ? _VideoPreview(asset: asset)
+      : FutureBuilder<File?>(
+          future: asset.file,
+          builder: (context, snapshot) {
+            final file = snapshot.data;
+            if (file != null) {
+              return InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(child: Image.file(file, fit: BoxFit.contain)),
+              );
+            }
+            if (snapshot.hasError) return const _PreviewError(message: 'Không thể mở ảnh này.');
+            return const Center(child: CircularProgressIndicator());
+          },
+        );
+}
+
+class _VideoPreview extends StatefulWidget {
+  const _VideoPreview({required this.asset});
+
+  final AssetEntity asset;
+
+  @override
+  State<_VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<_VideoPreview> {
+  VideoPlayerController? _controller;
+  late final Future<void> _initialize = _initializeVideo();
+
+  Future<void> _initializeVideo() async {
+    final file = await widget.asset.file;
+    if (file == null) throw StateError('Video file is unavailable');
+    final controller = VideoPlayerController.file(file);
+    _controller = controller;
+    await controller.initialize();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _initialize,
+    builder: (context, snapshot) {
+      final controller = _controller;
+      if (snapshot.hasError) return const _PreviewError(message: 'Không thể phát video này.');
+      if (snapshot.connectionState != ConnectionState.done || controller == null) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return Center(
+        child: AspectRatio(
+          aspectRatio: controller.value.aspectRatio,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              VideoPlayer(controller),
+              Center(
+                child: Material(
+                  color: AppColors.black.withValues(alpha: .62),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        controller.value.isPlaying ? controller.pause() : controller.play();
+                      });
+                    },
+                    tooltip: controller.value.isPlaying ? 'Tạm dừng' : 'Phát video',
+                    iconSize: 38.sp,
+                    padding: EdgeInsets.all(AppDimensions.space16),
+                    icon: Icon(
+                      controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _PreviewError extends StatelessWidget {
+  const _PreviewError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.broken_image_outlined, color: AppColors.white),
+        SizedBox(height: AppDimensions.space12),
+        Text(message, style: AppTextStyles.body.copyWith(color: AppColors.white)),
+      ],
+    ),
+  );
+}
 
 class _Thumbnail extends StatelessWidget {
   const _Thumbnail({required this.asset});

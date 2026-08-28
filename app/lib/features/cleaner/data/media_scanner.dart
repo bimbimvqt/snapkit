@@ -1,10 +1,14 @@
 import 'dart:typed_data';
 import 'package:image/image.dart' as image;
 import 'package:photo_manager/photo_manager.dart';
+import '../domain/cleaner_scan_settings.dart';
 import '../domain/media_scan_result.dart';
 
 class MediaScanner {
-  Future<MediaScanResult> scan() async {
+  Future<MediaScanResult> scan(
+    CleanerScanSettings settings, {
+    required void Function(MediaScanProgress) onProgress,
+  }) async {
     final started = DateTime.now();
     final permission = await PhotoManager.requestPermissionExtend();
     if (!permission.isAuth) throw const MediaPermissionException();
@@ -13,31 +17,38 @@ class MediaScanner {
       return MediaScanResult(scanned: 0, groups: const [], duration: DateTime.now().difference(started));
     }
     final count = await paths.first.assetCountAsync;
-    final assets = await paths.first.getAssetListRange(start: 0, end: count.clamp(0, 500));
+    final assets = await paths.first.getAssetListRange(start: 0, end: count.clamp(0, settings.maxScanAssets));
     final screenshots = <AssetEntity>[];
     final largeVideos = <AssetEntity>[];
     final similarCandidates = <({AssetEntity asset, BigInt hash, int bytes})>[];
-    for (final asset in assets) {
-      final file = await asset.file;
-      final bytes = file == null ? 0 : await file.length();
-      if (asset.type == AssetType.video && bytes >= 100 * 1024 * 1024) {
-        largeVideos.add(asset);
-        continue;
-      }
-      if (asset.type != AssetType.image) continue;
-      final title = (await asset.titleAsync).toLowerCase();
-      final path = asset.relativePath?.toLowerCase() ?? '';
-      if (title.contains('screenshot') || path.contains('screenshot')) {
-        screenshots.add(asset);
-      }
-      if (similarCandidates.length < 180) {
-        final data = await asset.thumbnailDataWithSize(const ThumbnailSize(18, 16), quality: 55);
-        if (data != null) {
-          final hash = _differenceHash(data);
-          if (hash != null) {
-            similarCandidates.add((asset: asset, hash: hash, bytes: bytes));
+    final assetBytes = <String, int>{};
+    for (var index = 0; index < assets.length; index++) {
+      final asset = assets[index];
+      try {
+        final file = await asset.file;
+        final bytes = file == null ? 0 : await file.length();
+        assetBytes[asset.id] = bytes;
+        if (asset.type == AssetType.video && bytes >= settings.largeVideoThresholdMb * 1024 * 1024) {
+          largeVideos.add(asset);
+          continue;
+        }
+        if (asset.type != AssetType.image) continue;
+        final title = (await asset.titleAsync).toLowerCase();
+        final path = asset.relativePath?.toLowerCase() ?? '';
+        if (title.contains('screenshot') || path.contains('screenshot')) {
+          screenshots.add(asset);
+        }
+        if (similarCandidates.length < settings.similarImageLimit) {
+          final data = await asset.thumbnailDataWithSize(const ThumbnailSize(18, 16), quality: 55);
+          if (data != null) {
+            final hash = _differenceHash(data);
+            if (hash != null) {
+              similarCandidates.add((asset: asset, hash: hash, bytes: bytes));
+            }
           }
         }
+      } finally {
+        onProgress(MediaScanProgress(completed: index + 1, total: assets.length));
       }
     }
     final clusters = <List<({AssetEntity asset, BigInt hash, int bytes})>>[];
@@ -82,7 +93,33 @@ class MediaScanner {
         ),
       );
     }
-    return MediaScanResult(scanned: assets.length, groups: groups, duration: DateTime.now().difference(started));
+    final categories = <String, Set<MediaAssetCategory>>{};
+    for (final group in groups) {
+      final category = switch (group.type) {
+        MediaGroupType.similar => MediaAssetCategory.similar,
+        MediaGroupType.screenshots => MediaAssetCategory.screenshot,
+        MediaGroupType.largeVideos => MediaAssetCategory.largeVideo,
+      };
+      for (final asset in group.assets) {
+        categories.putIfAbsent(asset.id, () => <MediaAssetCategory>{}).add(category);
+      }
+    }
+    final scannedAssets = assets
+        .where((asset) => asset.type == AssetType.image || asset.type == AssetType.video)
+        .map(
+          (asset) => ScannedMediaAsset(
+            asset: asset,
+            bytes: assetBytes[asset.id] ?? 0,
+            categories: categories[asset.id] ?? const {MediaAssetCategory.other},
+          ),
+        )
+        .toList(growable: false);
+    return MediaScanResult(
+      scanned: assets.length,
+      groups: groups,
+      duration: DateTime.now().difference(started),
+      assets: scannedAssets,
+    );
   }
 
   BigInt? _differenceHash(List<int> bytes) {

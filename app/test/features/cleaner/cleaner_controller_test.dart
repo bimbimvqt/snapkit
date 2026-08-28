@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snapkit/features/cleaner/application/cleaner_controller.dart';
 import 'package:snapkit/features/cleaner/domain/cleaner_failure.dart';
 import 'package:snapkit/features/cleaner/domain/cleaner_repository.dart';
+import 'package:snapkit/features/cleaner/domain/cleaner_scan_settings.dart';
 import 'package:snapkit/features/cleaner/domain/media_scan_result.dart';
 
 const _scanResult = MediaScanResult(scanned: 12, groups: [], duration: Duration(milliseconds: 80));
@@ -11,7 +12,7 @@ const _scanResult = MediaScanResult(scanned: 12, groups: [], duration: Duration(
 void main() {
   test('scan transitions to success and tracks safe metadata', () async {
     final repository = _FakeCleanerRepository();
-    final controller = CleanerController(repository: repository, isFeatureEnabled: () => true);
+    final controller = _controller(repository);
 
     await controller.scan();
 
@@ -19,11 +20,15 @@ void main() {
     expect(controller.result, _scanResult);
     expect(controller.errorMessage, isNull);
     expect(repository.trackScanCalls, 1);
+    expect(repository.syncScanCalls, 1);
+    expect(controller.scannedItems, 12);
+    expect(controller.totalItems, 12);
+    expect(controller.syncSucceeded, isTrue);
   });
 
   test('scan exposes a friendly error and supports retry', () async {
     final repository = _FakeCleanerRepository(scanFailure: const CleanerPermissionFailure());
-    final controller = CleanerController(repository: repository, isFeatureEnabled: () => true);
+    final controller = _controller(repository);
 
     await controller.scan();
     expect(controller.status, CleanerStatus.error);
@@ -38,7 +43,7 @@ void main() {
   test('scan ignores duplicate submissions while a request is in progress', () async {
     final completer = Completer<MediaScanResult>();
     final repository = _FakeCleanerRepository(scanCompleter: completer);
-    final controller = CleanerController(repository: repository, isFeatureEnabled: () => true);
+    final controller = _controller(repository);
 
     final first = controller.scan();
     final second = controller.scan();
@@ -51,7 +56,7 @@ void main() {
 
   test('delete resets the submitting state on success and failure', () async {
     final repository = _FakeCleanerRepository();
-    final controller = CleanerController(repository: repository, isFeatureEnabled: () => true);
+    final controller = _controller(repository);
     await controller.scan();
     controller.selectedIds.add('asset-1');
 
@@ -71,6 +76,12 @@ void main() {
   });
 }
 
+CleanerController _controller(CleanerRepository repository) => CleanerController(
+  repository: repository,
+  isFeatureEnabled: () => true,
+  scanSettings: () => const CleanerScanSettings(),
+);
+
 class _FakeCleanerRepository implements CleanerRepository {
   _FakeCleanerRepository({this.scanFailure, this.scanCompleter});
 
@@ -79,13 +90,24 @@ class _FakeCleanerRepository implements CleanerRepository {
   final Completer<MediaScanResult>? scanCompleter;
   int scanCalls = 0;
   int trackScanCalls = 0;
+  int syncScanCalls = 0;
 
   @override
-  Future<MediaScanResult> scan() async {
+  Future<MediaScanResult> scan(
+    CleanerScanSettings settings, {
+    required void Function(MediaScanProgress) onProgress,
+  }) async {
     scanCalls += 1;
     final failure = scanFailure;
     if (failure != null) throw failure;
+    onProgress(const MediaScanProgress(completed: 12, total: 12));
     return scanCompleter?.future ?? _scanResult;
+  }
+
+  @override
+  Future<bool> syncScan(MediaScanResult result, CleanerScanSettings settings) async {
+    syncScanCalls += 1;
+    return true;
   }
 
   @override

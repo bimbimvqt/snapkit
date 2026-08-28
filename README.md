@@ -13,7 +13,7 @@ design-system/  Visual language dùng chung
 
 ## Kiến trúc
 
-- `app/` xử lý media trên thiết bị, chỉ gửi telemetry tổng hợp.
+- `app/` xử lý media trên thiết bị; khi Admin bật đồng bộ, app gửi thumbnail JPEG nén và metadata giới hạn, không gửi file media gốc hoặc tên file.
 - `admin/` không truy cập database trực tiếp. Server Components gọi `BACKEND_INTERNAL_URL`; request trình duyệt đi qua `/backend/*` để giữ cookie HttpOnly cùng origin.
 - `backend/` là chủ sở hữu duy nhất của API, JWT, refresh-token rotation/revocation, RBAC, Prisma schema, migrations và seed.
 - Production dùng Postgres, migrate job, backend, admin và Nginx trong các container riêng.
@@ -245,8 +245,8 @@ Những giá trị này phụ thuộc tài khoản/domain bên ngoài nên khôn
 
 - `POST /api/v1/auth/anonymous|register|login|google|refresh|logout`, `GET /api/v1/auth/me`
 - `GET /api/v1/config`, `GET|POST /api/v1/qr`
-- `POST /api/v1/events`, `POST /api/v1/media-cleanups`
-- `GET /api/admin/overview|users|qr|config|audit|flags`, `PATCH /api/admin/config|flags`
+- `POST /api/v1/events`, `POST /api/v1/media-cleanups|media-scans`
+- `GET /api/admin/overview|users|qr|media-scans|config|audit|flags`, `PATCH /api/admin/config|flags`
 - `GET /api/health`
 
 Response thống nhất: `{ "data": ... }` hoặc `{ "error": { "code", "message" } }`.

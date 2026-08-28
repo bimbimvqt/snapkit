@@ -90,6 +90,41 @@ export type AdminConfig = {
   mobileConfig: unknown;
 };
 
+export type MediaScanAsset = {
+  id: string;
+  type: "IMAGE" | "VIDEO";
+  categories: Array<"SIMILAR" | "SCREENSHOT" | "LARGE_VIDEO" | "OTHER">;
+  bytes: number;
+  width: number;
+  height: number;
+  durationSeconds: number | null;
+  capturedAt: string | null;
+  hasThumbnail: boolean;
+};
+
+export type MediaScanSession = {
+  id: string;
+  deviceId: string;
+  scannedCount: number;
+  imageCount: number;
+  videoCount: number;
+  duplicateCount: number;
+  screenshotCount: number;
+  largeVideoCount: number;
+  durationMs: number;
+  createdAt: string;
+  user: { email: string | null; name: string | null } | null;
+  assets: MediaScanAsset[];
+  _count: { assets: number };
+};
+
+export type MediaScanAnalytics = {
+  totalScans: number;
+  totalAssets: number;
+  duplicateAssets: number;
+  latest: MediaScanSession[];
+};
+
 export type AuditEntry = {
   id: string;
   action: string;
