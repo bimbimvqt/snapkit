@@ -166,7 +166,10 @@ SQL
 }
 
 cleanup() {
-  [[ -f "$state_file" ]] || return
+  if [[ ! -f "$state_file" ]]; then
+    echo "No previous production Compose identity remains to clean up."
+    return 0
+  fi
   local previous_project previous_volume container_ids network_ids image_refs
   previous_project="$(awk -F= '$1 == "PREVIOUS_PROJECT" {print substr($0, index($0, "=") + 1)}' "$state_file")"
   previous_volume="$(awk -F= '$1 == "PREVIOUS_VOLUME" {print substr($0, index($0, "=") + 1)}' "$state_file")"

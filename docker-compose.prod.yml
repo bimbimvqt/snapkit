@@ -122,3 +122,4 @@ services:
 volumes:
   snapkit_postgres_prod:
     name: snapkit_postgres_prod
+    external: true
