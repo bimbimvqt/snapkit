@@ -88,6 +88,8 @@ Environment secrets:
 | `PROD_SSH_KNOWN_HOSTS` | Toàn bộ file `snapkit-known-hosts` |
 | `PROD_ENV_FILE` | Toàn bộ file `.env.prod` đã validate |
 
+`.env.prod` phải có `GOOGLE_OAUTH_CLIENT_IDS` trùng với Web OAuth client ID được truyền vào Flutter bằng `GOOGLE_SERVER_CLIENT_ID`. Xem [cấu hình Google Sign-In](google-sign-in.md).
+
 Có thể cấu hình bằng GitHub CLI:
 
 ```bash

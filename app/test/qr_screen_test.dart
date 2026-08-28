@@ -1,23 +1,52 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:snapkit/core/styles/app_dimensions.dart';
 import 'package:snapkit/core/theme/snapkit_theme.dart';
+import 'package:snapkit/features/qr/application/qr_editor_controller.dart';
+import 'package:snapkit/features/qr/data/device_qr_logo_picker.dart';
+import 'package:snapkit/features/qr/domain/qr_gallery_saver.dart';
+import 'package:snapkit/features/qr/domain/qr_repository.dart';
 import 'package:snapkit/features/qr/presentation/qr_screen.dart';
 
 void main() {
+  setUp(() {
+    Get.testMode = true;
+    Get.put(
+      QrEditorController(
+        repository: _FakeQrRepository(),
+        logoPicker: _FakeQrLogoPicker(),
+        gallerySaver: _FakeQrGallerySaver(),
+        isFeatureEnabled: () => true,
+      ),
+    );
+  });
+
+  tearDown(Get.reset);
+
   testWidgets('QR editor remains usable on a 375px phone and renders the floral preset', (tester) async {
     await _setViewport(tester, const Size(375, 812));
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: SnapkitTheme.light(),
-        darkTheme: SnapkitTheme.dark(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.5)),
-          child: child ?? const SizedBox.shrink(),
+      ScreenUtilInit(
+        designSize: AppDimensions.designSize,
+        minTextAdapt: true,
+        splitScreenMode: true,
+        fontSizeResolver: AppDimensions.resolveFontSize,
+        builder: (context, _) => GetMaterialApp(
+          theme: SnapkitTheme.light(),
+          darkTheme: SnapkitTheme.dark(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: const QrScreen(),
         ),
-        home: const QrScreen(),
       ),
     );
     await tester.pumpAndSettle();
@@ -52,7 +81,14 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      MaterialApp(theme: SnapkitTheme.light(), darkTheme: SnapkitTheme.dark(), home: const QrScreen()),
+      ScreenUtilInit(
+        designSize: AppDimensions.designSize,
+        minTextAdapt: true,
+        splitScreenMode: true,
+        fontSizeResolver: AppDimensions.resolveFontSize,
+        builder: (context, _) =>
+            GetMaterialApp(theme: SnapkitTheme.light(), darkTheme: SnapkitTheme.dark(), home: const QrScreen()),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -66,7 +102,14 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      MaterialApp(theme: SnapkitTheme.light(), darkTheme: SnapkitTheme.dark(), home: const QrScreen()),
+      ScreenUtilInit(
+        designSize: AppDimensions.designSize,
+        minTextAdapt: true,
+        splitScreenMode: true,
+        fontSizeResolver: AppDimensions.resolveFontSize,
+        builder: (context, _) =>
+            GetMaterialApp(theme: SnapkitTheme.light(), darkTheme: SnapkitTheme.dark(), home: const QrScreen()),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -96,4 +139,22 @@ void main() {
 Future<void> _setViewport(WidgetTester tester, Size size) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
+}
+
+class _FakeQrRepository implements QrRepository {
+  @override
+  Future<bool> save({required String kind, required String content, required Map<String, Object> style}) async => true;
+
+  @override
+  Future<void> trackCreated({required String kind, required String frameStyle, required String icon}) async {}
+}
+
+class _FakeQrLogoPicker implements QrLogoPicker {
+  @override
+  Future<PickedQrLogo?> pick() async => null;
+}
+
+class _FakeQrGallerySaver implements QrGallerySaver {
+  @override
+  Future<void> savePng(Uint8List bytes) async {}
 }

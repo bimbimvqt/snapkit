@@ -42,6 +42,7 @@ class ApiClient {
             error.requestOptions.headers['authorization'] = 'Bearer ${data['accessToken']}';
             handler.resolve(await dio.fetch(error.requestOptions));
           } catch (_) {
+            await clearSession();
             handler.next(error);
           }
         },
@@ -59,16 +60,44 @@ class ApiClient {
     ]);
   }
 
-  Future<void> bootstrap() async {
-    if (await _storage.read(key: 'access_token') != null) return;
+  Future<bool> hasSession() async => await _storage.read(key: 'access_token') != null;
+
+  Future<void> clearSession() async {
+    await Future.wait([_storage.delete(key: 'access_token'), _storage.delete(key: 'refresh_token')]);
+  }
+
+  Future<Map<String, dynamic>> currentUser() async {
+    final response = await dio.get<Map<String, dynamic>>('/api/v1/auth/me');
+    return _dataMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> authenticateWithGoogle(String idToken) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      '/api/v1/auth/google',
+      data: {'idToken': idToken, 'deviceId': await deviceId()},
+    );
+    final data = _dataMap(response.data);
+    final accessToken = data['accessToken'];
+    final refreshToken = data['refreshToken'];
+    if (accessToken is! String || refreshToken is! String) {
+      throw const FormatException('Authentication response does not contain tokens');
+    }
+    await _saveTokens(accessToken, refreshToken);
+    final user = data['user'];
+    if (user is Map<String, dynamic>) return user;
+    if (user is Map) return Map<String, dynamic>.from(user);
+    throw const FormatException('Authentication response does not contain a user');
+  }
+
+  Future<void> logout() async {
+    final refreshToken = await _storage.read(key: 'refresh_token');
     try {
-      final response = await dio.post<Map<String, dynamic>>(
-        '/api/v1/auth/anonymous',
-        data: {'deviceId': await deviceId()},
-      );
-      final data = response.data?['data'] as Map<String, dynamic>;
-      await _saveTokens(data['accessToken'] as String, data['refreshToken'] as String);
-    } catch (_) {}
+      await dio.post<Map<String, dynamic>>('/api/v1/auth/logout', data: {'refreshToken': refreshToken});
+    } catch (_) {
+      // Local logout must still complete when the network is unavailable.
+    } finally {
+      await clearSession();
+    }
   }
 
   Future<String> deviceId() async {
@@ -124,5 +153,12 @@ class ApiClient {
         },
       );
     } catch (_) {}
+  }
+
+  static Map<String, dynamic> _dataMap(Map<String, dynamic>? envelope) {
+    final data = envelope?['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw const FormatException('API response does not contain an object');
   }
 }

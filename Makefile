@@ -25,7 +25,7 @@ dev-app-ios:
 	cd app && flutter run --dart-define-from-file=config/development.json
 
 dev-app-android:
-	cd app && flutter run --dart-define=APP_ENV=development --dart-define=API_BASE_URL=http://10.0.2.2:3001
+	cd app && flutter run --dart-define-from-file=config/development.json --dart-define=API_BASE_URL=http://10.0.2.2:3001
 
 test:
 	pnpm --dir backend test

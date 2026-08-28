@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+
+import 'package:get/get.dart';
 
 import '../data/device_qr_logo_picker.dart';
 import '../domain/qr_design.dart';
@@ -9,7 +11,7 @@ enum QrSaveResult { saved, unavailable, invalid, failed }
 
 enum QrGallerySaveResult { saved, invalid, permissionDenied, failed }
 
-class QrEditorController extends ChangeNotifier {
+class QrEditorController extends GetxController {
   QrEditorController({
     required QrRepository repository,
     required QrLogoPicker logoPicker,
@@ -86,7 +88,7 @@ class QrEditorController extends ChangeNotifier {
     if (isPickingLogo) return;
     isPickingLogo = true;
     logoError = null;
-    notifyListeners();
+    update();
     try {
       final picked = await _logoPicker.pick();
       if (picked == null) return;
@@ -99,7 +101,7 @@ class QrEditorController extends ChangeNotifier {
       logoError = 'Không thể đọc ảnh này. Hãy thử ảnh PNG hoặc JPG khác.';
     } finally {
       isPickingLogo = false;
-      notifyListeners();
+      update();
     }
   }
 
@@ -116,7 +118,7 @@ class QrEditorController extends ChangeNotifier {
     if (!canSave) return QrSaveResult.invalid;
     isSaving = true;
     isSaved = false;
-    notifyListeners();
+    update();
     try {
       final saved = await _repository.save(kind: kind.wireName, content: encodedContent, style: design.toPayload());
       if (!saved) return QrSaveResult.failed;
@@ -131,14 +133,14 @@ class QrEditorController extends ChangeNotifier {
       return QrSaveResult.failed;
     } finally {
       isSaving = false;
-      notifyListeners();
+      update();
     }
   }
 
   Future<QrGallerySaveResult> saveToGallery(Uint8List pngBytes) async {
     if (isExporting || !canExport || pngBytes.isEmpty) return QrGallerySaveResult.invalid;
     isExporting = true;
-    notifyListeners();
+    update();
     try {
       await _gallerySaver.savePng(pngBytes);
       return QrGallerySaveResult.saved;
@@ -148,13 +150,13 @@ class QrEditorController extends ChangeNotifier {
       return QrGallerySaveResult.failed;
     } finally {
       isExporting = false;
-      notifyListeners();
+      update();
     }
   }
 
   void _markChanged() {
     isSaved = false;
-    notifyListeners();
+    update();
   }
 
   String _escape(String value) =>

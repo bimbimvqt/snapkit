@@ -1,173 +1,185 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
-import '../../../core/config/remote_config.dart';
-import '../../../core/ads/ad_service.dart';
-import '../../../core/network/api_client.dart';
+
+import '../../../core/styles/app_colors.dart';
+import '../../../core/styles/app_dimensions.dart';
+import '../../../core/styles/app_text_styles.dart';
 import '../../../shared/widgets/snapkit_widgets.dart';
-import '../data/media_scanner.dart';
+import '../application/cleaner_controller.dart';
 import '../domain/media_scan_result.dart';
 
-class CleanerScreen extends StatefulWidget {
+class CleanerScreen extends GetView<CleanerController> {
   const CleanerScreen({super.key});
+
   @override
-  State<CleanerScreen> createState() => _CleanerScreenState();
-}
+  Widget build(BuildContext context) => GetBuilder<CleanerController>(
+    builder: (controller) {
+      final result = controller.result;
+      final errorMessage = controller.errorMessage;
+      return Scaffold(
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = AppDimensions.pageHorizontal(constraints.maxWidth);
+              return CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      AppDimensions.space24,
+                      horizontalPadding,
+                      AppDimensions.space16,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const PageHeader(
+                                eyebrow: 'Private media lab',
+                                title: 'Dọn bộ nhớ thông minh',
+                                description:
+                                    'Phân tích thumbnail độ phân giải thấp ngay trên máy. Không upload ảnh/video.',
+                              ),
+                              SizedBox(height: 22.h),
+                              if (controller.status == CleanerStatus.initial) _HeroScan(onScan: controller.scan),
+                              if (controller.isLoading) const _ScanningCard(),
+                              if (controller.status == CleanerStatus.error && errorMessage != null)
+                                _ErrorCard(message: errorMessage, onRetry: controller.scan),
+                              if (result != null) ...[
+                                _Summary(
+                                  result: result,
+                                  selected: controller.selectedIds.length,
+                                  refreshing: controller.isRefreshing,
+                                  onScan: controller.scan,
+                                ),
+                                if (errorMessage != null) ...[
+                                  SizedBox(height: AppDimensions.space12),
+                                  _ErrorCard(message: errorMessage, onRetry: controller.scan),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (result != null)
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(horizontalPadding, AppDimensions.space8, horizontalPadding, 120.h),
+                      sliver: SliverList.separated(
+                        itemCount: result.groups.length,
+                        itemBuilder: (context, index) => Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
+                            child: _GroupCard(
+                              group: result.groups[index],
+                              selected: controller.selectedIds,
+                              onChanged: (id, selected) => controller.toggleSelection(id, selected: selected),
+                            ),
+                          ),
+                        ),
+                        separatorBuilder: (_, _) => SizedBox(height: AppDimensions.space12),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+        bottomNavigationBar: controller.hasSelection
+            ? SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppDimensions.space20,
+                    AppDimensions.space8,
+                    AppDimensions.space20,
+                    AppDimensions.space12,
+                  ),
+                  child: FilledButton.icon(
+                    onPressed: controller.isDeleting ? null : () => _confirmDelete(context, controller),
+                    icon: controller.isDeleting
+                        ? SizedBox.square(dimension: 18.r, child: const CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.delete_outline_rounded),
+                    label: Text('Dọn ${controller.selectedIds.length} mục đã chọn'),
+                  ),
+                ),
+              )
+            : null,
+      );
+    },
+  );
 
-class _CleanerScreenState extends State<CleanerScreen> {
-  final _scanner = MediaScanner();
-  MediaScanResult? _result;
-  bool _scanning = false, _deleting = false;
-  String? _error;
-  final _selected = <String>{};
-  Future<void> _scan() async {
-    if (!RemoteConfig.instance.enabled('media_cleaner')) {
-      setState(() => _error = 'Tính năng đang được bảo trì từ hệ thống.');
-      return;
-    }
-    setState(() {
-      _scanning = true;
-      _error = null;
-      _result = null;
-      _selected.clear();
-    });
-    try {
-      final result = await _scanner.scan();
-      for (final group in result.groups.where((g) => g.type == MediaGroupType.similar)) {
-        _selected.addAll(group.assets.skip(1).map((a) => a.id));
-      }
-      setState(() => _result = result);
-      await ApiClient.instance.event('media_scan', {'scanned': result.scanned, 'groups': result.groups.length});
-    } on MediaPermissionException {
-      setState(() => _error = 'Cần quyền truy cập thư viện để phân tích media.');
-    } catch (_) {
-      setState(() => _error = 'Không thể hoàn tất quét. Vui lòng thử lại.');
-    } finally {
-      if (mounted) setState(() => _scanning = false);
-    }
-  }
-
-  Future<void> _delete() async {
-    if (_selected.isEmpty) return;
+  Future<void> _confirmDelete(BuildContext context, CleanerController controller) async {
     final approved =
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Xóa media đã chọn?'),
-            content: Text('${_selected.length} mục sẽ được chuyển vào thùng rác hệ thống nếu thiết bị hỗ trợ.'),
+            content: Text(
+              '${controller.selectedIds.length} mục sẽ được chuyển vào thùng rác hệ thống nếu thiết bị hỗ trợ.',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Xem lại')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xóa an toàn')),
+              TextButton(onPressed: () => Get.back(result: false), child: const Text('Xem lại')),
+              FilledButton(onPressed: () => Get.back(result: true), child: const Text('Xóa an toàn')),
             ],
           ),
         ) ??
         false;
     if (!approved) return;
-    setState(() => _deleting = true);
-    var bytes = 0;
-    final assets =
-        _result?.groups.expand((g) => g.assets).where((a) => _selected.contains(a.id)) ?? const <AssetEntity>[];
-    for (final asset in assets) {
-      bytes += await (await asset.file)?.length() ?? 0;
+
+    final deleteResult = await controller.deleteSelected();
+    if (!context.mounted) return;
+    if (deleteResult == CleanerDeleteResult.deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã xóa ${controller.lastDeletedCount} mục.')));
+      await controller.scan();
+      return;
     }
-    final deleted = await _scanner.delete(_selected.toList());
-    await ApiClient.instance.reportCleanup(
-      scanned: _result?.scanned ?? 0,
-      removed: deleted.length,
-      bytesFreed: bytes,
-      durationMs: _result?.duration.inMilliseconds ?? 0,
-    );
-    await AdService.showAfterCleanup();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã xóa ${deleted.length} mục.')));
-      setState(() => _deleting = false);
-      await _scan();
+    if (deleteResult == CleanerDeleteResult.failed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? 'Không thể xóa media đã chọn. Vui lòng thử lại.')),
+      );
     }
   }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const PageHeader(
-                    eyebrow: 'Private media lab',
-                    title: 'Dọn bộ nhớ thông minh',
-                    description: 'Phân tích thumbnail độ phân giải thấp ngay trên máy. Không upload ảnh/video.',
-                  ),
-                  const SizedBox(height: 22),
-                  if (_result == null && !_scanning) _HeroScan(onScan: _scan),
-                  if (_scanning) _ScanningCard(),
-                  if (_error != null) _ErrorCard(message: _error!, onRetry: _scan),
-                  if (_result case final result?) _Summary(result: result, selected: _selected.length, onScan: _scan),
-                ],
-              ),
-            ),
-          ),
-          if (_result case final result?)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-              sliver: SliverList.separated(
-                itemCount: result.groups.length,
-                itemBuilder: (context, index) => _GroupCard(
-                  group: result.groups[index],
-                  selected: _selected,
-                  onChanged: (id, value) => setState(() => value ? _selected.add(id) : _selected.remove(id)),
-                ),
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-              ),
-            ),
-        ],
-      ),
-    ),
-    bottomNavigationBar: _selected.isEmpty
-        ? null
-        : SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: FilledButton.icon(
-                onPressed: _deleting ? null : _delete,
-                icon: _deleting
-                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.delete_outline_rounded),
-                label: Text('Dọn ${_selected.length} mục đã chọn'),
-              ),
-            ),
-          ),
-  );
 }
 
 class _HeroScan extends StatelessWidget {
   const _HeroScan({required this.onScan});
+
   final VoidCallback onScan;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(AppDimensions.space24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              height: 130,
-              decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(20)),
-              child: Icon(Icons.photo_library_outlined, size: 48, color: scheme.primary),
+              height: 130.h,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppDimensions.radius20),
+              ),
+              child: Icon(Icons.photo_library_outlined, size: 48.sp, color: scheme.primary),
             ),
-            const SizedBox(height: 20),
-            Text('Bắt đầu với thư viện của bạn', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
+            SizedBox(height: AppDimensions.space20),
+            Text('Bắt đầu với thư viện của bạn', style: AppTextStyles.titleMedium),
+            SizedBox(height: AppDimensions.space8),
             Text(
               'Tìm ảnh gần giống bằng perceptual hash, screenshot cũ và video trên 100 MB.',
-              style: TextStyle(color: scheme.onSurfaceVariant, height: 1.45),
+              style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: AppDimensions.space20),
             FilledButton.icon(
               onPressed: onScan,
               icon: const Icon(Icons.radar_rounded),
@@ -181,19 +193,21 @@ class _HeroScan extends StatelessWidget {
 }
 
 class _ScanningCard extends StatelessWidget {
+  const _ScanningCard();
+
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(AppDimensions.space28),
       child: Column(
         children: [
           CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
-          const SizedBox(height: 18),
-          const Text('Đang phân tích an toàn…', style: TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
+          SizedBox(height: 18.h),
+          Text('Đang phân tích an toàn…', style: AppTextStyles.bodyStrong),
+          SizedBox(height: 6.h),
           Text(
             'Có thể mất một lúc với thư viện lớn',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -203,17 +217,19 @@ class _ScanningCard extends StatelessWidget {
 
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.message, required this.onRetry});
+
   final String message;
   final VoidCallback onRetry;
+
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(AppDimensions.space20),
       child: Row(
         children: [
           Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.error),
-          const SizedBox(width: 14),
-          Expanded(child: Text(message)),
+          SizedBox(width: 14.w),
+          Expanded(child: Text(message, style: AppTextStyles.body)),
           TextButton(onPressed: onRetry, child: const Text('Thử lại')),
         ],
       ),
@@ -222,33 +238,39 @@ class _ErrorCard extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({required this.result, required this.selected, required this.onScan});
+  const _Summary({required this.result, required this.selected, required this.refreshing, required this.onScan});
+
   final MediaScanResult result;
   final int selected;
+  final bool refreshing;
   final VoidCallback onScan;
+
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(AppDimensions.space20),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${result.groups.length} nhóm cần xem lại',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 5),
+                Text('${result.groups.length} nhóm cần xem lại', style: AppTextStyles.titleMedium),
+                SizedBox(height: 5.h),
                 Text(
                   'Đã quét ${result.scanned} mục · chọn $selected',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                  style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          IconButton(onPressed: onScan, tooltip: 'Quét lại', icon: const Icon(Icons.refresh_rounded)),
+          IconButton(
+            onPressed: refreshing ? null : onScan,
+            tooltip: 'Quét lại',
+            icon: refreshing
+                ? SizedBox.square(dimension: 20.r, child: const CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded),
+          ),
         ],
       ),
     ),
@@ -257,9 +279,11 @@ class _Summary extends StatelessWidget {
 
 class _GroupCard extends StatelessWidget {
   const _GroupCard({required this.group, required this.selected, required this.onChanged});
+
   final MediaGroup group;
   final Set<String> selected;
   final void Function(String, bool) onChanged;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -267,67 +291,64 @@ class _GroupCard extends StatelessWidget {
       child: ExpansionTile(
         shape: const Border(),
         collapsedShape: const Border(),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        leading: Icon(
-          group.type == MediaGroupType.similar
-              ? Icons.filter_none_rounded
-              : group.type == MediaGroupType.screenshots
-              ? Icons.screenshot_rounded
-              : Icons.movie_filter_outlined,
-          color: scheme.primary,
-        ),
-        title: Text(group.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        tilePadding: EdgeInsets.symmetric(horizontal: 18.w, vertical: AppDimensions.space4),
+        childrenPadding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
+        leading: Icon(_groupIcon(group.type), color: scheme.primary),
+        title: Text(group.title, style: AppTextStyles.bodyStrong),
         subtitle: Text(
           '${group.assets.length} mục · ${_bytes(group.bytes)}',
-          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
         ),
         children: [
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: MediaQuery.sizeOf(context).width >= AppDimensions.tabletBreakpoint ? 5 : 3,
+              crossAxisSpacing: AppDimensions.space8,
+              mainAxisSpacing: AppDimensions.space8,
             ),
             itemCount: group.assets.length,
             itemBuilder: (context, index) {
               final asset = group.assets[index];
               final checked = selected.contains(asset.id);
-              return GestureDetector(
-                onTap: () => onChanged(asset.id, !checked),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: _Thumbnail(asset: asset),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: checked ? scheme.secondary : Colors.transparent, width: 3),
+              return Material(
+                color: AppColors.transparent,
+                child: InkWell(
+                  onTap: () => onChanged(asset.id, !checked),
+                  borderRadius: BorderRadius.circular(14.r),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14.r),
+                        child: _Thumbnail(asset: asset),
                       ),
-                    ),
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        width: 25,
-                        height: 25,
+                      DecoratedBox(
                         decoration: BoxDecoration(
-                          color: checked ? scheme.secondary : Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          checked ? Icons.check_rounded : Icons.add_rounded,
-                          size: 17,
-                          color: checked ? const Color(0xFF102019) : Colors.white,
+                          borderRadius: BorderRadius.circular(14.r),
+                          border: Border.all(color: checked ? scheme.secondary : AppColors.transparent, width: 3.w),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        top: 6.h,
+                        right: 6.w,
+                        child: Container(
+                          width: 28.r,
+                          height: 28.r,
+                          decoration: BoxDecoration(
+                            color: checked ? scheme.secondary : AppColors.black.withValues(alpha: .65),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            checked ? Icons.check_rounded : Icons.add_rounded,
+                            size: 17.sp,
+                            color: checked ? AppColors.darkInk : AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -338,21 +359,31 @@ class _GroupCard extends StatelessWidget {
   }
 }
 
+IconData _groupIcon(MediaGroupType type) => switch (type) {
+  MediaGroupType.similar => Icons.filter_none_rounded,
+  MediaGroupType.screenshots => Icons.screenshot_rounded,
+  MediaGroupType.largeVideos => Icons.movie_filter_outlined,
+};
+
 String _bytes(int value) => value >= 1073741824
     ? '${(value / 1073741824).toStringAsFixed(1)} GB'
     : '${(value / 1048576).toStringAsFixed(0)} MB';
 
 class _Thumbnail extends StatelessWidget {
   const _Thumbnail({required this.asset});
+
   final AssetEntity asset;
+
   @override
   Widget build(BuildContext context) => FutureBuilder<Uint8List?>(
     future: asset.thumbnailDataWithSize(const ThumbnailSize.square(220)),
-    builder: (context, snapshot) => snapshot.hasData
-        ? Image.memory(snapshot.data!, fit: BoxFit.cover)
-        : Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
+    builder: (context, snapshot) {
+      final bytes = snapshot.data;
+      if (bytes != null) return Image.memory(bytes, fit: BoxFit.cover);
+      return ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    },
   );
 }

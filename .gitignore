@@ -15,6 +15,7 @@ app/android/build/
 app/.flutter-plugins*
 app/ios/Pods/
 app/ios/.symlinks/
+app/ios/Flutter/GoogleSignIn.xcconfig
 coverage/
 backups/
 .android-signing.env

@@ -1,40 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'core/config/remote_config.dart';
-import 'core/theme/snapkit_theme.dart';
-import 'features/cleaner/presentation/cleaner_screen.dart';
-import 'features/home/presentation/home_screen.dart';
-import 'features/qr/presentation/qr_screen.dart';
-import 'features/qr/presentation/scanner_screen.dart';
-import 'features/settings/presentation/settings_screen.dart';
-import 'shared/widgets/app_shell.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
-final _router = GoRouter(
-  initialLocation: '/home',
-  routes: [
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, shell) => AppShell(shell: shell),
-      branches: [
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/home', builder: (_, _) => const HomeScreen())],
-        ),
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/cleaner', builder: (_, _) => const CleanerScreen())],
-        ),
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/qr', builder: (_, _) => const QrScreen())],
-        ),
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen())],
-        ),
-      ],
-    ),
-    GoRoute(path: '/qr/scanner', builder: (_, _) => const ScannerScreen()),
-  ],
-);
+import 'core/bindings/app_binding.dart';
+import 'core/config/remote_config.dart';
+import 'core/routes/app_pages.dart';
+import 'core/routes/app_routes.dart';
+import 'core/styles/app_dimensions.dart';
+import 'core/theme/snapkit_theme.dart';
+import 'features/auth/domain/auth_repository.dart';
 
 class SnapkitApp extends StatefulWidget {
-  const SnapkitApp({super.key});
+  const SnapkitApp({this.authRepository, super.key});
+
+  final AuthRepository? authRepository;
 
   @override
   State<SnapkitApp> createState() => _SnapkitAppState();
@@ -64,19 +43,26 @@ class _SnapkitAppState extends State<SnapkitApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: RemoteConfig.instance,
-    builder: (context, _) {
-      final settings = RemoteConfig.instance.theme;
-      return MaterialApp.router(
-        title: 'Snapkit',
-        debugShowCheckedModeBanner: false,
-        theme: SnapkitTheme.light(settings.preset),
-        darkTheme: SnapkitTheme.dark(settings.preset),
-        themeMode: settings.mode,
-        themeAnimationDuration: const Duration(milliseconds: 240),
-        routerConfig: _router,
-      );
-    },
+  Widget build(BuildContext context) => ScreenUtilInit(
+    designSize: AppDimensions.designSize,
+    minTextAdapt: true,
+    splitScreenMode: true,
+    fontSizeResolver: AppDimensions.resolveFontSize,
+    builder: (context, _) => AnimatedBuilder(
+      animation: RemoteConfig.instance,
+      builder: (context, _) {
+        final settings = RemoteConfig.instance.theme;
+        return GetMaterialApp(
+          title: 'Snapkit',
+          debugShowCheckedModeBanner: false,
+          initialBinding: AppBinding(authRepository: widget.authRepository),
+          initialRoute: AppRoutes.root,
+          getPages: AppPages.pages,
+          theme: SnapkitTheme.light(settings.preset),
+          darkTheme: SnapkitTheme.dark(settings.preset),
+          themeMode: settings.mode,
+        );
+      },
+    ),
   );
 }

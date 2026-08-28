@@ -10,6 +10,8 @@ pnpm db:seed
 pnpm dev
 ```
 
+Để bật endpoint `POST /api/v1/auth/google`, đặt `GOOGLE_OAUTH_CLIENT_IDS` trong `.env` theo [hướng dẫn Google Sign-In](../docs/google-sign-in.md).
+
 Kiểm tra độc lập:
 
 ```bash

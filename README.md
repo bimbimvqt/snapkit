@@ -146,6 +146,7 @@ make dev-app-android
 - iOS simulator dùng `http://localhost:3001`.
 - Android emulator dùng `http://10.0.2.2:3001`.
 - Thiết bị thật cần truyền IP LAN của máy phát triển bằng `--dart-define=API_BASE_URL=http://<LAN-IP>:3001`.
+- App bắt buộc đăng nhập Google trước khi mở các công cụ. Cần cấu hình Web/Android/iOS OAuth credentials theo [hướng dẫn Google Sign-In](docs/google-sign-in.md).
 
 ### Theme từ admin và QR Studio
 
@@ -236,12 +237,13 @@ Trước khi phát hành App Store/Play Store với domain riêng:
 3. Đặt `COOKIE_SECURE=true` trong `.env.prod`.
 4. Bỏ Android cleartext và iOS ATS exception.
 5. Thay AdMob test IDs và cấu hình IAP/server-to-server verification bằng tài khoản Apple/Google thực.
+6. Cấu hình OAuth production và cân nhắc Sign in with Apple để đáp ứng App Review Guidelines.
 
 Những giá trị này phụ thuộc tài khoản/domain bên ngoài nên không thể sinh hợp lệ từ source code.
 
 ## API chính
 
-- `POST /api/v1/auth/anonymous|register|login|refresh|logout`, `GET /api/v1/auth/me`
+- `POST /api/v1/auth/anonymous|register|login|google|refresh|logout`, `GET /api/v1/auth/me`
 - `GET /api/v1/config`, `GET|POST /api/v1/qr`
 - `POST /api/v1/events`, `POST /api/v1/media-cleanups`
 - `GET /api/admin/overview|users|qr|config|audit|flags`, `PATCH /api/admin/config|flags`

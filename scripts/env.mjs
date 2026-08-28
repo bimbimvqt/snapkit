@@ -84,6 +84,7 @@ function initLocal() {
       POSTGRES_DB: "snapkit",
       POSTGRES_USER: "snapkit",
       POSTGRES_PASSWORD: "snapkit_dev_password",
+      GOOGLE_OAUTH_CLIENT_IDS: "",
     },
     "# Local Docker development",
   );
@@ -97,6 +98,7 @@ function initLocal() {
       ADMIN_EMAIL: "admin@snapkit.local",
       ADMIN_PASSWORD: "admin@123",
       COOKIE_SECURE: "false",
+      GOOGLE_OAUTH_CLIENT_IDS: "",
     },
     "# Backend local development",
   );
@@ -124,6 +126,7 @@ function productionValues() {
     ADMIN_EMAIL: "admin@snapkit.local",
     ADMIN_PASSWORD: randomBytes(24).toString("base64url"),
     COOKIE_SECURE: "false",
+    GOOGLE_OAUTH_CLIENT_IDS: "",
   };
 }
 
@@ -131,7 +134,7 @@ function initProduction() {
   if (existsSync(paths.production) && !force) {
     ensureKeys(
       paths.production,
-      { APP_ENV: "production", COOKIE_SECURE: "false" },
+      { APP_ENV: "production", COOKIE_SECURE: "false", GOOGLE_OAUTH_CLIENT_IDS: "" },
       "# Production secrets. Keep this file off Git and back it up securely.",
     );
     console.log(
@@ -152,6 +155,7 @@ function initProduction() {
   console.log(
     "Review ADMIN_EMAIL and keep ADMIN_PASSWORD in your password manager before deployment.",
   );
+  console.log("Set GOOGLE_OAUTH_CLIENT_IDS before running the production check.");
 }
 
 function validateProduction() {
@@ -171,6 +175,7 @@ function validateProduction() {
     "ADMIN_EMAIL",
     "ADMIN_PASSWORD",
     "COOKIE_SECURE",
+    "GOOGLE_OAUTH_CLIENT_IDS",
   ];
 
   for (const key of required) {

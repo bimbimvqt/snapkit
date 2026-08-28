@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
+import '../../../../core/styles/app_colors.dart';
+import '../../../../core/styles/app_dimensions.dart';
+import '../../../../core/styles/app_text_styles.dart';
 import '../../domain/qr_design.dart';
 
 Future<Color?> showQrColorPickerSheet({required BuildContext context, required String title, required Color current}) =>
@@ -47,7 +52,12 @@ class _QrColorPickerSheetState extends State<_QrColorPickerSheet> {
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          AppDimensions.space20,
+          0,
+          AppDimensions.space20,
+          AppDimensions.space20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,14 +68,11 @@ class _QrColorPickerSheetState extends State<_QrColorPickerSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                      ),
+                      Text(widget.title, style: AppTextStyles.titleLarge),
                       const SizedBox(height: 4),
                       Text(
                         'Chạm vào bảng màu hoặc tinh chỉnh HSV bên dưới.',
-                        style: TextStyle(color: scheme.onSurfaceVariant),
+                        style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -76,19 +83,19 @@ class _QrColorPickerSheetState extends State<_QrColorPickerSheet> {
                   height: 56,
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppDimensions.radius16),
                     border: Border.all(color: scheme.outline),
                     boxShadow: [BoxShadow(color: color.withValues(alpha: .24), blurRadius: 16)],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: AppDimensions.space20),
             AspectRatio(
               aspectRatio: 1.65,
               child: _SaturationValuePicker(hsv: _hsv, onChanged: (value) => _setHsv(value)),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppDimensions.space16),
             _HsvSlider(
               label: 'Sắc độ',
               value: _hsv.hue,
@@ -113,7 +120,7 @@ class _QrColorPickerSheetState extends State<_QrColorPickerSheet> {
               activeColor: color,
               onChanged: (value) => _setHsv(_hsv.withValue(value / 100)),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: AppDimensions.space8),
             TextField(
               controller: _hexController,
               textCapitalization: TextCapitalization.characters,
@@ -127,16 +134,16 @@ class _QrColorPickerSheetState extends State<_QrColorPickerSheet> {
               ),
               onChanged: _setHex,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: AppDimensions.space12),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Hủy')),
+                  child: OutlinedButton(onPressed: Get.back, child: const Text('Hủy')),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: AppDimensions.space12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _hexError == null ? () => Navigator.of(context).pop(color) : null,
+                    onPressed: _hexError == null ? () => Get.back(result: color) : null,
                     icon: const Icon(Icons.check_rounded),
                     label: const Text('Áp dụng'),
                   ),
@@ -194,7 +201,7 @@ class _SaturationValuePicker extends StatelessWidget {
         onPanStart: (details) => update(details.localPosition),
         onPanUpdate: (details) => update(details.localPosition),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(18.r),
           child: CustomPaint(
             painter: _SaturationValuePainter(hsv),
             child: Stack(
@@ -208,8 +215,8 @@ class _SaturationValuePicker extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: hsv.toColor(),
-                      border: Border.all(color: Colors.white, width: 3),
-                      boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 5)],
+                      border: Border.all(color: AppColors.white, width: 3.w),
+                      boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: .45), blurRadius: 5.r)],
                     ),
                   ),
                 ),
@@ -231,14 +238,14 @@ class _SaturationValuePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final hueColor = HSVColor.fromAHSV(1, hsv.hue, 1, 1).toColor();
-    canvas.drawRect(rect, Paint()..shader = LinearGradient(colors: [Colors.white, hueColor]).createShader(rect));
+    canvas.drawRect(rect, Paint()..shader = LinearGradient(colors: [AppColors.white, hueColor]).createShader(rect));
     canvas.drawRect(
       rect,
       Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black],
+          colors: [AppColors.transparent, AppColors.black],
         ).createShader(rect),
     );
   }
@@ -267,10 +274,7 @@ class _HsvSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      SizedBox(
-        width: 76,
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-      ),
+      SizedBox(width: 76, child: Text(label, style: AppTextStyles.label)),
       Expanded(
         child: Slider(
           value: value.clamp(0, max),
@@ -282,7 +286,7 @@ class _HsvSlider extends StatelessWidget {
       ),
       SizedBox(
         width: 48,
-        child: Text('${value.round()}$suffix', textAlign: TextAlign.end, style: const TextStyle(fontSize: 12)),
+        child: Text('${value.round()}$suffix', textAlign: TextAlign.end, style: AppTextStyles.caption),
       ),
     ],
   );

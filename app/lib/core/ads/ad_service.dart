@@ -59,16 +59,15 @@ class _SnapkitBannerAdState extends State<SnapkitBannerAd> {
   }
 
   @override
-  Widget build(BuildContext context) => _ad == null
-      ? const SizedBox.shrink()
-      : Semantics(
-          label: 'Quảng cáo',
-          child: Center(
-            child: SizedBox(
-              width: _ad!.size.width.toDouble(),
-              height: _ad!.size.height.toDouble(),
-              child: AdWidget(ad: _ad!),
-            ),
-          ),
-        );
+  Widget build(BuildContext context) {
+    final ad = _ad;
+    if (ad == null) return const SizedBox.shrink();
+    return Center(
+      child: SizedBox(
+        width: ad.size.width.toDouble(),
+        height: ad.size.height.toDouble(),
+        child: AdWidget(ad: ad),
+      ),
+    );
+  }
 }

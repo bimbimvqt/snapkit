@@ -2,15 +2,15 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
-import '../../../core/config/remote_config.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../core/styles/app_colors.dart';
+import '../../../core/styles/app_dimensions.dart';
+import '../../../core/styles/app_text_styles.dart';
 import '../../../shared/widgets/snapkit_widgets.dart';
 import '../application/qr_editor_controller.dart';
-import '../data/api_qr_repository.dart';
-import '../data/device_qr_gallery_saver.dart';
-import '../data/device_qr_logo_picker.dart';
 import '../domain/qr_design.dart';
 import 'widgets/qr_color_picker_sheet.dart';
 import 'widgets/qr_design_preview.dart';
@@ -23,45 +23,27 @@ class QrScreen extends StatefulWidget {
 }
 
 class _QrScreenState extends State<QrScreen> {
-  late final QrEditorController _controller;
+  late final QrEditorController _controller = Get.find<QrEditorController>();
   final GlobalKey _exportBoundaryKey = GlobalKey();
   bool _obscureWifiPassword = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = QrEditorController(
-      repository: ApiQrRepository(ApiClient.instance),
-      logoPicker: DeviceQrLogoPicker(),
-      gallerySaver: DeviceQrGallerySaver(),
-      isFeatureEnabled: () => RemoteConfig.instance.enabled('qr_studio'),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 20.0;
+          final horizontalPadding = AppDimensions.pageHorizontal(constraints.maxWidth);
           final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
-          final previewExtent = 164 * textScale;
-          return ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) => CustomScrollView(
+          final previewExtent = 164.0 * textScale;
+          return GetBuilder<QrEditorController>(
+            builder: (controller) => CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 24, horizontalPadding, 18),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 24.h, horizontalPadding, 18.h),
                   sliver: SliverToBoxAdapter(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1080),
+                        constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -71,15 +53,15 @@ class _QrScreenState extends State<QrScreen> {
                               description:
                                   'Chọn mẫu nhanh rồi tinh chỉnh màu, khung, hoa văn và logo. Preview cập nhật tức thì, ảnh logo chỉ xử lý trên thiết bị.',
                             ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: AppDimensions.space20),
                             FilledButton.icon(
-                              onPressed: () => context.push('/qr/scanner'),
+                              onPressed: () => Get.toNamed(AppRoutes.scanner),
                               icon: const Icon(Icons.center_focus_strong_rounded),
                               label: const Text('Mở máy quét QR / Barcode'),
                             ),
-                            const SizedBox(height: 28),
-                            _ContentEditor(controller: _controller, obscureWifiPassword: _obscureWifiPassword),
-                            if (_controller.kind == QrContentKind.wifi)
+                            SizedBox(height: AppDimensions.space28),
+                            _ContentEditor(controller: controller, obscureWifiPassword: _obscureWifiPassword),
+                            if (controller.kind == QrContentKind.wifi)
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton.icon(
@@ -90,8 +72,8 @@ class _QrScreenState extends State<QrScreen> {
                                   label: Text(_obscureWifiPassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'),
                                 ),
                               ),
-                            const SizedBox(height: 26),
-                            _PresetPicker(controller: _controller),
+                            SizedBox(height: 26.h),
+                            _PresetPicker(controller: controller),
                           ],
                         ),
                       ),
@@ -103,19 +85,19 @@ class _QrScreenState extends State<QrScreen> {
                   delegate: _QrPreviewHeaderDelegate(
                     extent: previewExtent,
                     horizontalPadding: horizontalPadding,
-                    controller: _controller,
+                    controller: controller,
                     exportBoundaryKey: _exportBoundaryKey,
                     onSaveToGallery: _saveToGallery,
                     onSaveHistory: _save,
                   ),
                 ),
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(horizontalPadding, 20, horizontalPadding, 40),
+                  padding: EdgeInsets.fromLTRB(horizontalPadding, 20.h, horizontalPadding, 40.h),
                   sliver: SliverToBoxAdapter(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1080),
-                        child: _CustomizationPanel(controller: _controller, chooseColor: _chooseColor),
+                        constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
+                        child: _CustomizationPanel(controller: controller, chooseColor: _chooseColor),
                       ),
                     ),
                   ),
@@ -345,8 +327,11 @@ class _CustomizationPanel extends StatelessWidget {
               ExpansionTile(
                 initiallyExpanded: true,
                 leading: Icon(Icons.palette_outlined, color: scheme.primary),
-                title: const Text('Màu sắc', style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('Mã QR, nền và toàn bộ khung', style: TextStyle(color: scheme.onSurfaceVariant)),
+                title: Text('Màu sắc', style: AppTextStyles.bodyStrong),
+                subtitle: Text(
+                  'Mã QR, nền và toàn bộ khung',
+                  style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
+                ),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                 children: [
                   _AdaptiveControlGrid(
@@ -409,8 +394,11 @@ class _CustomizationPanel extends StatelessWidget {
               const Divider(height: 1),
               ExpansionTile(
                 leading: Icon(Icons.grid_view_rounded, color: scheme.primary),
-                title: const Text('Hình QR', style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('Mắt và module của mã', style: TextStyle(color: scheme.onSurfaceVariant)),
+                title: Text('Hình QR', style: AppTextStyles.bodyStrong),
+                subtitle: Text(
+                  'Mắt và module của mã',
+                  style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
+                ),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                 children: [
                   const _ControlLabel('Hình mắt QR'),
@@ -469,8 +457,11 @@ class _FrameEditor extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return ExpansionTile(
       leading: Icon(Icons.crop_free_rounded, color: scheme.primary),
-      title: const Text('Khung & hoa văn', style: TextStyle(fontWeight: FontWeight.w800)),
-      subtitle: Text('Viền hoa, cầu vồng, hình dạng và nhãn', style: TextStyle(color: scheme.onSurfaceVariant)),
+      title: Text('Khung & hoa văn', style: AppTextStyles.bodyStrong),
+      subtitle: Text(
+        'Viền hoa, cầu vồng, hình dạng và nhãn',
+        style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
+      ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       children: [
         const _ControlLabel('Kiểu viền'),
@@ -585,8 +576,11 @@ class _LogoEditor extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return ExpansionTile(
       leading: Icon(Icons.add_photo_alternate_outlined, color: scheme.primary),
-      title: const Text('Logo trung tâm', style: TextStyle(fontWeight: FontWeight.w800)),
-      subtitle: Text('Icon có sẵn hoặc ảnh riêng từ thư viện', style: TextStyle(color: scheme.onSurfaceVariant)),
+      title: Text('Logo trung tâm', style: AppTextStyles.bodyStrong),
+      subtitle: Text(
+        'Icon có sẵn hoặc ảnh riêng từ thư viện',
+        style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
+      ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       children: [
         _OptionWrap(
@@ -703,13 +697,13 @@ class _CustomLogoPicker extends StatelessWidget {
                   : Image.memory(bytes, width: 56, height: 56, fit: BoxFit.cover),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Logo ảnh riêng', style: TextStyle(fontWeight: FontWeight.w800)),
-                  SizedBox(height: 3),
-                  Text('Đã tối ưu tối đa 512×512', style: TextStyle(fontSize: 12)),
+                  Text('Logo ảnh riêng', style: AppTextStyles.bodyStrong),
+                  SizedBox(height: 3.h),
+                  Text('Đã tối ưu tối đa 512×512', style: AppTextStyles.caption),
                 ],
               ),
             ),
@@ -773,7 +767,7 @@ class _QrPreviewHeaderDelegate extends SliverPersistentHeaderDelegate {
             child: Material(
               elevation: overlapsContent ? 6 : 1,
               color: scheme.surface,
-              shadowColor: Colors.black.withValues(alpha: .18),
+              shadowColor: AppColors.black.withValues(alpha: .18),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(color: scheme.outlineVariant),
@@ -855,7 +849,7 @@ class _StickyPreviewCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Preview luôn hiển thị', maxLines: 1, style: TextStyle(fontWeight: FontWeight.w900)),
+                Text('Preview luôn hiển thị', maxLines: 1, style: AppTextStyles.bodyStrong),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -874,9 +868,8 @@ class _StickyPreviewCard extends StatelessWidget {
                             : 'Tương phản thấp · cần chỉnh màu',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: AppTextStyles.caption.copyWith(
                           color: controller.design.isScannable ? scheme.onSurfaceVariant : scheme.error,
-                          fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -936,19 +929,19 @@ class _SectionHeading extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
           borderRadius: BorderRadius.circular(11),
         ),
-        child: Text(
-          index,
-          style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900),
-        ),
+        child: Text(index, style: AppTextStyles.bodyStrong.copyWith(color: Theme.of(context).colorScheme.primary)),
       ),
       const SizedBox(width: 12),
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(title, style: AppTextStyles.sectionTitle),
             const SizedBox(height: 3),
-            Text(description, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35)),
+            Text(
+              description,
+              style: AppTextStyles.body.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ],
         ),
       ),
@@ -994,13 +987,13 @@ class _SelectionCard extends StatelessWidget {
               children: [
                 Icon(icon, size: 22, color: selected ? scheme.secondary : scheme.onSurfaceVariant),
                 const SizedBox(height: 8),
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                Text(title, style: AppTextStyles.bodyStrong),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+                  style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -1038,7 +1031,7 @@ class _ColorControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
+    color: AppColors.transparent,
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -1061,15 +1054,12 @@ class _ColorControl extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(
-              child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-            ),
+            Expanded(child: Text(label, style: AppTextStyles.label)),
             Text(
               colorToHex(color),
-              style: TextStyle(
+              style: AppTextStyles.navigation.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontFamily: 'monospace',
-                fontSize: 10.5,
               ),
             ),
           ],
@@ -1106,9 +1096,8 @@ class _OptionChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: true,
-      labelStyle: TextStyle(
+      labelStyle: AppTextStyles.caption.copyWith(
         color: selected ? scheme.onSecondary : scheme.onSurface,
-        fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
       selectedColor: scheme.secondary,
@@ -1149,7 +1138,7 @@ class _VisualOption extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
+                style: AppTextStyles.navigation.copyWith(fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -1169,7 +1158,7 @@ class _ControlLabel extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 9),
     child: Align(
       alignment: Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+      child: Text(label, style: AppTextStyles.label),
     ),
   );
 }
@@ -1197,10 +1186,10 @@ class _SliderControl extends StatelessWidget {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+          Text(label, style: AppTextStyles.label),
           Text(
             '${value.round()}$suffix',
-            style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w800),
+            style: AppTextStyles.label.copyWith(color: Theme.of(context).colorScheme.primary),
           ),
         ],
       ),
@@ -1227,7 +1216,7 @@ class _InlineNotice extends StatelessWidget {
         Icon(icon, color: color, size: 20),
         const SizedBox(width: 9),
         Expanded(
-          child: Text(text, style: TextStyle(color: color, fontSize: 12, height: 1.4)),
+          child: Text(text, style: AppTextStyles.caption.copyWith(color: color)),
         ),
       ],
     ),

@@ -7,6 +7,7 @@ x-local-environment: &local-environment
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@snapkit.local}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin@123}
   COOKIE_SECURE: "false"
+  GOOGLE_OAUTH_CLIENT_IDS: ${GOOGLE_OAUTH_CLIENT_IDS:-}
 
 services:
   postgres:

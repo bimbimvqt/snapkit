@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
 
+import '../../../../core/styles/app_colors.dart';
+import '../../../../core/styles/app_text_styles.dart';
 import '../../domain/qr_design.dart';
 
 class QrDesignPreview extends StatelessWidget {
@@ -19,7 +21,7 @@ class QrDesignPreview extends StatelessWidget {
     final shadows = switch (design.frameShadow) {
       QrFrameShadow.none => const <BoxShadow>[],
       QrFrameShadow.soft => [
-        BoxShadow(color: Colors.black.withValues(alpha: .16), blurRadius: 24, offset: const Offset(0, 10)),
+        BoxShadow(color: AppColors.black.withValues(alpha: .16), blurRadius: 24, offset: const Offset(0, 10)),
       ],
       QrFrameShadow.glow => [BoxShadow(color: shadowColor.withValues(alpha: .26), blurRadius: 30, spreadRadius: 2)],
     };
@@ -78,9 +80,8 @@ class QrDesignPreview extends StatelessWidget {
                       design.frameLabel.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: AppTextStyles.caption.copyWith(
                         color: _readableColor(design.frameBackground),
-                        fontSize: 11,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.2,
                       ),
@@ -145,17 +146,7 @@ class _QrFramePainter extends CustomPainter {
       ..strokeWidth = design.borderWidth
       ..strokeJoin = StrokeJoin.round;
     if (design.frameStyle == QrFrameStyle.rainbow) {
-      borderPaint.shader = const SweepGradient(
-        colors: [
-          Color(0xFFEF4444),
-          Color(0xFFF59E0B),
-          Color(0xFF22C55E),
-          Color(0xFF06B6D4),
-          Color(0xFF6366F1),
-          Color(0xFFD946EF),
-          Color(0xFFEF4444),
-        ],
-      ).createShader(rect);
+      borderPaint.shader = const SweepGradient(colors: AppColors.rainbow).createShader(rect);
     } else {
       borderPaint.color = design.frameColor;
     }
@@ -231,4 +222,4 @@ IconData _logoIcon(QrLogoKind kind) => switch (kind) {
 };
 
 Color _readableColor(Color background) =>
-    ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : const Color(0xFF102019);
+    ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? AppColors.white : AppColors.darkInk;
