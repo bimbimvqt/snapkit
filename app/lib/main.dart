@@ -6,5 +6,5 @@ import 'app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await MobileAds.instance.initialize();
-  runApp(const ProviderScope(child: ToolboxApp()));
+  runApp(const ProviderScope(child: SnapkitApp()));
 }

@@ -74,7 +74,7 @@ export type AdminUser = {
 export type QrAnalytics = {
   totalCreated: number;
   totalScanned: number;
-  latest: Array<{ id: string; kind: string; content: string; createdAt: string }>;
+  latest: Array<{ id: string; kind: string; content: string; style: unknown; createdAt: string }>;
 };
 
 export type FeatureFlag = {

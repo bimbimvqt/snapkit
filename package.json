@@ -1,5 +1,5 @@
 {
-  "name": "toolbox-one",
+  "name": "snapkit",
   "private": true,
   "packageManager": "pnpm@11.19.0",
   "scripts": {
@@ -7,7 +7,7 @@
     "env:init:local": "node scripts/env.mjs init-local",
     "env:init:prod": "node scripts/env.mjs init-prod",
     "env:check:prod": "node scripts/env.mjs check-prod",
-    "dev": "pnpm --parallel --filter @toolbox/admin --filter @toolbox/backend run dev",
+    "dev": "pnpm --parallel --filter @snapkit/admin --filter @snapkit/backend run dev",
     "dev:admin": "pnpm --dir admin dev",
     "dev:backend": "pnpm --dir backend dev",
     "build": "pnpm --dir backend build && pnpm --dir admin build",

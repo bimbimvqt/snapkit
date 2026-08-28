@@ -7,7 +7,7 @@ cd "$project_dir"
 node scripts/env.mjs check-prod
 umask 077
 mkdir -p backups
-backup_path="backups/toolbox-one-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+backup_path="backups/snapkit-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 
 docker compose -f docker-compose.prod.yml exec -T postgres \
   sh -c 'pg_dump --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" "$POSTGRES_DB"' \

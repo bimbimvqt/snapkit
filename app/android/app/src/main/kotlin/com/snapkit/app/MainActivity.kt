@@ -1,4 +1,4 @@
-package com.toolboxone.toolbox_one
+package com.snapkit.app
 
 import io.flutter.embedding.android.FlutterActivity
 

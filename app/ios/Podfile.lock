@@ -9,6 +9,8 @@ PODS:
     - Google-Mobile-Ads-SDK (~> 12.2.0)
     - webview_flutter_wkwebview
   - GoogleUserMessagingPlatform (3.1.0)
+  - image_picker_ios (0.0.1):
+    - Flutter
   - in_app_purchase_storekit (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -29,6 +31,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - google_mobile_ads (from `.symlinks/plugins/google_mobile_ads/ios`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - photo_manager (from `.symlinks/plugins/photo_manager/darwin`)
@@ -47,6 +50,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
   google_mobile_ads:
     :path: ".symlinks/plugins/google_mobile_ads/ios"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
   in_app_purchase_storekit:
     :path: ".symlinks/plugins/in_app_purchase_storekit/darwin"
   mobile_scanner:
@@ -64,6 +69,7 @@ SPEC CHECKSUMS:
   Google-Mobile-Ads-SDK: 1dfb0c3cb46c7e2b00b0f4de74a1e06d9ea25d67
   google_mobile_ads: 535223588a6791b7a3cc3513a1bc7b89d12f3e62
   GoogleUserMessagingPlatform: befe603da6501006420c206222acd449bba45a9c
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   in_app_purchase_storekit: 22cca7d08eebca9babdf4d07d0baccb73325d3c8
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   photo_manager: c303e4476f6c220274119f0212a7753e45edd4a2

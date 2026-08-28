@@ -1,4 +1,4 @@
-name: toolbox-one-prod
+name: snapkit-prod
 
 x-logging: &default-logging
   driver: json-file
@@ -13,7 +13,7 @@ services:
     logging: *default-logging
     env_file: .env.prod
     volumes:
-      - toolbox_postgres_prod:/var/lib/postgresql/data
+      - snapkit_postgres_prod:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -120,4 +120,5 @@ services:
       start_period: 5s
 
 volumes:
-  toolbox_postgres_prod:
+  snapkit_postgres_prod:
+    name: snapkit_postgres_prod

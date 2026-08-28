@@ -24,7 +24,13 @@ type Flag = {
   enabled: boolean;
   rollout: number;
 };
-type ThemePreset = "midnight_lime" | "ocean_cyan" | "violet_pulse" | "sunset_coral" | "mint_light";
+type ThemePreset =
+  | "midnight_lime"
+  | "ocean_cyan"
+  | "violet_pulse"
+  | "sunset_coral"
+  | "mint_light"
+  | "threads_mono";
 type ThemeMode = "dark" | "light" | "system";
 type NavigationStyle = "floating" | "glass" | "solid";
 type ThemeSettings = { preset: ThemePreset; mode: ThemeMode; navigationStyle: NavigationStyle };
@@ -44,12 +50,84 @@ const presets: Array<{
   canvas: string;
   surface: string;
   ink: string;
+  lightCanvas: string;
+  lightSurface: string;
+  lightInk: string;
+  recommendedNavigation?: NavigationStyle;
 }> = [
-  { id: "midnight_lime", name: "Midnight Lime", description: "Xanh đêm cao cấp", colors: ["#55D6A7", "#B7F34D", "#0B1513"], canvas: "#0B1513", surface: "#172622", ink: "#F2F8F5" },
-  { id: "ocean_cyan", name: "Ocean Cyan", description: "Trong trẻo, công nghệ", colors: ["#22D3EE", "#67E8F9", "#07151C"], canvas: "#07151C", surface: "#102733", ink: "#ECFEFF" },
-  { id: "violet_pulse", name: "Violet Pulse", description: "Sáng tạo, hiện đại", colors: ["#A78BFA", "#E879F9", "#100C1C"], canvas: "#100C1C", surface: "#221936", ink: "#FAF5FF" },
-  { id: "sunset_coral", name: "Sunset Coral", description: "Ấm áp, nổi bật", colors: ["#FB7185", "#FDBA74", "#1C1012"], canvas: "#1C1012", surface: "#321C20", ink: "#FFF7ED" },
-  { id: "mint_light", name: "Mint Light", description: "Sáng, nhẹ và tối giản", colors: ["#0F9F72", "#84CC16", "#F3FAF7"], canvas: "#F3FAF7", surface: "#FFFFFF", ink: "#13231D" },
+  {
+    id: "midnight_lime",
+    name: "Midnight Lime",
+    description: "Xanh đêm cao cấp",
+    colors: ["#55D6A7", "#B7F34D", "#0B1513"],
+    canvas: "#0B1513",
+    surface: "#172622",
+    ink: "#F2F8F5",
+    lightCanvas: "#F3F8F6",
+    lightSurface: "#FFFFFF",
+    lightInk: "#13231D",
+  },
+  {
+    id: "ocean_cyan",
+    name: "Ocean Cyan",
+    description: "Trong trẻo, công nghệ",
+    colors: ["#22D3EE", "#67E8F9", "#07151C"],
+    canvas: "#07151C",
+    surface: "#102733",
+    ink: "#ECFEFF",
+    lightCanvas: "#F0FAFC",
+    lightSurface: "#FFFFFF",
+    lightInk: "#13231D",
+  },
+  {
+    id: "violet_pulse",
+    name: "Violet Pulse",
+    description: "Sáng tạo, hiện đại",
+    colors: ["#A78BFA", "#E879F9", "#100C1C"],
+    canvas: "#100C1C",
+    surface: "#221936",
+    ink: "#FAF5FF",
+    lightCanvas: "#F8F5FF",
+    lightSurface: "#FFFFFF",
+    lightInk: "#21172F",
+  },
+  {
+    id: "sunset_coral",
+    name: "Sunset Coral",
+    description: "Ấm áp, nổi bật",
+    colors: ["#FB7185", "#FDBA74", "#1C1012"],
+    canvas: "#1C1012",
+    surface: "#321C20",
+    ink: "#FFF7ED",
+    lightCanvas: "#FFF7F4",
+    lightSurface: "#FFFFFF",
+    lightInk: "#2A171A",
+  },
+  {
+    id: "mint_light",
+    name: "Mint Light",
+    description: "Sáng, nhẹ và tối giản",
+    colors: ["#0F9F72", "#84CC16", "#F3FAF7"],
+    canvas: "#091713",
+    surface: "#10241D",
+    ink: "#F2F8F5",
+    lightCanvas: "#F3FAF7",
+    lightSurface: "#FFFFFF",
+    lightInk: "#13231D",
+  },
+  {
+    id: "threads_mono",
+    name: "Threads Mono",
+    description: "Đen trắng tối giản, thanh điều hướng kính",
+    colors: ["#F5F5F5", "#D6D6D6", "#101010"],
+    canvas: "#101010",
+    surface: "#171717",
+    ink: "#F5F5F5",
+    lightCanvas: "#F7F7F7",
+    lightSurface: "#FFFFFF",
+    lightInk: "#111111",
+    recommendedNavigation: "glass",
+  },
 ];
 
 const modes = [
@@ -113,28 +191,33 @@ function ChoiceCard({
 function PhonePreview({ theme }: { theme: ThemeSettings }) {
   const preset = presets.find((item) => item.id === theme.preset) ?? presets[0];
   const light = theme.mode === "light" || (theme.mode === "system" && theme.preset === "mint_light");
-  const canvas = light ? "#F3F7F5" : preset.canvas;
-  const surface = light ? "#FFFFFF" : preset.surface;
-  const ink = light ? "#13231D" : preset.ink;
+  const threadsMono = preset.id === "threads_mono";
+  const canvas = light ? preset.lightCanvas : preset.canvas;
+  const surface = light ? preset.lightSurface : preset.surface;
+  const ink = light ? preset.lightInk : preset.ink;
   const style = {
     "--phone-canvas": canvas,
     "--phone-surface": surface,
     "--phone-ink": ink,
     "--phone-brand": preset.colors[0],
     "--phone-accent": preset.colors[1],
+    "--phone-frame": threadsMono ? "#050505" : "#07110e",
+    "--phone-line": threadsMono ? (light ? "#D5D5D5" : "#303030") : `color-mix(in srgb, ${ink} 10%, transparent)`,
+    "--phone-selection": threadsMono ? (light ? "#E5E5E5" : "#2A2A2A") : preset.colors[1],
+    "--phone-selection-ink": threadsMono ? ink : "#102019",
   } as CSSProperties;
 
   return (
-    <div className="mx-auto w-full max-w-[290px] rounded-[38px] border-[7px] border-[#07110e] bg-[var(--phone-canvas)] p-3 shadow-[0_28px_80px_rgba(0,0,0,.28)]" style={style}>
+    <div className="mx-auto w-full max-w-[290px] rounded-[38px] border-[7px] border-[var(--phone-frame)] bg-[var(--phone-canvas)] p-3 shadow-[0_28px_80px_rgba(0,0,0,.28)]" style={style}>
       <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-[color-mix(in_srgb,var(--phone-ink)_25%,transparent)]" />
       <div className="px-2 text-[var(--phone-ink)]">
         <div className="mb-5 flex items-center justify-between">
           <span className="grid size-9 place-items-center rounded-xl bg-[var(--phone-accent)] text-[#102019]"><ShieldCheck size={18} /></span>
           <span className="rounded-full bg-[var(--phone-surface)] px-2.5 py-1 text-[9px] font-bold">PRIVATE</span>
         </div>
-        <p className="text-[9px] font-bold uppercase tracking-[.14em] text-[var(--phone-brand)]">Toolbox One</p>
+        <p className="text-[9px] font-bold uppercase tracking-[.14em] text-[var(--phone-brand)]">Snapkit</p>
         <p className="mt-1 text-lg font-extrabold tracking-tight">Nhẹ máy. Gọn việc.</p>
-        <div className="mt-4 rounded-2xl bg-[var(--phone-surface)] p-3">
+        <div className="mt-4 rounded-2xl border border-[var(--phone-line)] bg-[var(--phone-surface)] p-3">
           <span className="grid size-8 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--phone-brand)_18%,transparent)] text-[var(--phone-brand)]"><Layers3 size={16} /></span>
           <div className="mt-6 h-2 w-24 rounded-full bg-[var(--phone-ink)]" />
           <div className="mt-2 h-1.5 w-32 rounded-full bg-[color-mix(in_srgb,var(--phone-ink)_22%,transparent)]" />
@@ -143,11 +226,11 @@ function PhonePreview({ theme }: { theme: ThemeSettings }) {
       <div className={cn(
         "mt-6 grid grid-cols-4 gap-1 px-2 py-2 text-[var(--phone-ink)]",
         theme.navigationStyle === "solid" && "-mx-3 -mb-3 bg-[var(--phone-surface)]",
-        theme.navigationStyle !== "solid" && "rounded-2xl border border-[color-mix(in_srgb,var(--phone-ink)_10%,transparent)] bg-[color-mix(in_srgb,var(--phone-surface)_88%,transparent)] shadow-lg",
+        theme.navigationStyle !== "solid" && "rounded-2xl border border-[var(--phone-line)] bg-[color-mix(in_srgb,var(--phone-surface)_88%,transparent)] shadow-lg",
         theme.navigationStyle === "glass" && "bg-[color-mix(in_srgb,var(--phone-surface)_68%,transparent)]",
       )}>
         {[Smartphone, Layers3, Navigation, Monitor].map((Icon, index) => (
-          <span key={index} className={cn("grid min-h-10 place-items-center rounded-xl", index === 0 && "bg-[var(--phone-accent)] text-[#102019]")}>
+          <span key={index} className={cn("grid min-h-10 place-items-center rounded-xl", index === 0 && "bg-[var(--phone-selection)] text-[var(--phone-selection-ink)]")}>
             <Icon size={15} />
           </span>
         ))}
@@ -166,6 +249,7 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   const [mobileConfig, setMobileConfig] = useState<MobileConfig>(safeConfig);
   const [savingFlag, setSavingFlag] = useState<string>();
   const [savedFlag, setSavedFlag] = useState<string>();
+  const [flagError, setFlagError] = useState("");
   const [savingTheme, setSavingTheme] = useState(false);
   const [themeMessage, setThemeMessage] = useState<{ kind: "success" | "error"; text: string }>();
   const dirty = useMemo(() => JSON.stringify(theme) !== JSON.stringify(persistedTheme), [theme, persistedTheme]);
@@ -173,16 +257,24 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   async function toggle(flag: Flag) {
     setSavingFlag(flag.key);
     setSavedFlag(undefined);
+    setFlagError("");
     const next = { ...flag, enabled: !flag.enabled };
+    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
       const response = await fetch("/backend/api/admin/flags", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ key: next.key, enabled: next.enabled, rollout: next.rollout }),
       });
-      if (!response.ok) throw new Error();
+      const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      if (!response.ok) {
+        failureMessage = body?.error?.message ?? "Không thể cập nhật feature flag";
+        throw new Error();
+      }
       setFlags((items) => items.map((item) => item.key === next.key ? next : item));
       setSavedFlag(flag.key);
+    } catch {
+      setFlagError(failureMessage);
     } finally {
       setSavingFlag(undefined);
     }
@@ -191,6 +283,7 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   async function saveTheme() {
     setSavingTheme(true);
     setThemeMessage(undefined);
+    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
       const response = await fetch("/backend/api/admin/config", {
         method: "PATCH",
@@ -198,12 +291,15 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
         body: JSON.stringify({ theme }),
       });
       const body = await response.json().catch(() => null) as { data?: { mobileConfig: MobileConfig }; error?: { message?: string } } | null;
-      if (!response.ok || !body?.data) throw new Error(body?.error?.message ?? "Không thể lưu cấu hình");
+      if (!response.ok || !body?.data) {
+        failureMessage = body?.error?.message ?? "Không thể lưu cấu hình";
+        throw new Error();
+      }
       setMobileConfig(body.data.mobileConfig);
       setPersistedTheme(theme);
       setThemeMessage({ kind: "success", text: "Đã phát hành theme mới cho ứng dụng." });
-    } catch (error) {
-      setThemeMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình" });
+    } catch {
+      setThemeMessage({ kind: "error", text: failureMessage });
     } finally {
       setSavingTheme(false);
     }
@@ -225,7 +321,16 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
               <p className="label mb-3">Bộ màu</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {presets.map((preset) => (
-                  <ChoiceCard key={preset.id} selected={theme.preset === preset.id} onClick={() => setTheme((value) => ({ ...value, preset: preset.id }))} label={`Chọn theme ${preset.name}`}>
+                  <ChoiceCard
+                    key={preset.id}
+                    selected={theme.preset === preset.id}
+                    onClick={() => setTheme((value) => ({
+                      ...value,
+                      preset: preset.id,
+                      navigationStyle: preset.recommendedNavigation ?? value.navigationStyle,
+                    }))}
+                    label={`Chọn theme ${preset.name}`}
+                  >
                     <div className="mb-4 flex gap-2">
                       {preset.colors.map((color) => <span key={color} className="size-7 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: color }} />)}
                     </div>
@@ -278,6 +383,7 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
       <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
         <SeraSurface className="p-6">
           <SeraSectionTitle eyebrow="Feature flags" title="Điều khiển rollout" />
+          {flagError && <p role="alert" className="mt-4 text-sm text-[var(--danger)]">{flagError}</p>}
           <div className="mt-7 grid gap-3">
             {flags.map((flag) => (
               <div key={flag.key} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4">

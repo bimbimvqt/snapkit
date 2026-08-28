@@ -70,7 +70,7 @@ prod-backup:
 
 prod-restore:
 	@test -n "$(BACKUP)" || (echo "Usage: make prod-restore BACKUP=backups/file.sql.gz" && exit 1)
-	RESTORE_CONFIRM=toolbox_one pnpm prod:restore -- "$(BACKUP)"
+	RESTORE_CONFIRM=snapkit pnpm prod:restore -- "$(BACKUP)"
 
 prod-down:
 	pnpm prod:down

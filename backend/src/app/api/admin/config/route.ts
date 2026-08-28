@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 export const themeSchema = z.object({
-  preset: z.enum(["midnight_lime", "ocean_cyan", "violet_pulse", "sunset_coral", "mint_light"]),
+  preset: z.enum(["midnight_lime", "ocean_cyan", "violet_pulse", "sunset_coral", "mint_light", "threads_mono"]),
   mode: z.enum(["dark", "light", "system"]),
   navigationStyle: z.enum(["floating", "glass", "solid"]),
 });

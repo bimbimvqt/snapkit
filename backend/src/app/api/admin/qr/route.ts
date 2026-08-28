@@ -11,7 +11,7 @@ export async function GET() {
     db.qrCode.findMany({
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { id: true, kind: true, content: true, createdAt: true },
+      select: { id: true, kind: true, content: true, style: true, createdAt: true },
     }),
   ]);
 

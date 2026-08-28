@@ -13,6 +13,7 @@ fi
 
 docker compose -f docker-compose.prod.yml config --quiet
 docker compose -f docker-compose.prod.yml build --pull
+bash scripts/production-identity.sh prepare
 docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 public_url="${PUBLIC_URL:-http://127.0.0.1}"
@@ -31,5 +32,6 @@ for attempt in $(seq 1 30); do
 done
 
 SMOKE_ENV_FILE=.env.prod ADMIN_URL="$public_url" BACKEND_URL="$public_url" node scripts/smoke.mjs
+bash scripts/production-identity.sh cleanup
 docker compose -f docker-compose.prod.yml ps
 echo "Deployment is healthy at $public_url"

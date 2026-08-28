@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Toolbox One</string>
+	<string>Snapkit</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>toolbox_one</string>
+	<string>snapkit</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,11 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Toolbox One cần camera để quét QR và mã vạch.</string>
+	<string>Snapkit cần camera để quét QR và mã vạch.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Toolbox One phân tích ảnh và video ngay trên thiết bị để tìm nội dung có thể dọn dẹp.</string>
+	<string>Snapkit cần truy cập thư viện để phân tích media trên thiết bị và chọn ảnh làm logo QR.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Toolbox One cần quyền cập nhật thư viện khi bạn xác nhận xóa media.</string>
+	<string>Snapkit cần quyền thêm ảnh QR đã tạo và cập nhật media khi bạn yêu cầu.</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<!-- Transitional only while the production API has an IP but no TLS domain. Remove before store release. -->

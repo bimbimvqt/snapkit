@@ -1,5 +1,5 @@
-name: toolbox_one
-description: "A new Flutter project."
+name: snapkit
+description: "Snapkit privacy-first utility app."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -41,6 +41,7 @@ dependencies:
   mobile_scanner: ^7.4.0
   qr_flutter: ^4.1.0
   image: ^4.9.2
+  image_picker: ^1.2.1
   shared_preferences: ^2.5.5
   flutter_secure_storage: ^9.2.4
   google_mobile_ads: ^6.0.0

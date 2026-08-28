@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Toolbox One", template: "%s · Toolbox One" },
+  title: { default: "Snapkit", template: "%s · Snapkit" },
   description: "Bộ công cụ riêng tư cho media và QR.",
 };
 

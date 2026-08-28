@@ -25,9 +25,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (value == null) return;
     _handled = true;
     await _controller.stop();
-    await ApiClient.instance.event('qr_scanned', {
-      'format': capture.barcodes.first.format.name,
-    });
+    await ApiClient.instance.event('qr_scanned', {'format': capture.barcodes.first.format.name});
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -49,11 +47,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 ),
                 alignment: Alignment.center,
               ),
-              Icon(
-                Icons.check_circle_rounded,
-                size: 42,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              Icon(Icons.check_circle_rounded, size: 42, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
               const Text(
                 'Đã đọc mã',
@@ -64,16 +58,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
               SelectableText(
                 value,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5),
               ),
               const SizedBox(height: 22),
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Quét tiếp'),
-              ),
+              FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Quét tiếp')),
             ],
           ),
         ),
@@ -119,19 +107,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
             fit: StackFit.expand,
             children: [
               Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  backgroundBlendMode: BlendMode.dstOut,
-                ),
+                decoration: const BoxDecoration(color: Colors.black, backgroundBlendMode: BlendMode.dstOut),
               ),
               Center(
                 child: Container(
                   width: 270,
                   height: 270,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28)),
                 ),
               ),
             ],
@@ -143,10 +125,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             height: 270,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.secondary,
-                width: 3,
-              ),
+              border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 3),
             ),
           ),
         ),
@@ -157,10 +136,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: Text(
             'Đặt mã vào trong khung · dữ liệu chỉ được xử lý trên máy',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
           ),
         ),
       ],

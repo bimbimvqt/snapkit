@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_environment.dart';
 import '../../../core/network/api_client.dart';
-import '../../../shared/widgets/toolbox_widgets.dart';
+import '../../../shared/widgets/snapkit_widgets.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -20,26 +20,17 @@ class SettingsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFB7F34D), Color(0xFF78DFAF)],
-              ),
+              gradient: const LinearGradient(colors: [Color(0xFFB7F34D), Color(0xFF78DFAF)]),
               borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: Color(0xFF102019),
-                ),
+                const Icon(Icons.workspace_premium_rounded, color: Color(0xFF102019)),
                 const SizedBox(height: 22),
                 const Text(
-                  'Toolbox Pro',
-                  style: TextStyle(
-                    color: Color(0xFF102019),
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  'Snapkit Pro',
+                  style: TextStyle(color: Color(0xFF102019), fontSize: 22, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 7),
                 const Text(
@@ -74,18 +65,12 @@ class SettingsScreen extends StatelessWidget {
                   subtitle: 'Không hiển thị trong lúc chọn/xóa media',
                 ),
                 _Divider(),
-                _Tile(
-                  icon: Icons.cloud_outlined,
-                  title: 'API backend',
-                  subtitle: AppEnvironment.apiBaseUrl,
-                ),
+                _Tile(icon: Icons.cloud_outlined, title: 'API backend', subtitle: AppEnvironment.apiBaseUrl),
                 _Divider(),
                 _Tile(
                   icon: Icons.science_outlined,
                   title: 'Môi trường',
-                  subtitle: AppEnvironment.isProduction
-                      ? 'Production'
-                      : 'Development',
+                  subtitle: AppEnvironment.isProduction ? 'Production' : 'Development',
                 ),
               ],
             ),
@@ -94,12 +79,9 @@ class SettingsScreen extends StatelessWidget {
           const PrivacyPill(),
           const SizedBox(height: 12),
           Text(
-            'Toolbox One 1.0.0 · Build privacy-first',
+            'Snapkit 1.0.0 · Build privacy-first',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -108,11 +90,7 @@ class SettingsScreen extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _Tile({required this.icon, required this.title, required this.subtitle});
   final IconData icon;
   final String title, subtitle;
   @override
@@ -124,10 +102,7 @@ class _Tile extends StatelessWidget {
       subtitle,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 12,
-      ),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
     ),
   );
 }

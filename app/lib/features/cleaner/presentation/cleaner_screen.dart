@@ -4,7 +4,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/ads/ad_service.dart';
 import '../../../core/network/api_client.dart';
-import '../../../shared/widgets/toolbox_widgets.dart';
+import '../../../shared/widgets/snapkit_widgets.dart';
 import '../data/media_scanner.dart';
 import '../domain/media_scan_result.dart';
 
@@ -33,20 +33,13 @@ class _CleanerScreenState extends State<CleanerScreen> {
     });
     try {
       final result = await _scanner.scan();
-      for (final group in result.groups.where(
-        (g) => g.type == MediaGroupType.similar,
-      )) {
+      for (final group in result.groups.where((g) => g.type == MediaGroupType.similar)) {
         _selected.addAll(group.assets.skip(1).map((a) => a.id));
       }
       setState(() => _result = result);
-      await ApiClient.instance.event('media_scan', {
-        'scanned': result.scanned,
-        'groups': result.groups.length,
-      });
+      await ApiClient.instance.event('media_scan', {'scanned': result.scanned, 'groups': result.groups.length});
     } on MediaPermissionException {
-      setState(
-        () => _error = 'Cần quyền truy cập thư viện để phân tích media.',
-      );
+      setState(() => _error = 'Cần quyền truy cập thư viện để phân tích media.');
     } catch (_) {
       setState(() => _error = 'Không thể hoàn tất quét. Vui lòng thử lại.');
     } finally {
@@ -61,18 +54,10 @@ class _CleanerScreenState extends State<CleanerScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Xóa media đã chọn?'),
-            content: Text(
-              '${_selected.length} mục sẽ được chuyển vào thùng rác hệ thống nếu thiết bị hỗ trợ.',
-            ),
+            content: Text('${_selected.length} mục sẽ được chuyển vào thùng rác hệ thống nếu thiết bị hỗ trợ.'),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Xem lại'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Xóa an toàn'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Xem lại')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xóa an toàn')),
             ],
           ),
         ) ??
@@ -81,10 +66,7 @@ class _CleanerScreenState extends State<CleanerScreen> {
     setState(() => _deleting = true);
     var bytes = 0;
     final assets =
-        _result?.groups
-            .expand((g) => g.assets)
-            .where((a) => _selected.contains(a.id)) ??
-        const <AssetEntity>[];
+        _result?.groups.expand((g) => g.assets).where((a) => _selected.contains(a.id)) ?? const <AssetEntity>[];
     for (final asset in assets) {
       bytes += await (await asset.file)?.length() ?? 0;
     }
@@ -97,9 +79,7 @@ class _CleanerScreenState extends State<CleanerScreen> {
     );
     await AdService.showAfterCleanup();
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Đã xóa ${deleted.length} mục.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã xóa ${deleted.length} mục.')));
       setState(() => _deleting = false);
       await _scan();
     }
@@ -119,20 +99,13 @@ class _CleanerScreenState extends State<CleanerScreen> {
                   const PageHeader(
                     eyebrow: 'Private media lab',
                     title: 'Dọn bộ nhớ thông minh',
-                    description:
-                        'Phân tích thumbnail độ phân giải thấp ngay trên máy. Không upload ảnh/video.',
+                    description: 'Phân tích thumbnail độ phân giải thấp ngay trên máy. Không upload ảnh/video.',
                   ),
                   const SizedBox(height: 22),
                   if (_result == null && !_scanning) _HeroScan(onScan: _scan),
                   if (_scanning) _ScanningCard(),
-                  if (_error != null)
-                    _ErrorCard(message: _error!, onRetry: _scan),
-                  if (_result case final result?)
-                    _Summary(
-                      result: result,
-                      selected: _selected.length,
-                      onScan: _scan,
-                    ),
+                  if (_error != null) _ErrorCard(message: _error!, onRetry: _scan),
+                  if (_result case final result?) _Summary(result: result, selected: _selected.length, onScan: _scan),
                 ],
               ),
             ),
@@ -145,9 +118,7 @@ class _CleanerScreenState extends State<CleanerScreen> {
                 itemBuilder: (context, index) => _GroupCard(
                   group: result.groups[index],
                   selected: _selected,
-                  onChanged: (id, value) => setState(
-                    () => value ? _selected.add(id) : _selected.remove(id),
-                  ),
+                  onChanged: (id, value) => setState(() => value ? _selected.add(id) : _selected.remove(id)),
                 ),
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
               ),
@@ -163,10 +134,7 @@ class _CleanerScreenState extends State<CleanerScreen> {
               child: FilledButton.icon(
                 onPressed: _deleting ? null : _delete,
                 icon: _deleting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.delete_outline_rounded),
                 label: Text('Dọn ${_selected.length} mục đã chọn'),
               ),
@@ -189,21 +157,11 @@ class _HeroScan extends StatelessWidget {
           children: [
             Container(
               height: 130,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                Icons.photo_library_outlined,
-                size: 48,
-                color: scheme.primary,
-              ),
+              decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(20)),
+              child: Icon(Icons.photo_library_outlined, size: 48, color: scheme.primary),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Bắt đầu với thư viện của bạn',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-            ),
+            Text('Bắt đầu với thư viện của bạn', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(
               'Tìm ảnh gần giống bằng perceptual hash, screenshot cũ và video trên 100 MB.',
@@ -229,21 +187,13 @@ class _ScanningCard extends StatelessWidget {
       padding: const EdgeInsets.all(28),
       child: Column(
         children: [
-          CircularProgressIndicator(
-            color: Theme.of(context).colorScheme.secondary,
-          ),
+          CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
           const SizedBox(height: 18),
-          const Text(
-            'Đang phân tích an toàn…',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
+          const Text('Đang phân tích an toàn…', style: TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(
             'Có thể mất một lúc với thư viện lớn',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -272,11 +222,7 @@ class _ErrorCard extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({
-    required this.result,
-    required this.selected,
-    required this.onScan,
-  });
+  const _Summary({required this.result, required this.selected, required this.onScan});
   final MediaScanResult result;
   final int selected;
   final VoidCallback onScan;
@@ -292,27 +238,17 @@ class _Summary extends StatelessWidget {
               children: [
                 Text(
                   '${result.groups.length} nhóm cần xem lại',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 5),
                 Text(
                   'Đã quét ${result.scanned} mục · chọn $selected',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onScan,
-            tooltip: 'Quét lại',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+          IconButton(onPressed: onScan, tooltip: 'Quét lại', icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
     ),
@@ -320,11 +256,7 @@ class _Summary extends StatelessWidget {
 }
 
 class _GroupCard extends StatelessWidget {
-  const _GroupCard({
-    required this.group,
-    required this.selected,
-    required this.onChanged,
-  });
+  const _GroupCard({required this.group, required this.selected, required this.onChanged});
   final MediaGroup group;
   final Set<String> selected;
   final void Function(String, bool) onChanged;
@@ -345,10 +277,7 @@ class _GroupCard extends StatelessWidget {
               : Icons.movie_filter_outlined,
           color: scheme.primary,
         ),
-        title: Text(
-          group.title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
+        title: Text(group.title, style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(
           '${group.assets.length} mục · ${_bytes(group.bytes)}',
           style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
@@ -378,12 +307,7 @@ class _GroupCard extends StatelessWidget {
                     DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: checked
-                              ? scheme.secondary
-                              : Colors.transparent,
-                          width: 3,
-                        ),
+                        border: Border.all(color: checked ? scheme.secondary : Colors.transparent, width: 3),
                       ),
                     ),
                     Positioned(
@@ -399,9 +323,7 @@ class _GroupCard extends StatelessWidget {
                         child: Icon(
                           checked ? Icons.check_rounded : Icons.add_rounded,
                           size: 17,
-                          color: checked
-                              ? const Color(0xFF102019)
-                              : Colors.white,
+                          color: checked ? const Color(0xFF102019) : Colors.white,
                         ),
                       ),
                     ),
@@ -430,9 +352,7 @@ class _Thumbnail extends StatelessWidget {
         ? Image.memory(snapshot.data!, fit: BoxFit.cover)
         : Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
   );
 }

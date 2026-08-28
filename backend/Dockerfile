@@ -27,7 +27,7 @@ COPY admin/package.json ./admin/package.json
 COPY backend/package.json ./backend/package.json
 COPY backend/migrator/package.json ./backend/migrator/package.json
 COPY backend/prisma ./backend/migrator/prisma
-RUN pnpm install --frozen-lockfile --prod --filter @toolbox/migrator... \
+RUN pnpm install --frozen-lockfile --prod --filter @snapkit/migrator... \
     && pnpm --dir backend/migrator exec prisma generate \
     && rm -rf /root/.local/share/pnpm/store /root/.cache /tmp/*
 

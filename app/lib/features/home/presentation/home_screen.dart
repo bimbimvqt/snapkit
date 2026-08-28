@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/ads/ad_service.dart';
 import '../../../core/network/api_client.dart';
-import '../../../shared/widgets/toolbox_widgets.dart';
+import '../../../shared/widgets/snapkit_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,9 +15,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    ApiClient.instance.bootstrap().then(
-      (_) => ApiClient.instance.event('app_open'),
-    );
+    ApiClient.instance.bootstrap().then((_) => ApiClient.instance.event('app_open'));
   }
 
   @override
@@ -34,21 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(
-                    color: scheme.secondary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.shield_rounded,
-                    color: Color(0xFF102019),
-                  ),
+                  decoration: BoxDecoration(color: scheme.secondary, borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.shield_rounded, color: Color(0xFF102019)),
                 ),
                 const PrivacyPill(),
               ],
             ),
             const SizedBox(height: 32),
             const PageHeader(
-              eyebrow: 'Toolbox One',
+              eyebrow: 'Snapkit',
               title: 'Nhẹ máy. Gọn việc.',
               description:
                   'Bộ công cụ thiết yếu, được thiết kế để dữ liệu riêng tư luôn ở lại trên điện thoại của bạn.',
@@ -58,13 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color.alphaBlend(
-                      scheme.primary.withValues(alpha: .2),
-                      scheme.surface,
-                    ),
-                    scheme.surface,
-                  ],
+                  colors: [Color.alphaBlend(scheme.primary.withValues(alpha: .2), scheme.surface), scheme.surface],
                 ),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(color: scheme.outlineVariant),
@@ -76,19 +62,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 28),
                   const Text(
                     '2 công cụ sẵn sàng',
-                    style: TextStyle(
-                      fontSize: 23,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.6,
-                    ),
+                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -.6),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Dọn media thông minh và QR Studio đa năng.',
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.45,
-                    ),
+                    style: TextStyle(color: scheme.onSurfaceVariant, height: 1.45),
                   ),
                 ],
               ),
@@ -121,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 22),
-            const ToolboxBannerAd(),
+            const SnapkitBannerAd(),
           ],
         ),
       ),
@@ -133,9 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context.go(route);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tính năng đang được bảo trì.')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tính năng đang được bảo trì.')));
   }
 }
 
@@ -149,18 +126,9 @@ class _Stat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-          ),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
           const SizedBox(height: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     ),

@@ -1,4 +1,4 @@
-# Toolbox One
+# Snapkit
 
 Monorepo privacy-first được tách để phát triển, kiểm thử và deploy độc lập.
 
@@ -28,6 +28,29 @@ Browser admin ───────────── / ──┘         admin:
 
 Yêu cầu: Node 22+, pnpm 11+, Docker Desktop/OrbStack đang chạy.
 
+### Cài pnpm khi terminal báo `command not found`
+
+Project dùng pnpm `11.19.0`. Ưu tiên kích hoạt qua Corepack đi kèm Node.js:
+
+```bash
+corepack enable
+corepack prepare pnpm@11.19.0 --activate
+pnpm --version
+```
+
+Nếu máy không có lệnh `corepack`, cài bằng npm:
+
+```bash
+npm install --global pnpm@11.19.0
+pnpm --version
+```
+
+Chạy các lệnh dưới đây từ thư mục gốc của project:
+
+```bash
+cd /Volumes/SanDiskSSDData/flutter_projects/tools-app
+```
+
 ```bash
 pnpm local:up
 ```
@@ -44,7 +67,9 @@ Sau khi hoàn tất:
 - Admin: `http://localhost:3000/login`
 - Backend: `http://localhost:3001`
 - Health: `http://localhost:3001/api/health`
-- Tài khoản local: `admin@toolbox.one` / `ChangeMe123!`
+- Tài khoản local mặc định mới: `admin@snapkit.local` / `admin@123`.
+
+Nếu workspace đã có `backend/.env`, tài khoản được lấy theo đúng giá trị `ADMIN_EMAIL` trong file đó.
 
 ```bash
 pnpm local:logs
@@ -61,7 +86,55 @@ pnpm --dir backend db:seed
 pnpm dev
 ```
 
-`pnpm dev` chạy admin tại port `3000` và backend tại port `3001`. Các file runtime nằm tại `admin/.env.local` và `backend/.env.local`; chúng không được commit.
+`pnpm dev` chạy admin tại port `3000` và backend tại port `3001`. Các file runtime nằm tại `admin/.env.local` và `backend/.env`; chúng không được commit.
+
+### Đổi tài khoản hoặc mật khẩu admin local
+
+Không sửa mật khẩu trong README hoặc form đăng nhập. Hãy sửa đúng file env theo cách đang chạy project. Development yêu
+cầu tối thiểu 8 ký tự; production vẫn yêu cầu tối thiểu 12 ký tự và bước kiểm tra deploy yêu cầu tối thiểu 16 ký tự.
+
+Nếu chạy toàn bộ stack bằng Docker (`pnpm local:up`), sửa file `.env` ở thư mục gốc:
+
+```dotenv
+ADMIN_EMAIL=admin@snapkit.local
+ADMIN_PASSWORD=admin@123
+```
+
+Sau đó cập nhật password hash trong database và đăng nhập lại:
+
+```bash
+docker compose -f docker-compose.dev.yml run --rm migrate pnpm -C backend db:seed
+```
+
+Nếu chạy backend bằng hot reload trên máy, sửa `backend/.env`, sau đó chạy:
+
+```bash
+pnpm --dir backend db:seed
+```
+
+Nếu chỉ có npm và dependencies đã được cài, cú pháp tương đương là:
+
+```bash
+npm --prefix backend run db:seed
+```
+
+Lưu ý: pnpm dùng `pnpm --dir backend db:seed`; npm phải dùng `npm --prefix backend run db:seed`. Không dùng
+`npm --dir backend db:seed`.
+
+### Cổng `3000` đã được sử dụng
+
+Nếu container admin đang chiếm cổng `3000` và bạn muốn chạy Next.js hot reload:
+
+```bash
+docker compose -f docker-compose.dev.yml stop admin
+pnpm --dir admin dev
+```
+
+Hoặc giữ container hiện tại và chạy admin source trên cổng khác:
+
+```bash
+pnpm --dir admin exec next dev --port 3002
+```
 
 ### Flutter
 
@@ -78,13 +151,13 @@ make dev-app-android
 
 Trong `Admin → Cấu hình app`, quản trị viên có thể phát hành từ xa:
 
-- 5 preset: Midnight Lime, Ocean Cyan, Violet Pulse, Sunset Coral và Mint Light.
+- 6 preset: Midnight Lime, Ocean Cyan, Violet Pulse, Sunset Coral, Mint Light và Threads Mono.
 - Chế độ `dark`, `light` hoặc theo hệ thống.
 - Bottom navigation `floating`, `glass` hoặc `solid`.
 
 Flutter đồng bộ cấu hình khi mở app và khi quay lại foreground. Nếu API tạm thời không truy cập được, app giữ theme mặc định an toàn và các công cụ local vẫn hoạt động.
 
-QR Studio hỗ trợ màu foreground/background/frame/icon, HEX tùy chọn, mắt và module vuông/tròn, 4 kiểu khung, border/bo góc và icon trung tâm. Khi có icon, QR tự dùng error-correction mức `H`; UI cũng chặn lưu khi foreground/background không đủ tương phản.
+QR Studio hỗ trợ color picker toàn dải, HEX tùy chọn, mắt và module vuông/tròn, 5 kiểu khung gồm viền hoa/cầu vồng, logo ảnh riêng và xuất PNG vào thư viện. Khi có icon, QR tự dùng error-correction mức `H`; UI cũng chặn lưu khi foreground/background không đủ tương phản.
 
 ## Production trên `45.119.214.94`
 
@@ -123,7 +196,7 @@ Các lệnh vận hành:
 ```bash
 pnpm prod:logs
 pnpm prod:backup
-make prod-restore BACKUP=backups/toolbox-one-YYYYMMDDTHHMMSSZ.sql.gz
+make prod-restore BACKUP=backups/snapkit-YYYYMMDDTHHMMSSZ.sql.gz
 pnpm prod:down
 docker compose -f docker-compose.prod.yml ps
 ```
@@ -141,7 +214,7 @@ make build-app-prod
 
 Phải backup cả hai file sau ở nơi an toàn:
 
-- `app/android/keystore/toolbox-upload.jks`
+- `app/android/keystore/snapkit-upload.jks`
 - `.android-signing.env`
 
 iOS release compile không ký:

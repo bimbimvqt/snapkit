@@ -4,9 +4,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../config/remote_config.dart';
 
 class AdService {
-  static String get _interstitialId => Platform.isIOS
-      ? 'ca-app-pub-3940256099942544/4411468910'
-      : 'ca-app-pub-3940256099942544/1033173712';
+  static String get _interstitialId =>
+      Platform.isIOS ? 'ca-app-pub-3940256099942544/4411468910' : 'ca-app-pub-3940256099942544/1033173712';
 
   static Future<void> showAfterCleanup() async {
     if (RemoteConfig.instance.mobile['adMode'] == 'off') return;
@@ -27,13 +26,13 @@ class AdService {
   }
 }
 
-class ToolboxBannerAd extends StatefulWidget {
-  const ToolboxBannerAd({super.key});
+class SnapkitBannerAd extends StatefulWidget {
+  const SnapkitBannerAd({super.key});
   @override
-  State<ToolboxBannerAd> createState() => _ToolboxBannerAdState();
+  State<SnapkitBannerAd> createState() => _SnapkitBannerAdState();
 }
 
-class _ToolboxBannerAdState extends State<ToolboxBannerAd> {
+class _SnapkitBannerAdState extends State<SnapkitBannerAd> {
   BannerAd? _ad;
   @override
   void initState() {
@@ -41,9 +40,7 @@ class _ToolboxBannerAdState extends State<ToolboxBannerAd> {
     if (RemoteConfig.instance.mobile['adMode'] == 'off') return;
     final ad = BannerAd(
       size: AdSize.banner,
-      adUnitId: Platform.isIOS
-          ? 'ca-app-pub-3940256099942544/2934735716'
-          : 'ca-app-pub-3940256099942544/6300978111',
+      adUnitId: Platform.isIOS ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
       listener: BannerAdListener(
         onAdLoaded: (value) {
           if (mounted) setState(() => _ad = value as BannerAd);

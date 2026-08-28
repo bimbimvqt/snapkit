@@ -3,7 +3,7 @@ set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 keystore_dir="$project_dir/app/android/keystore"
-keystore_path="$keystore_dir/toolbox-upload.jks"
+keystore_path="$keystore_dir/snapkit-upload.jks"
 env_path="$project_dir/.android-signing.env"
 
 if [[ -f "$keystore_path" && -f "$env_path" ]]; then
@@ -26,21 +26,21 @@ keytool -genkeypair \
   -keystore "$keystore_path" \
   -storepass "$signing_password" \
   -keypass "$signing_password" \
-  -alias toolbox-upload \
+  -alias snapkit-upload \
   -keyalg RSA \
   -keysize 4096 \
   -validity 10000 \
-  -dname "CN=Toolbox One, OU=Mobile, O=Toolbox One, L=Ho Chi Minh City, C=VN" \
+  -dname "CN=Snapkit, OU=Mobile, O=Snapkit, L=Ho Chi Minh City, C=VN" \
   -noprompt >/dev/null
 
 umask 077
 printf '%s\n' \
-  "ANDROID_KEYSTORE_PATH=../keystore/toolbox-upload.jks" \
+  "ANDROID_KEYSTORE_PATH=../keystore/snapkit-upload.jks" \
   "ANDROID_KEYSTORE_PASSWORD=$signing_password" \
-  "ANDROID_KEY_ALIAS=toolbox-upload" \
+  "ANDROID_KEY_ALIAS=snapkit-upload" \
   "ANDROID_KEY_PASSWORD=$signing_password" \
   > "$env_path"
 
 chmod 600 "$keystore_path" "$env_path"
 echo "Android upload signing identity created."
-echo "Back up app/android/keystore/toolbox-upload.jks and .android-signing.env securely; losing them can block future app updates."
+echo "Back up app/android/keystore/snapkit-upload.jks and .android-signing.env securely; losing them can block future app updates."

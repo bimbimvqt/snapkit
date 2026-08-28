@@ -18,4 +18,5 @@ app/ios/.symlinks/
 coverage/
 backups/
 .android-signing.env
+.previous-compose-identity
 app/android/keystore/

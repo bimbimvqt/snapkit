@@ -21,7 +21,7 @@ function readEnv(path) {
 
 const configuredEnvPath = process.env.SMOKE_ENV_FILE
   ? resolve(root, process.env.SMOKE_ENV_FILE)
-  : resolve(root, "backend/.env.local");
+  : resolve(root, "backend/.env");
 const smokeEnv = readEnv(configuredEnvPath);
 const email = process.env.ADMIN_EMAIL ?? smokeEnv.ADMIN_EMAIL;
 const password = process.env.ADMIN_PASSWORD ?? smokeEnv.ADMIN_PASSWORD;
@@ -51,13 +51,13 @@ try {
     ? login.headers.getSetCookie()
     : [login.headers.get("set-cookie")].filter(Boolean);
   const cookie = cookies.map((value) => value.split(";", 1)[0]).join("; ");
-  if (!cookie.includes("tb_access=") || !cookie.includes("tb_refresh=")) {
+  if (!cookie.includes("snapkit_access=") || !cookie.includes("snapkit_refresh=")) {
     throw new Error("Login response did not return both auth cookies");
   }
   const refreshToken = cookie
     .split("; ")
-    .find((value) => value.startsWith("tb_refresh="))
-    ?.slice("tb_refresh=".length);
+    .find((value) => value.startsWith("snapkit_refresh="))
+    ?.slice("snapkit_refresh=".length);
 
   const authenticated = { headers: { cookie }, redirect: "manual" };
   await expectResponse("current user", `${adminBase}/backend/api/v1/auth/me`, authenticated);

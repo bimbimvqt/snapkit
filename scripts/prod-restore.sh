@@ -9,11 +9,11 @@ if [[ "${1:-}" == "--" ]]; then
 fi
 backup_path="${1:-}"
 if [[ -z "$backup_path" || ! -f "$backup_path" ]]; then
-  echo "Usage: RESTORE_CONFIRM=toolbox_one bash scripts/prod-restore.sh backups/file.sql.gz" >&2
+  echo "Usage: RESTORE_CONFIRM=snapkit bash scripts/prod-restore.sh backups/file.sql.gz" >&2
   exit 1
 fi
-if [[ "${RESTORE_CONFIRM:-}" != "toolbox_one" ]]; then
-  echo "Restore replaces current database objects. Set RESTORE_CONFIRM=toolbox_one to continue." >&2
+if [[ "${RESTORE_CONFIRM:-}" != "snapkit" ]]; then
+  echo "Restore replaces current database objects. Set RESTORE_CONFIRM=snapkit to continue." >&2
   exit 1
 fi
 

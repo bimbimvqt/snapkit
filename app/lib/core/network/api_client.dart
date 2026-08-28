@@ -23,8 +23,7 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
-          if (error.response?.statusCode != 401 ||
-              error.requestOptions.extra['retried'] == true) {
+          if (error.response?.statusCode != 401 || error.requestOptions.extra['retried'] == true) {
             handler.next(error);
             return;
           }
@@ -34,21 +33,13 @@ class ApiClient {
             return;
           }
           try {
-            final refresh =
-                await Dio(
-                  BaseOptions(baseUrl: AppEnvironment.apiBaseUrl),
-                ).post<Map<String, dynamic>>(
-                  '/api/v1/auth/refresh',
-                  data: {'refreshToken': refreshToken},
-                );
+            final refresh = await Dio(
+              BaseOptions(baseUrl: AppEnvironment.apiBaseUrl),
+            ).post<Map<String, dynamic>>('/api/v1/auth/refresh', data: {'refreshToken': refreshToken});
             final data = refresh.data?['data'] as Map<String, dynamic>;
-            await _saveTokens(
-              data['accessToken'] as String,
-              data['refreshToken'] as String,
-            );
+            await _saveTokens(data['accessToken'] as String, data['refreshToken'] as String);
             error.requestOptions.extra['retried'] = true;
-            error.requestOptions.headers['authorization'] =
-                'Bearer ${data['accessToken']}';
+            error.requestOptions.headers['authorization'] = 'Bearer ${data['accessToken']}';
             handler.resolve(await dio.fetch(error.requestOptions));
           } catch (_) {
             handler.next(error);
@@ -76,10 +67,7 @@ class ApiClient {
         data: {'deviceId': await deviceId()},
       );
       final data = response.data?['data'] as Map<String, dynamic>;
-      await _saveTokens(
-        data['accessToken'] as String,
-        data['refreshToken'] as String,
-      );
+      await _saveTokens(data['accessToken'] as String, data['refreshToken'] as String);
     } catch (_) {}
   }
 
@@ -92,10 +80,7 @@ class ApiClient {
     return id;
   }
 
-  Future<void> event(
-    String name, [
-    Map<String, Object?> metadata = const {},
-  ]) async {
+  Future<void> event(String name, [Map<String, Object?> metadata = const {}]) async {
     try {
       await dio.post(
         '/api/v1/events',
@@ -109,20 +94,11 @@ class ApiClient {
     } catch (_) {}
   }
 
-  Future<bool> saveQr({
-    required String kind,
-    required String content,
-    required Map<String, Object> style,
-  }) async {
+  Future<bool> saveQr({required String kind, required String content, required Map<String, Object> style}) async {
     try {
       await dio.post(
         '/api/v1/qr',
-        data: {
-          'deviceId': await deviceId(),
-          'kind': kind,
-          'content': content,
-          'style': style,
-        },
+        data: {'deviceId': await deviceId(), 'kind': kind, 'content': content, 'style': style},
       );
       return true;
     } catch (_) {

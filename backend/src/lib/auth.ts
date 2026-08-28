@@ -4,8 +4,8 @@ import { SignJWT, jwtVerify } from "jose";
 import type { Role, User } from "@prisma/client";
 import { db } from "@/lib/db";
 
-const accessCookie = "tb_access";
-const refreshCookie = "tb_refresh";
+const accessCookie = "snapkit_access";
+const refreshCookie = "snapkit_refresh";
 let cachedSecret: Uint8Array | undefined;
 
 function jwtSecret() {

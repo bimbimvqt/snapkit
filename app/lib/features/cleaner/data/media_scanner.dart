@@ -8,22 +8,12 @@ class MediaScanner {
     final started = DateTime.now();
     final permission = await PhotoManager.requestPermissionExtend();
     if (!permission.isAuth) throw const MediaPermissionException();
-    final paths = await PhotoManager.getAssetPathList(
-      type: RequestType.common,
-      onlyAll: true,
-    );
+    final paths = await PhotoManager.getAssetPathList(type: RequestType.common, onlyAll: true);
     if (paths.isEmpty) {
-      return MediaScanResult(
-        scanned: 0,
-        groups: const [],
-        duration: DateTime.now().difference(started),
-      );
+      return MediaScanResult(scanned: 0, groups: const [], duration: DateTime.now().difference(started));
     }
     final count = await paths.first.assetCountAsync;
-    final assets = await paths.first.getAssetListRange(
-      start: 0,
-      end: count.clamp(0, 500),
-    );
+    final assets = await paths.first.getAssetListRange(start: 0, end: count.clamp(0, 500));
     final screenshots = <AssetEntity>[];
     final largeVideos = <AssetEntity>[];
     final similarCandidates = <({AssetEntity asset, BigInt hash, int bytes})>[];
@@ -41,10 +31,7 @@ class MediaScanner {
         screenshots.add(asset);
       }
       if (similarCandidates.length < 180) {
-        final data = await asset.thumbnailDataWithSize(
-          const ThumbnailSize(18, 16),
-          quality: 55,
-        );
+        final data = await asset.thumbnailDataWithSize(const ThumbnailSize(18, 16), quality: 55);
         if (data != null) {
           final hash = _differenceHash(data);
           if (hash != null) {
@@ -62,10 +49,7 @@ class MediaScanner {
           break;
         }
       }
-      (match ??
-              (clusters..add(<({AssetEntity asset, BigInt hash, int bytes})>[]))
-                  .last)
-          .add(candidate);
+      (match ?? (clusters..add(<({AssetEntity asset, BigInt hash, int bytes})>[])).last).add(candidate);
     }
     final groups = <MediaGroup>[];
     for (final cluster in clusters.where((c) => c.length > 1)) {
@@ -98,11 +82,7 @@ class MediaScanner {
         ),
       );
     }
-    return MediaScanResult(
-      scanned: assets.length,
-      groups: groups,
-      duration: DateTime.now().difference(started),
-    );
+    return MediaScanResult(scanned: assets.length, groups: groups, duration: DateTime.now().difference(started));
   }
 
   BigInt? _differenceHash(List<int> bytes) {
@@ -113,8 +93,7 @@ class MediaScanner {
     var bit = 0;
     for (var y = 0; y < 8; y++) {
       for (var x = 0; x < 8; x++) {
-        if (resized.getPixel(x, y).luminance <
-            resized.getPixel(x + 1, y).luminance) {
+        if (resized.getPixel(x, y).luminance < resized.getPixel(x + 1, y).luminance) {
           hash |= BigInt.one << bit;
         }
         bit++;
@@ -141,8 +120,7 @@ class MediaScanner {
     return total;
   }
 
-  Future<List<String>> delete(List<String> ids) =>
-      PhotoManager.editor.deleteWithIds(ids);
+  Future<List<String>> delete(List<String> ids) => PhotoManager.editor.deleteWithIds(ids);
 }
 
 class MediaPermissionException implements Exception {

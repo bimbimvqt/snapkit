@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'core/config/remote_config.dart';
-import 'core/theme/toolbox_theme.dart';
+import 'core/theme/snapkit_theme.dart';
 import 'features/cleaner/presentation/cleaner_screen.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/qr/presentation/qr_screen.dart';
@@ -16,25 +16,16 @@ final _router = GoRouter(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
         StatefulShellBranch(
-          routes: [
-            GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
-          ],
+          routes: [GoRoute(path: '/home', builder: (_, _) => const HomeScreen())],
         ),
         StatefulShellBranch(
-          routes: [
-            GoRoute(path: '/cleaner', builder: (_, _) => const CleanerScreen()),
-          ],
+          routes: [GoRoute(path: '/cleaner', builder: (_, _) => const CleanerScreen())],
         ),
         StatefulShellBranch(
           routes: [GoRoute(path: '/qr', builder: (_, _) => const QrScreen())],
         ),
         StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/settings',
-              builder: (_, _) => const SettingsScreen(),
-            ),
-          ],
+          routes: [GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen())],
         ),
       ],
     ),
@@ -42,14 +33,14 @@ final _router = GoRouter(
   ],
 );
 
-class ToolboxApp extends StatefulWidget {
-  const ToolboxApp({super.key});
+class SnapkitApp extends StatefulWidget {
+  const SnapkitApp({super.key});
 
   @override
-  State<ToolboxApp> createState() => _ToolboxAppState();
+  State<SnapkitApp> createState() => _SnapkitAppState();
 }
 
-class _ToolboxAppState extends State<ToolboxApp> with WidgetsBindingObserver {
+class _SnapkitAppState extends State<SnapkitApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -78,10 +69,10 @@ class _ToolboxAppState extends State<ToolboxApp> with WidgetsBindingObserver {
     builder: (context, _) {
       final settings = RemoteConfig.instance.theme;
       return MaterialApp.router(
-        title: 'Toolbox One',
+        title: 'Snapkit',
         debugShowCheckedModeBanner: false,
-        theme: ToolboxTheme.light(settings.preset),
-        darkTheme: ToolboxTheme.dark(settings.preset),
+        theme: SnapkitTheme.light(settings.preset),
+        darkTheme: SnapkitTheme.dark(settings.preset),
         themeMode: settings.mode,
         themeAnimationDuration: const Duration(milliseconds: 240),
         routerConfig: _router,

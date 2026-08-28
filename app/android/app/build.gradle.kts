@@ -21,7 +21,7 @@ if (releaseTaskRequested && missingSigningValue) {
 }
 
 android {
-    namespace = "com.toolboxone.toolbox_one"
+    namespace = "com.snapkit.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,7 +35,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.toolboxone.toolbox_one"
+        applicationId = "com.snapkit.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -1,5 +1,5 @@
 {
-  "name": "@toolbox/migrator",
+  "name": "@snapkit/migrator",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -1,4 +1,4 @@
-# Toolbox One App
+# Snapkit App
 
 Flutter iOS/Android app cho Media Cleaner và QR Studio. Media được xử lý cục bộ; package này gọi public API của `backend/` và không chứa server secret.
 

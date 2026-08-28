@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Toolbox One
+**Project:** Snapkit
 **Generated:** 2026-08-27 10:05:53
 **Category:** Smart Home/IoT Dashboard
 **Design Dials:** Variance 6/10 (Balanced / Modern) | Motion 4/10 (Standard) | Density 7/10 (Standard)

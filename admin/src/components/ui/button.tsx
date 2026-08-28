@@ -46,6 +46,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       size = "default",
       children,
       loading,
+      disabled,
       onClick,
       iconLeft,
       iconRight,
@@ -75,7 +76,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 }
             }
             .animate-ripple {
-                animation: ripple-effect 0.7s ease-out forwards;
+                animation: ripple-effect 0.45s ease-out forwards;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .animate-ripple {
+                    animation: none;
+                }
             }
         `;
       document.head.appendChild(style);
@@ -96,7 +102,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
       setTimeout(() => {
         setRipples((currentRipples) => currentRipples.slice(1));
-      }, 700);
+      }, 450);
 
       onClick?.(event);
     };
@@ -124,8 +130,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizeClasses = {
-      default: iconOnly ? "h-10 w-10 p-0" : "h-10 py-2 px-4",
-      sm: iconOnly ? "h-9 w-9 p-0" : "h-9 px-3 rounded-md",
+      default: iconOnly ? "h-11 w-11 p-0" : "h-10 py-2 px-4",
+      sm: iconOnly ? "h-11 w-11 p-0" : "h-9 px-3 rounded-md",
       lg: iconOnly ? "h-11 w-11 p-0" : "h-11 px-8 rounded-md",
     };
 
@@ -138,7 +144,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           className
         )}
         onClick={createRipple}
-        disabled={loading}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
         ref={ref}
         {...props}
       >

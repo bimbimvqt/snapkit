@@ -55,11 +55,13 @@ rollback() {
 }
 trap rollback ERR
 
+bash scripts/production-identity.sh prepare
+
 # Keep a recoverable database snapshot before Prisma migrations when Postgres already exists.
 if "${compose[@]}" ps --status running --services | grep -qx postgres; then
   umask 077
   mkdir -p backups
-  backup_path="backups/toolbox-one-predeploy-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+  backup_path="backups/snapkit-predeploy-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
   "${compose[@]}" exec -T postgres \
     sh -c 'pg_dump --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" "$POSTGRES_DB"' \
     | gzip -9 > "$backup_path"
@@ -102,8 +104,10 @@ docker run --rm \
   -e ADMIN_URL="$PUBLIC_URL" \
   -e BACKEND_URL="$PUBLIC_URL" \
   -e SMOKE_ENV_FILE=.env.prod \
-  node:22-alpine \
+node:22-alpine \
   node scripts/smoke.mjs
+
+bash scripts/production-identity.sh cleanup
 
 state_tmp="$state_file.tmp"
 printf '%s\n' "$IMAGE_TAG" > "$state_tmp"

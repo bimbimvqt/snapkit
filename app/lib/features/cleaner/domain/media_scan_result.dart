@@ -3,12 +3,7 @@ import 'package:photo_manager/photo_manager.dart';
 enum MediaGroupType { similar, screenshots, largeVideos }
 
 class MediaGroup {
-  const MediaGroup({
-    required this.type,
-    required this.title,
-    required this.assets,
-    required this.bytes,
-  });
+  const MediaGroup({required this.type, required this.title, required this.assets, required this.bytes});
   final MediaGroupType type;
   final String title;
   final List<AssetEntity> assets;
@@ -16,11 +11,7 @@ class MediaGroup {
 }
 
 class MediaScanResult {
-  const MediaScanResult({
-    required this.scanned,
-    required this.groups,
-    required this.duration,
-  });
+  const MediaScanResult({required this.scanned, required this.groups, required this.duration});
   final int scanned;
   final List<MediaGroup> groups;
   final Duration duration;

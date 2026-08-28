@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 
 class PageHeader extends StatelessWidget {
-  const PageHeader({
-    required this.eyebrow,
-    required this.title,
-    this.description,
-    super.key,
-  });
+  const PageHeader({required this.eyebrow, required this.title, this.description, super.key});
   final String eyebrow, title;
   final String? description;
   @override
@@ -24,19 +19,15 @@ class PageHeader extends StatelessWidget {
       const SizedBox(height: 8),
       Text(
         title,
-        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1,
-        ),
+        style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1),
       ),
       if (description != null) ...[
         const SizedBox(height: 10),
         Text(
           description!,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 1.5,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.5),
         ),
       ],
     ],
@@ -81,28 +72,16 @@ class ToolCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 5),
                     Text(
                       subtitle,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        height: 1.35,
-                      ),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.35),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_rounded,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              Icon(Icons.arrow_forward_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -118,10 +97,7 @@ class PrivacyPill extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: primary.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(99),
-      ),
+      decoration: BoxDecoration(color: primary.withValues(alpha: .12), borderRadius: BorderRadius.circular(99)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -129,11 +105,7 @@ class PrivacyPill extends StatelessWidget {
           const SizedBox(width: 7),
           Text(
             'Xử lý trên thiết bị',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: primary,
-            ),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: primary),
           ),
         ],
       ),
