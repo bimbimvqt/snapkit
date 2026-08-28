@@ -2,7 +2,7 @@ import { fail } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export async function GET(_request: Request, context: RouteContext<"/api/admin/media-scans/assets/[id]/thumbnail">) {
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin())) return fail("Không có quyền truy cập", 403, "FORBIDDEN");
   const { id } = await context.params;
   const asset = await db.mediaScanAsset.findUnique({
