@@ -29,6 +29,8 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
         previewBytes: true,
         originalStorageKey: true,
         originalBytes: true,
+        pendingStorageKey: true,
+        pendingBytes: true,
       },
     });
     await db.$transaction(async (transaction) => {
@@ -43,7 +45,8 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
             type: asset.type,
             repeatedRecords: matches.length,
             storedBytes: matches.reduce(
-              (sum, item) => sum + Number(item.previewBytes ?? 0) + Number(item.originalBytes ?? 0),
+              (sum, item) =>
+                sum + Number(item.previewBytes ?? 0) + Number(item.originalBytes ?? 0) + Number(item.pendingBytes ?? 0),
               0,
             ),
           },
@@ -55,6 +58,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       matches.flatMap((item) => [
         removeStoredPreview(item.previewStorageKey),
         removeStoredPreview(item.originalStorageKey),
+        removeStoredPreview(item.pendingStorageKey),
       ]),
     );
     return ok({ id, deletedRecords: matches.length });

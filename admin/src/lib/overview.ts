@@ -110,6 +110,7 @@ export function normalizeOverview(input: unknown, now = new Date()): Overview {
       usedPercent: number(storage.usedPercent),
       databaseBytes: number(storage.databaseBytes),
       previewBytes: number(storage.previewBytes),
+      mediaProvider: typeof storage.mediaProvider === "string" ? storage.mediaProvider : undefined,
     } : null,
     trend: trend(source.trend),
   };

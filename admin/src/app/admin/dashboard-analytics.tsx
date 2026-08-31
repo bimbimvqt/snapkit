@@ -410,8 +410,7 @@ function ServerStorage({ storage }: { storage: NonNullable<Overview["storage"]> 
         </div>
 
         <p className="rounded-2xl bg-[var(--surface-raised)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
-          Ổ đĩa được đo trực tiếp tại volume lưu media trên server {storage.sourceHost ?? "45.119.214.94"}. Số liệu
-          database và preview bên dưới thể hiện phần dữ liệu Snapkit đang quản lý.
+          Ổ đĩa được đo trực tiếp trên server {storage.sourceHost ?? "45.119.214.94"}. Media đồng bộ được quản lý bởi {storage.mediaProvider ?? "ổ đĩa server"}; số liệu bên dưới đã loại trừ object trùng lặp.
         </p>
       </div>
 
@@ -430,9 +429,9 @@ function ServerStorage({ storage }: { storage: NonNullable<Overview["storage"]> 
         />
         <StorageMetric
           icon={FolderArchive}
-          label="Preview media"
+          label="Media object"
           value={formatBytes(storage.previewBytes)}
-          detail="Ảnh và video preview đã lưu"
+          detail={storage.mediaProvider ?? "Ổ đĩa server"}
         />
       </div>
     </SeraSurface>

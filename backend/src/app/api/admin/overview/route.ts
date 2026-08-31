@@ -4,6 +4,9 @@ import { fail, ok } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mediaStorageRoot } from "@/lib/media-storage";
+import { cleanupExpiredMedia } from "@/lib/media-retention";
+import { totalMediaStorageBytes } from "@/lib/media-subscription";
+import { r2ConfigurationStatus } from "@/lib/r2-storage";
 
 type DailyCount = { day: string; count: number };
 type NamedCount = { name: string; count: number };
@@ -43,6 +46,7 @@ async function readDiskUsage() {
 
 export async function GET() {
   if (!(await requireAdmin())) return fail("Không có quyền truy cập", 403, "FORBIDDEN");
+  await cleanupExpiredMedia({ limit: 200 });
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -160,7 +164,7 @@ export async function GET() {
       ORDER BY DATE_TRUNC('day', "createdAt")
     `,
     readDiskUsage(),
-    db.mediaScanAsset.aggregate({ _sum: { previewBytes: true, originalBytes: true } }),
+    totalMediaStorageBytes(),
     db.$queryRaw<Array<{ bytes: string }>>`
       SELECT PG_DATABASE_SIZE(CURRENT_DATABASE())::text AS "bytes"
     `,
@@ -187,9 +191,8 @@ export async function GET() {
   const mediaScans = scanSummary._count._all;
   const scanDurationMs = scanSummary._sum.durationMs ?? 0;
   const databaseBytes = Number(databaseSizeRows[0]?.bytes ?? 0);
-  const previewBytes =
-    Number(previewStorage._sum.previewBytes ?? BigInt(0)) +
-    Number(previewStorage._sum.originalBytes ?? BigInt(0));
+  const previewBytes = previewStorage;
+  const objectStorage = r2ConfigurationStatus();
 
   return ok({
     period: { days: 30, start: since.toISOString(), end: new Date().toISOString() },
@@ -237,6 +240,7 @@ export async function GET() {
       ...diskUsage,
       databaseBytes,
       previewBytes,
+      mediaProvider: objectStorage.configured ? "Cloudflare R2" : "Ổ đĩa server",
     },
     trend,
   });

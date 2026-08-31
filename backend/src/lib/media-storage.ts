@@ -1,10 +1,19 @@
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import {
+  deleteR2Object,
+  downloadR2Object,
+  headR2Object,
+  isR2Reference,
+  r2ObjectStream,
+  uploadR2File,
+} from "@/lib/r2-storage";
 
 const extensions: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -101,10 +110,18 @@ export async function storePreview(
 
 export async function removeStoredPreview(storageKey: string | null | undefined) {
   if (!storageKey) return;
+  if (isR2Reference(storageKey)) {
+    await deleteR2Object(storageKey);
+    return;
+  }
   await rm(resolveStoragePath(storageKey), { force: true }).catch(() => undefined);
 }
 
 export async function storedPreview(storageKey: string) {
+  if (isR2Reference(storageKey)) {
+    const details = await headR2Object(storageKey);
+    return { filePath: storageKey, size: details.size };
+  }
   const filePath = resolveStoragePath(storageKey);
   const details = await stat(/* turbopackIgnore: true */ filePath);
   return { filePath, size: details.size };
@@ -141,12 +158,15 @@ async function withVideoTranscodeSlot<T>(operation: () => Promise<T>) {
 }
 
 async function runVideoTranscode(sourceStorageKey: string, destinationStorageKey: string) {
-  const source = resolveStoragePath(sourceStorageKey);
-  const destination = resolveStoragePath(destinationStorageKey);
-  const temporary = `${destination}.${randomUUID()}.mp4`;
-  await mkdir(path.dirname(destination), { recursive: true });
+  const workspace = await mkdtemp(path.join(tmpdir(), "snapkit-video-"));
+  const sourceExtension = path.extname(sourceStorageKey) || ".bin";
+  const source = isR2Reference(sourceStorageKey)
+    ? path.join(workspace, `source-${randomUUID()}${sourceExtension}`)
+    : resolveStoragePath(sourceStorageKey);
+  const output = path.join(workspace, "preview.mp4");
 
   try {
+    if (isR2Reference(sourceStorageKey)) await downloadR2Object(sourceStorageKey, source);
     await new Promise<void>((resolve, reject) => {
       const ffmpeg = spawn(
         "ffmpeg",
@@ -175,7 +195,7 @@ async function runVideoTranscode(sourceStorageKey: string, destinationStorageKey
           "-movflags",
           "+faststart",
           "-sn",
-          temporary,
+          output,
         ],
         { stdio: ["ignore", "ignore", "pipe"] },
       );
@@ -190,15 +210,22 @@ async function runVideoTranscode(sourceStorageKey: string, destinationStorageKey
         else reject(new Error(`VIDEO_TRANSCODE_FAILED:${code ?? "unknown"}:${errorOutput}`));
       });
     });
-    await rename(temporary, destination);
-    return (await stat(destination)).size;
-  } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined);
-    throw error;
+    const bytes = (await stat(output)).size;
+    if (isR2Reference(destinationStorageKey)) {
+      await uploadR2File(destinationStorageKey, output, "video/mp4", bytes);
+    } else {
+      const destination = resolveStoragePath(destinationStorageKey);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await rename(output, destination);
+    }
+    return bytes;
+  } finally {
+    await rm(workspace, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
-export function previewStream(filePath: string, start?: number, end?: number) {
+export async function previewStream(filePath: string, start?: number, end?: number) {
+  if (isR2Reference(filePath)) return r2ObjectStream(filePath, start, end);
   return Readable.toWeb(createReadStream(filePath, start === undefined ? undefined : { start, end })) as ReadableStream<Uint8Array>;
 }
 

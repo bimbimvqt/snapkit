@@ -181,14 +181,43 @@ class ApiClient {
     required String mimeType,
   }) async {
     try {
-      await dio.put<Map<String, dynamic>>(
-        '/api/v1/media-scans/assets/$assetId/preview',
+      final prepared = await dio.post<Map<String, dynamic>>(
+        '/api/v1/media-scans/assets/$assetId/upload',
+        data: {'mimeType': mimeType, 'bytes': length},
+      );
+      final upload = _dataMap(prepared.data);
+      final uploadUrl = upload['uploadUrl'];
+      final mode = upload['mode'];
+      if (uploadUrl is! String || (mode != 'direct' && mode != 'proxy')) return false;
+
+      if (mode == 'proxy') {
+        await dio.put<Map<String, dynamic>>(
+          uploadUrl,
+          data: stream,
+          options: Options(
+            headers: {Headers.contentTypeHeader: mimeType, Headers.contentLengthHeader: length},
+            sendTimeout: const Duration(minutes: 30),
+            receiveTimeout: const Duration(minutes: 30),
+          ),
+        );
+        return true;
+      }
+
+      final rawHeaders = upload['headers'];
+      final headers = rawHeaders is Map ? Map<String, dynamic>.from(rawHeaders) : <String, dynamic>{};
+      await Dio().put<void>(
+        uploadUrl,
         data: stream,
         options: Options(
-          headers: {Headers.contentTypeHeader: mimeType, Headers.contentLengthHeader: length},
+          headers: headers,
           sendTimeout: const Duration(minutes: 30),
-          receiveTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 2),
+          responseType: ResponseType.plain,
         ),
+      );
+      await dio.post<Map<String, dynamic>>(
+        '/api/v1/media-scans/assets/$assetId/upload/complete',
+        options: Options(receiveTimeout: const Duration(minutes: 30)),
       );
       return true;
     } catch (_) {

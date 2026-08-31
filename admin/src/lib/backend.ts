@@ -103,6 +103,7 @@ export type Overview = {
     usedPercent: number;
     databaseBytes: number;
     previewBytes: number;
+    mediaProvider?: string;
   } | null;
   trend: Array<{
     date: string;
@@ -160,12 +161,21 @@ export type SubscriptionPlan = {
   highlighted: boolean;
   enabled: boolean;
   sortOrder: number;
+  storage: SubscriptionStoragePolicy;
+};
+
+export type SubscriptionStoragePolicy = {
+  quotaMb: number;
+  maxVideoUploadMb: number;
+  previewRetentionDays: number;
+  originalVideoRetentionDays: number;
 };
 
 export type SubscriptionPlanConfig = {
   title: string;
   subtitle: string;
   footer: string;
+  freeStorage: SubscriptionStoragePolicy;
   plans: SubscriptionPlan[];
 };
 

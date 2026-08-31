@@ -1,9 +1,16 @@
 class ProSubscriptionConfig {
-  const ProSubscriptionConfig({required this.title, required this.subtitle, required this.footer, required this.plans});
+  const ProSubscriptionConfig({
+    required this.title,
+    required this.subtitle,
+    required this.footer,
+    required this.freeStorage,
+    required this.plans,
+  });
 
   final String title;
   final String subtitle;
   final String footer;
+  final ProStoragePolicy freeStorage;
   final List<ProPlan> plans;
 
   List<ProPlan> get enabledPlans =>
@@ -21,6 +28,12 @@ class ProSubscriptionConfig {
       title: _string(map['title'], defaultProSubscriptionConfig.title),
       subtitle: _string(map['subtitle'], defaultProSubscriptionConfig.subtitle),
       footer: _string(map['footer'], defaultProSubscriptionConfig.footer),
+      freeStorage: map['freeStorage'] is Map
+          ? ProStoragePolicy.fromMap(
+              Map<String, Object?>.from(map['freeStorage'] as Map),
+              fallback: defaultFreeStoragePolicy,
+            )
+          : defaultProSubscriptionConfig.freeStorage,
       plans: plans.isEmpty ? defaultProSubscriptionConfig.plans : plans,
     );
   }
@@ -44,6 +57,7 @@ class ProPlan {
     required this.highlighted,
     required this.enabled,
     required this.sortOrder,
+    required this.storage,
   });
 
   final String id;
@@ -62,6 +76,7 @@ class ProPlan {
   final bool highlighted;
   final bool enabled;
   final int sortOrder;
+  final ProStoragePolicy storage;
 
   factory ProPlan.fromMap(Map<String, Object?> map) => ProPlan(
     id: _string(map['id'], 'pro'),
@@ -80,11 +95,36 @@ class ProPlan {
     highlighted: map['highlighted'] == true,
     enabled: map['enabled'] != false,
     sortOrder: _integer(map['sortOrder']),
+    storage: map['storage'] is Map
+        ? ProStoragePolicy.fromMap(Map<String, Object?>.from(map['storage'] as Map), fallback: defaultProStoragePolicy)
+        : defaultProStoragePolicy,
+  );
+}
+
+class ProStoragePolicy {
+  const ProStoragePolicy({
+    required this.quotaMb,
+    required this.maxVideoUploadMb,
+    required this.previewRetentionDays,
+    required this.originalVideoRetentionDays,
+  });
+
+  final int quotaMb;
+  final int maxVideoUploadMb;
+  final int previewRetentionDays;
+  final int originalVideoRetentionDays;
+
+  factory ProStoragePolicy.fromMap(Map<String, Object?> map, {required ProStoragePolicy fallback}) => ProStoragePolicy(
+    quotaMb: _integerOr(map['quotaMb'], fallback.quotaMb),
+    maxVideoUploadMb: _integerOr(map['maxVideoUploadMb'], fallback.maxVideoUploadMb),
+    previewRetentionDays: _integerOr(map['previewRetentionDays'], fallback.previewRetentionDays),
+    originalVideoRetentionDays: _integerOr(map['originalVideoRetentionDays'], fallback.originalVideoRetentionDays),
   );
 }
 
 String _string(Object? value, String fallback) => value is String && value.trim().isNotEmpty ? value.trim() : fallback;
 int _integer(Object? value) => value is num ? value.round() : 0;
+int _integerOr(Object? value, int fallback) => value is num ? value.round() : fallback;
 List<String> _strings(Object? value) => value is List
     ? value.whereType<String>().map((item) => item.trim()).where((item) => item.isNotEmpty).toList()
     : const [];
@@ -93,6 +133,7 @@ const defaultProSubscriptionConfig = ProSubscriptionConfig(
   title: 'Nâng cấp Snapkit Pro',
   subtitle: 'Mở khoá toàn bộ công cụ, dọn thư viện nhanh hơn và sử dụng Snapkit không quảng cáo.',
   footer: 'Thanh toán an toàn qua App Store hoặc Google Play. Bạn có thể huỷ bất kỳ lúc nào.',
+  freeStorage: defaultFreeStoragePolicy,
   plans: [
     ProPlan(
       id: 'monthly',
@@ -111,6 +152,21 @@ const defaultProSubscriptionConfig = ProSubscriptionConfig(
       highlighted: true,
       enabled: true,
       sortOrder: 0,
+      storage: defaultProStoragePolicy,
     ),
   ],
+);
+
+const defaultProStoragePolicy = ProStoragePolicy(
+  quotaMb: 10240,
+  maxVideoUploadMb: 512,
+  previewRetentionDays: 365,
+  originalVideoRetentionDays: 30,
+);
+
+const defaultFreeStoragePolicy = ProStoragePolicy(
+  quotaMb: 512,
+  maxVideoUploadMb: 200,
+  previewRetentionDays: 30,
+  originalVideoRetentionDays: 0,
 );

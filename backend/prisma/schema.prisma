@@ -32,34 +32,34 @@ enum MediaAssetCategory {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  email         String?         @unique
-  googleSubject String?         @unique
+  id            String         @id @default(cuid())
+  email         String?        @unique
+  googleSubject String?        @unique
   passwordHash  String?
   name          String?
   avatarUrl     String?
-  anonymousId   String?         @unique
-  role          Role            @default(USER)
-  disabled      Boolean         @default(false)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  anonymousId   String?        @unique
+  role          Role           @default(USER)
+  disabled      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
   qrCodes       QrCode[]
   events        UsageEvent[]
   cleanups      MediaCleanup[]
   mediaScans    MediaScan[]
   subscriptions Subscription[]
-  auditLogs     AuditLog[]       @relation("AuditActor")
+  auditLogs     AuditLog[]     @relation("AuditActor")
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
 }
@@ -107,24 +107,24 @@ model MediaCleanup {
 }
 
 model MediaScan {
-  id                     String           @id @default(cuid())
-  clientScanId           String
-  userId                 String?
-  deviceId               String
-  scannedCount           Int
-  imageCount             Int
-  videoCount             Int
-  duplicateCount         Int
-  screenshotCount        Int
-  largeVideoCount        Int
-  durationMs             Int
-  maxScanAssets          Int
-  similarImageLimit      Int
-  largeVideoThresholdMb  Int
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
-  user                   User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  assets                 MediaScanAsset[]
+  id                    String           @id @default(cuid())
+  clientScanId          String
+  userId                String?
+  deviceId              String
+  scannedCount          Int
+  imageCount            Int
+  videoCount            Int
+  duplicateCount        Int
+  screenshotCount       Int
+  largeVideoCount       Int
+  durationMs            Int
+  maxScanAssets         Int
+  similarImageLimit     Int
+  largeVideoThresholdMb Int
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  user                  User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assets                MediaScanAsset[]
 
   @@unique([deviceId, clientScanId])
   @@index([createdAt])
@@ -132,30 +132,38 @@ model MediaScan {
 }
 
 model MediaScanAsset {
-  id                String                 @id @default(cuid())
-  scanId            String
-  deviceAssetKey    String
-  type              MediaAssetType
-  categories        MediaAssetCategory[]
-  bytes             BigInt
-  width             Int
-  height            Int
-  durationSeconds   Int?
-  capturedAt        DateTime?
-  thumbnail         Bytes?
-  thumbnailMimeType String?
-  previewStorageKey String?
-  previewMimeType   String?
-  previewBytes      BigInt?
+  id                 String               @id @default(cuid())
+  scanId             String
+  deviceAssetKey     String
+  type               MediaAssetType
+  categories         MediaAssetCategory[]
+  bytes              BigInt
+  width              Int
+  height             Int
+  durationSeconds    Int?
+  capturedAt         DateTime?
+  thumbnail          Bytes?
+  thumbnailMimeType  String?
+  previewStorageKey  String?
+  previewMimeType    String?
+  previewBytes       BigInt?
+  previewExpiresAt   DateTime?
   originalStorageKey String?
   originalMimeType   String?
   originalBytes      BigInt?
-  createdAt         DateTime               @default(now())
-  scan              MediaScan              @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  originalExpiresAt  DateTime?
+  pendingStorageKey  String?
+  pendingMimeType    String?
+  pendingBytes       BigInt?
+  pendingExpiresAt   DateTime?
+  createdAt          DateTime             @default(now())
+  scan               MediaScan            @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@unique([scanId, deviceAssetKey])
   @@index([scanId, createdAt])
   @@index([type, createdAt])
+  @@index([previewExpiresAt])
+  @@index([originalExpiresAt])
 }
 
 model Subscription {

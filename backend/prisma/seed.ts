@@ -91,6 +91,12 @@ async function main() {
           title: "Nâng cấp Snapkit Pro",
           subtitle: "Mở khoá toàn bộ công cụ, dọn thư viện nhanh hơn và sử dụng Snapkit không quảng cáo.",
           footer: "Thanh toán được xử lý an toàn qua App Store hoặc Google Play. Bạn có thể huỷ bất kỳ lúc nào.",
+          freeStorage: {
+            quotaMb: 512,
+            maxVideoUploadMb: 200,
+            previewRetentionDays: 30,
+            originalVideoRetentionDays: 0,
+          },
           plans: [
             {
               id: "monthly",
@@ -109,6 +115,12 @@ async function main() {
               highlighted: true,
               enabled: true,
               sortOrder: 0,
+              storage: {
+                quotaMb: 10240,
+                maxVideoUploadMb: 512,
+                previewRetentionDays: 365,
+                originalVideoRetentionDays: 30,
+              },
             },
             {
               id: "yearly",
@@ -127,6 +139,12 @@ async function main() {
               highlighted: false,
               enabled: true,
               sortOrder: 1,
+              storage: {
+                quotaMb: 25600,
+                maxVideoUploadMb: 512,
+                previewRetentionDays: 365,
+                originalVideoRetentionDays: 90,
+              },
             },
           ],
         },

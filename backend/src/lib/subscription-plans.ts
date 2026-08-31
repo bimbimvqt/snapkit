@@ -2,6 +2,27 @@ import { z } from "zod";
 
 const planIdSchema = z.string().trim().min(2, "Mã gói phải có ít nhất 2 ký tự").max(40).regex(/^[a-z0-9_-]+$/, "Mã gói chỉ gồm chữ thường, số, _ hoặc -");
 
+export const freeStoragePolicy = {
+  quotaMb: 512,
+  maxVideoUploadMb: 200,
+  previewRetentionDays: 30,
+  originalVideoRetentionDays: 0,
+} as const;
+
+export const proStoragePolicy = {
+  quotaMb: 10_240,
+  maxVideoUploadMb: 512,
+  previewRetentionDays: 365,
+  originalVideoRetentionDays: 30,
+} as const;
+
+export const storagePolicySchema = z.object({
+  quotaMb: z.number().int().min(50).max(1_048_576),
+  maxVideoUploadMb: z.number().int().min(0).max(4_096),
+  previewRetentionDays: z.number().int().min(1).max(3_650),
+  originalVideoRetentionDays: z.number().int().min(0).max(3_650),
+});
+
 export const subscriptionPlanSchema = z.object({
   id: planIdSchema,
   productId: z.string().trim().min(3, "Product ID không hợp lệ").max(120),
@@ -19,6 +40,7 @@ export const subscriptionPlanSchema = z.object({
   highlighted: z.boolean(),
   enabled: z.boolean(),
   sortOrder: z.number().int().min(0).max(100),
+  storage: storagePolicySchema.default(proStoragePolicy),
 });
 
 export const subscriptionConfigSchema = z
@@ -26,6 +48,7 @@ export const subscriptionConfigSchema = z
     title: z.string().trim().min(2).max(80),
     subtitle: z.string().trim().min(2).max(220),
     footer: z.string().trim().max(180),
+    freeStorage: storagePolicySchema.default(freeStoragePolicy),
     plans: z.array(subscriptionPlanSchema).min(1, "Cần ít nhất một gói Pro").max(6),
   })
   .superRefine((input, context) => {
@@ -48,6 +71,7 @@ export const defaultSubscriptionConfig: SubscriptionConfig = {
   title: "Nâng cấp Snapkit Pro",
   subtitle: "Mở khoá toàn bộ công cụ, dọn thư viện nhanh hơn và sử dụng Snapkit không quảng cáo.",
   footer: "Thanh toán được xử lý an toàn qua App Store hoặc Google Play. Bạn có thể huỷ bất kỳ lúc nào.",
+  freeStorage: freeStoragePolicy,
   plans: [
     {
       id: "monthly",
@@ -66,6 +90,7 @@ export const defaultSubscriptionConfig: SubscriptionConfig = {
       highlighted: true,
       enabled: true,
       sortOrder: 0,
+      storage: proStoragePolicy,
     },
     {
       id: "yearly",
@@ -84,6 +109,7 @@ export const defaultSubscriptionConfig: SubscriptionConfig = {
       highlighted: false,
       enabled: true,
       sortOrder: 1,
+      storage: { ...proStoragePolicy, quotaMb: 25_600, originalVideoRetentionDays: 90 },
     },
   ],
 };

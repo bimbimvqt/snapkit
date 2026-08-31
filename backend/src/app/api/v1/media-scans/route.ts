@@ -92,21 +92,64 @@ export async function POST(request: Request) {
       },
     });
 
+    const now = new Date();
+    const previousAssets = parsedAssets.length === 0
+      ? []
+      : await db.mediaScanAsset.findMany({
+          where: {
+            scanId: { not: scan.id },
+            deviceAssetKey: { in: parsedAssets.map((asset) => asset.deviceAssetKey) },
+            scan: { userId: session.userId, deviceId: input.deviceId },
+            OR: [{ previewStorageKey: { not: null } }, { originalStorageKey: { not: null } }],
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            deviceAssetKey: true,
+            previewStorageKey: true,
+            previewMimeType: true,
+            previewBytes: true,
+            previewExpiresAt: true,
+            originalStorageKey: true,
+            originalMimeType: true,
+            originalBytes: true,
+            originalExpiresAt: true,
+          },
+        });
+    const previousByKey = new Map<string, (typeof previousAssets)[number]>();
+    for (const asset of previousAssets) {
+      if (!previousByKey.has(asset.deviceAssetKey)) previousByKey.set(asset.deviceAssetKey, asset);
+    }
+
     if (parsedAssets.length > 0) {
       await db.mediaScanAsset.createMany({
-        data: parsedAssets.map((asset) => ({
-          scanId: scan.id,
-          deviceAssetKey: asset.deviceAssetKey,
-          type: asset.type,
-          categories: asset.categories,
-          bytes: asset.bytes,
-          width: asset.width,
-          height: asset.height,
-          durationSeconds: asset.durationSeconds,
-          capturedAt: asset.capturedAt,
-          thumbnail: asset.thumbnail,
-          thumbnailMimeType: asset.thumbnailMimeType,
-        })),
+        data: parsedAssets.map((asset) => {
+          const previous = previousByKey.get(asset.deviceAssetKey);
+          const previewActive = previous?.previewExpiresAt === null ||
+            (previous?.previewExpiresAt !== undefined && previous.previewExpiresAt > now);
+          const originalActive = previous?.originalExpiresAt === null ||
+            (previous?.originalExpiresAt !== undefined && previous.originalExpiresAt > now);
+          return {
+            scanId: scan.id,
+            deviceAssetKey: asset.deviceAssetKey,
+            type: asset.type,
+            categories: asset.categories,
+            bytes: asset.bytes,
+            width: asset.width,
+            height: asset.height,
+            durationSeconds: asset.durationSeconds,
+            capturedAt: asset.capturedAt,
+            thumbnail: asset.thumbnail,
+            thumbnailMimeType: asset.thumbnailMimeType,
+            previewStorageKey: previewActive ? previous?.previewStorageKey : null,
+            previewMimeType: previewActive ? previous?.previewMimeType : null,
+            previewBytes: previewActive ? previous?.previewBytes : null,
+            previewExpiresAt: previewActive ? previous?.previewExpiresAt : null,
+            originalStorageKey: originalActive ? previous?.originalStorageKey : null,
+            originalMimeType: originalActive ? previous?.originalMimeType : null,
+            originalBytes: originalActive ? previous?.originalBytes : null,
+            originalExpiresAt: originalActive ? previous?.originalExpiresAt : null,
+          };
+        }),
         skipDuplicates: true,
       });
     }
@@ -115,7 +158,7 @@ export async function POST(request: Request) {
       ? []
       : await db.mediaScanAsset.findMany({
           where: { scanId: scan.id, deviceAssetKey: { in: parsedAssets.map((asset) => asset.deviceAssetKey) } },
-          select: { id: true, deviceAssetKey: true, previewStorageKey: true },
+          select: { id: true, deviceAssetKey: true, previewStorageKey: true, originalStorageKey: true },
         });
     const storedByKey = new Map(storedAssets.map((asset) => [asset.deviceAssetKey, asset]));
 
@@ -125,7 +168,11 @@ export async function POST(request: Request) {
       assets: parsedAssets.flatMap((asset) => {
         const stored = storedByKey.get(asset.deviceAssetKey);
         return stored
-          ? [{ assetId: asset.clientAssetId, id: stored.id, hasPreview: stored.previewStorageKey !== null }]
+          ? [{
+              assetId: asset.clientAssetId,
+              id: stored.id,
+              hasPreview: stored.previewStorageKey !== null || stored.originalStorageKey !== null,
+            }]
           : [];
       }),
     }, { status: 201 });

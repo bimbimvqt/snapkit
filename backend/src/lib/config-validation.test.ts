@@ -84,7 +84,10 @@ describe("subscription plan config", () => {
 
   it("accepts and normalizes a configurable plan", () => {
     expect(subscriptionConfigSchema.parse({ title: "Snapkit Pro", subtitle: "Nâng cấp trải nghiệm", footer: "Thanh toán an toàn", plans: [plan] }))
-      .toMatchObject({ plans: [{ id: "monthly", currency: "VND" }] });
+      .toMatchObject({
+        freeStorage: { quotaMb: 512, originalVideoRetentionDays: 0 },
+        plans: [{ id: "monthly", currency: "VND", storage: { quotaMb: 10240 } }],
+      });
   });
 
   it("rejects duplicate product IDs and multiple highlighted plans", () => {

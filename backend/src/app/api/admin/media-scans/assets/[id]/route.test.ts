@@ -56,7 +56,7 @@ describe("admin media deletion", () => {
     await expect(response.json()).resolves.toMatchObject({ data: { id: "asset-2", deletedRecords: 2 } });
     expect(mocks.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["asset-1", "asset-2"] } } });
     expect(mocks.createAudit).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "media_scan_asset.delete", entityId: "asset-2" }) }));
-    expect(mocks.removeStoredPreview).toHaveBeenCalledTimes(4);
+    expect(mocks.removeStoredPreview).toHaveBeenCalledTimes(6);
   });
 
   it("returns not found without mutating storage", async () => {

@@ -128,6 +128,15 @@ function productionValues() {
     COOKIE_SECURE: "false",
     GOOGLE_OAUTH_CLIENT_IDS: "",
     STORAGE_SERVER_LABEL: "45.119.214.94",
+    R2_REQUIRED: "false",
+    R2_ACCOUNT_ID: "",
+    R2_ACCESS_KEY_ID: "",
+    R2_SECRET_ACCESS_KEY: "",
+    R2_BUCKET: "",
+    R2_MEDIA_PREFIX: "snapkit-media",
+    R2_UPLOAD_URL_TTL_SECONDS: "900",
+    R2_READ_URL_TTL_SECONDS: "300",
+    R2_FORCE_PATH_STYLE: "false",
   };
 }
 
@@ -135,7 +144,21 @@ function initProduction() {
   if (existsSync(paths.production) && !force) {
     ensureKeys(
       paths.production,
-      { APP_ENV: "production", COOKIE_SECURE: "false", GOOGLE_OAUTH_CLIENT_IDS: "", STORAGE_SERVER_LABEL: "45.119.214.94" },
+      {
+        APP_ENV: "production",
+        COOKIE_SECURE: "false",
+        GOOGLE_OAUTH_CLIENT_IDS: "",
+        STORAGE_SERVER_LABEL: "45.119.214.94",
+        R2_REQUIRED: "false",
+        R2_ACCOUNT_ID: "",
+        R2_ACCESS_KEY_ID: "",
+        R2_SECRET_ACCESS_KEY: "",
+        R2_BUCKET: "",
+        R2_MEDIA_PREFIX: "snapkit-media",
+        R2_UPLOAD_URL_TTL_SECONDS: "900",
+        R2_READ_URL_TTL_SECONDS: "300",
+        R2_FORCE_PATH_STYLE: "false",
+      },
       "# Production secrets. Keep this file off Git and back it up securely.",
     );
     console.log(
@@ -194,6 +217,27 @@ function validateProduction() {
     errors.push("ADMIN_EMAIL is invalid");
   if (env.COOKIE_SECURE && !["true", "false"].includes(env.COOKIE_SECURE))
     errors.push("COOKIE_SECURE must be true or false");
+  if (env.R2_REQUIRED && !["true", "false"].includes(env.R2_REQUIRED))
+    errors.push("R2_REQUIRED must be true or false");
+  if (env.R2_FORCE_PATH_STYLE && !["true", "false"].includes(env.R2_FORCE_PATH_STYLE))
+    errors.push("R2_FORCE_PATH_STYLE must be true or false");
+  if (env.R2_REQUIRED === "true") {
+    for (const key of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]) {
+      if (!env[key]) errors.push(`${key} is required when R2_REQUIRED=true`);
+    }
+  }
+  if (env.R2_UPLOAD_URL_TTL_SECONDS) {
+    const ttl = Number(env.R2_UPLOAD_URL_TTL_SECONDS);
+    if (!Number.isInteger(ttl) || ttl < 60 || ttl > 3600) {
+      errors.push("R2_UPLOAD_URL_TTL_SECONDS must be an integer from 60 to 3600");
+    }
+  }
+  if (env.R2_READ_URL_TTL_SECONDS) {
+    const ttl = Number(env.R2_READ_URL_TTL_SECONDS);
+    if (!Number.isInteger(ttl) || ttl < 60 || ttl > 3600) {
+      errors.push("R2_READ_URL_TTL_SECONDS must be an integer from 60 to 3600");
+    }
+  }
 
   for (const [key, value] of Object.entries(env)) {
     if (

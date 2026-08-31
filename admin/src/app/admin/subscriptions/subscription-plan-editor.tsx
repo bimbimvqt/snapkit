@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, CircleDollarSign, Crown, Plus, Save, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, CircleDollarSign, Crown, HardDrive, Plus, Save, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeraSectionTitle, SeraSurface } from "@/components/sera/surface";
-import type { SubscriptionPlan, SubscriptionPlanConfig } from "@/lib/backend";
+import type { SubscriptionPlan, SubscriptionPlanConfig, SubscriptionStoragePolicy } from "@/lib/backend";
 
 function fieldClass() {
   return "min-h-12 w-full rounded-2xl border bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand)_16%,transparent)]";
@@ -51,6 +51,10 @@ function PreviewCard({ plan }: { plan: SubscriptionPlan }) {
       <h3 className="mt-5 pr-24 text-xl font-bold">{plan.name || "Tên gói"}</h3>
       <div className="mt-5 flex items-end gap-2"><span className="text-4xl font-black tracking-tight tabular-nums">{plan.priceLabel || "—"}</span><span className="pb-1 text-sm text-[var(--ink-muted)]">{plan.periodLabel}</span></div>
       <p className="mt-4 min-h-16 text-sm leading-6 text-[var(--ink-muted)]">{plan.description || "Mô tả gói Pro"}</p>
+      <p className="mt-3 flex items-center gap-2 rounded-2xl bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--ink-muted)]">
+        <HardDrive size={15} aria-hidden="true" />
+        {(plan.storage.quotaMb / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} GB cloud · video gốc {plan.storage.originalVideoRetentionDays} ngày
+      </p>
       <ul className="mt-5 grid gap-3">
         {plan.features.filter(Boolean).map((feature) => <li key={feature} className="flex gap-3 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--brand)_18%,transparent)] text-[var(--brand-strong)]"><Check size={13} strokeWidth={3} aria-hidden="true" /></span><span>{feature}</span></li>)}
       </ul>
@@ -76,6 +80,14 @@ export function SubscriptionPlanEditor({ initialConfig, updatedAt }: { initialCo
     setConfig((current) => ({ ...current, plans: current.plans.map((plan, planIndex) => planIndex === index ? { ...plan, ...patch } : plan) }));
   }
 
+  function updatePlanStorage(index: number, patch: Partial<SubscriptionStoragePolicy>) {
+    setConfig((current) => ({
+      ...current,
+      plans: current.plans.map((plan, planIndex) =>
+        planIndex === index ? { ...plan, storage: { ...plan.storage, ...patch } } : plan),
+    }));
+  }
+
   function movePlan(index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= config.plans.length) return;
@@ -89,7 +101,7 @@ export function SubscriptionPlanEditor({ initialConfig, updatedAt }: { initialCo
   function addPlan() {
     const suffix = String(Date.now()).slice(-6);
     setConfig((current) => ({ ...current, plans: [...current.plans, {
-      id: `plan-${suffix}`, productId: `snapkit_pro_${suffix}`, name: "Gói Pro mới", badge: "", price: 0, currency: "VND", priceLabel: "Liên hệ", periodLabel: "/ tháng", trialDays: 0, ctaLabel: "Chọn gói", description: "Mô tả quyền lợi phù hợp với người dùng.", features: ["Tính năng Pro"], benefits: ["Huỷ bất kỳ lúc nào"], highlighted: false, enabled: false, sortOrder: current.plans.length,
+      id: `plan-${suffix}`, productId: `snapkit_pro_${suffix}`, name: "Gói Pro mới", badge: "", price: 0, currency: "VND", priceLabel: "Liên hệ", periodLabel: "/ tháng", trialDays: 0, ctaLabel: "Chọn gói", description: "Mô tả quyền lợi phù hợp với người dùng.", features: ["Tính năng Pro"], benefits: ["Huỷ bất kỳ lúc nào"], highlighted: false, enabled: false, sortOrder: current.plans.length, storage: { quotaMb: 10240, maxVideoUploadMb: 512, previewRetentionDays: 365, originalVideoRetentionDays: 30 },
     }] }));
   }
 
@@ -122,6 +134,17 @@ export function SubscriptionPlanEditor({ initialConfig, updatedAt }: { initialCo
           </div>
         </SeraSurface>
 
+        <SeraSurface className="p-5 sm:p-6">
+          <SeraSectionTitle eyebrow="Cloudflare R2" title="Giới hạn gói Free" />
+          <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">Áp dụng khi tài khoản không có subscription ACTIVE. Giá trị 0 ngày nghĩa là xoá video gốc ngay sau khi tạo preview.</p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <TextField label="Quota (MB)" type="number" min={50} max={1048576} value={config.freeStorage.quotaMb} onChange={(value) => setConfig((current) => ({ ...current, freeStorage: { ...current.freeStorage, quotaMb: Number(value) } }))} />
+            <TextField label="Video tối đa (MB)" type="number" min={0} max={4096} value={config.freeStorage.maxVideoUploadMb} onChange={(value) => setConfig((current) => ({ ...current, freeStorage: { ...current.freeStorage, maxVideoUploadMb: Number(value) } }))} />
+            <TextField label="Giữ preview (ngày)" type="number" min={1} max={3650} value={config.freeStorage.previewRetentionDays} onChange={(value) => setConfig((current) => ({ ...current, freeStorage: { ...current.freeStorage, previewRetentionDays: Number(value) } }))} />
+            <TextField label="Giữ video gốc (ngày)" type="number" min={0} max={3650} value={config.freeStorage.originalVideoRetentionDays} onChange={(value) => setConfig((current) => ({ ...current, freeStorage: { ...current.freeStorage, originalVideoRetentionDays: Number(value) } }))} />
+          </div>
+        </SeraSurface>
+
         {config.plans.map((plan, index) => (
           <SeraSurface key={`${plan.id}-${index}`} className="overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
@@ -146,6 +169,13 @@ export function SubscriptionPlanEditor({ initialConfig, updatedAt }: { initialCo
               <div className="sm:col-span-2"><TextField label="Mô tả gói" multiline value={plan.description} onChange={(description) => updatePlan(index, { description })} /></div>
               <TextField label="Tính năng" multiline value={plan.features.join("\n")} onChange={(value) => updatePlan(index, { features: value.split("\n").map((item) => item.trim()).filter(Boolean) })} hint="Mỗi dòng là một tính năng trong checklist." />
               <TextField label="Tiện ích / cam kết" multiline value={plan.benefits.join("\n")} onChange={(value) => updatePlan(index, { benefits: value.split("\n").map((item) => item.trim()).filter(Boolean) })} hint="Mỗi dòng là một tiện ích phía cuối thẻ." />
+              <div className="grid gap-4 rounded-3xl border bg-[var(--surface)] p-4 sm:col-span-2 sm:grid-cols-2">
+                <div className="sm:col-span-2"><p className="text-sm font-bold">Lưu trữ Cloudflare R2</p><p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">Policy được backend áp dụng theo Product ID của subscription ACTIVE.</p></div>
+                <TextField label="Quota (MB)" type="number" min={50} max={1048576} value={plan.storage.quotaMb} onChange={(value) => updatePlanStorage(index, { quotaMb: Number(value) })} />
+                <TextField label="Video tối đa (MB)" type="number" min={0} max={4096} value={plan.storage.maxVideoUploadMb} onChange={(value) => updatePlanStorage(index, { maxVideoUploadMb: Number(value) })} />
+                <TextField label="Giữ preview (ngày)" type="number" min={1} max={3650} value={plan.storage.previewRetentionDays} onChange={(value) => updatePlanStorage(index, { previewRetentionDays: Number(value) })} />
+                <TextField label="Giữ video gốc (ngày)" type="number" min={0} max={3650} value={plan.storage.originalVideoRetentionDays} onChange={(value) => updatePlanStorage(index, { originalVideoRetentionDays: Number(value) })} />
+              </div>
               <Switch checked={plan.enabled} onChange={(enabled) => updatePlan(index, { enabled })} label="Hiển thị trên app" description="Có thể tắt gói mà không cần xoá cấu hình." />
               <Switch checked={plan.highlighted} onChange={(highlighted) => setConfig((current) => ({ ...current, plans: current.plans.map((item, planIndex) => ({ ...item, highlighted: planIndex === index ? highlighted : highlighted ? false : item.highlighted })) }))} label="Gói đề xuất" description="Chỉ một gói được làm nổi bật trên pricing section." />
             </div>

@@ -38,7 +38,10 @@ describe("admin video preview", () => {
       type: "VIDEO",
       previewStorageKey: null,
       previewMimeType: null,
+      previewExpiresAt: null,
       originalStorageKey: "legacy/video-1.mov",
+      originalExpiresAt: null,
+      scan: { userId: null },
     });
     mocks.transcodeBrowserVideo.mockResolvedValue(900);
     mocks.update.mockResolvedValue({ id: "video-1" });
@@ -59,6 +62,7 @@ describe("admin video preview", () => {
         previewStorageKey: "preview/video-1.mp4",
         previewMimeType: "video/mp4",
         previewBytes: BigInt(900),
+        previewExpiresAt: null,
       },
     });
   });
@@ -69,7 +73,10 @@ describe("admin video preview", () => {
       type: "VIDEO",
       previewStorageKey: "preview/video-2.mp4",
       previewMimeType: "video/mp4",
+      previewExpiresAt: null,
       originalStorageKey: "original/video-2.mov",
+      originalExpiresAt: null,
+      scan: { userId: null },
     });
 
     const response = await GET(

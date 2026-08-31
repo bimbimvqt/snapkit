@@ -175,6 +175,19 @@ class _PricingCard extends StatelessWidget {
           ),
           SizedBox(height: AppDimensions.space12),
           Text(plan.description, style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant)),
+          SizedBox(height: AppDimensions.space12),
+          Row(
+            children: [
+              Icon(Icons.cloud_outlined, size: 18.sp, color: scheme.primary),
+              SizedBox(width: AppDimensions.space8),
+              Expanded(
+                child: Text(
+                  '${_formatStorage(plan.storage.quotaMb)} lưu trữ cloud · video gốc ${plan.storage.originalVideoRetentionDays} ngày',
+                  style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: AppDimensions.space20),
           ...plan.features.map(
             (feature) => Padding(
@@ -233,4 +246,12 @@ class _PricingCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatStorage(int megabytes) {
+  if (megabytes >= 1024) {
+    final gigabytes = megabytes / 1024;
+    return '${gigabytes == gigabytes.roundToDouble() ? gigabytes.toStringAsFixed(0) : gigabytes.toStringAsFixed(1)} GB';
+  }
+  return '$megabytes MB';
 }

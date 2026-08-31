@@ -183,12 +183,22 @@ export async function GET(request: Request) {
           a."createdAt",
           a.thumbnail IS NOT NULL AS "hasThumbnail",
           (
-            a."previewStorageKey" IS NOT NULL
-            OR (a.type = 'VIDEO' AND a."originalStorageKey" IS NOT NULL)
+            (a."previewStorageKey" IS NOT NULL AND (a."previewExpiresAt" IS NULL OR a."previewExpiresAt" > NOW()))
+            OR (
+              a.type = 'VIDEO'
+              AND a."originalStorageKey" IS NOT NULL
+              AND (a."originalExpiresAt" IS NULL OR a."originalExpiresAt" > NOW())
+            )
           ) AS "hasPreview",
-          a."originalStorageKey" IS NOT NULL AS "hasOriginal",
+          (
+            a."originalStorageKey" IS NOT NULL
+            AND (a."originalExpiresAt" IS NULL OR a."originalExpiresAt" > NOW())
+          ) AS "hasOriginal",
           CASE
-            WHEN a.type = 'VIDEO' AND a."originalStorageKey" IS NOT NULL THEN 'video/mp4'
+            WHEN a.type = 'VIDEO'
+              AND a."originalStorageKey" IS NOT NULL
+              AND (a."originalExpiresAt" IS NULL OR a."originalExpiresAt" > NOW())
+              THEN 'video/mp4'
             ELSE a."previewMimeType"
           END AS "previewMimeType",
           ROW_NUMBER() OVER (

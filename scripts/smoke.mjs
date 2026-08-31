@@ -90,7 +90,11 @@ async function expectPlayableVideo(authenticated) {
 }
 
 try {
-  await expectResponse("backend health", `${backendBase}/api/health`);
+  const health = await expectResponse("backend health", `${backendBase}/api/health`);
+  const healthBody = await health.json();
+  if (smokeEnv.R2_REQUIRED === "true" && healthBody?.data?.objectStorage !== "r2") {
+    throw new Error("backend health: R2_REQUIRED=true but Cloudflare R2 is not active");
+  }
   await expectResponse("public remote config", `${backendBase}/api/v1/config`);
   await expectResponse("admin login page", `${adminBase}/login`);
 

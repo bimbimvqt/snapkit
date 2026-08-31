@@ -30,8 +30,10 @@ describe("admin media download", () => {
       type: "VIDEO",
       originalStorageKey: "original/video-1.mov",
       originalMimeType: "video/quicktime",
+      originalExpiresAt: null,
       previewStorageKey: "preview/video-1.mp4",
       previewMimeType: "video/mp4",
+      previewExpiresAt: null,
     });
 
     const response = await GET(
