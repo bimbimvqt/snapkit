@@ -233,7 +233,7 @@ make build-app-ios-prod
 
 ## Domain và HTTPS
 
-GitHub production dùng Caddy hiện hữu với URL HTTPS `https://snapkit.45-119-214-94.sslip.io`; pipeline không chiếm cổng `80/443` đang dùng bởi các dịch vụ khác. Luồng deploy Docker thủ công ở trên vẫn giữ chế độ IP-only độc lập cho môi trường chưa có reverse proxy.
+GitHub production dùng Caddy riêng thuộc stack SnapKit với URL HTTPS `https://snapkit.45-119-214-94.sslip.io`. Luồng deploy Docker thủ công ở trên vẫn giữ chế độ IP-only độc lập cho môi trường chưa có reverse proxy.
 
 Trước khi phát hành App Store/Play Store với domain riêng:
 

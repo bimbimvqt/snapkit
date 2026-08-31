@@ -36,7 +36,7 @@ jobs:
       - run: pnpm build
       - name: Validate deployment scripts
         run: |
-          bash -n scripts/github-deploy.sh scripts/production-identity.sh
+          bash -n scripts/github-deploy.sh scripts/production-identity.sh scripts/server-maintenance.sh
           bash scripts/production-identity.sh cleanup
 
   quality-flutter:

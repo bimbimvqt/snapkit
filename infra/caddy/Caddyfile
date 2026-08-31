@@ -1,0 +1,4 @@
+snapkit.45-119-214-94.sslip.io {
+	encode zstd gzip
+	reverse_proxy nginx:80
+}

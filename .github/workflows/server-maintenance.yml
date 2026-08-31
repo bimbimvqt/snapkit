@@ -11,12 +11,13 @@ on:
         options:
           - inventory
           - cleanup
+          - cleanup-mam
       database_volumes:
         description: Space-separated unused PostgreSQL Docker volumes from inventory
         required: false
         type: string
       confirmation:
-        description: Enter DELETE_UNUSED_SERVER_RESOURCES when mode is cleanup
+        description: Enter the confirmation required by the selected cleanup mode
         required: false
         type: string
 
@@ -55,10 +56,14 @@ jobs:
           for variable_name in PROD_HOST PROD_PORT PROD_USER PROD_PATH SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             [[ -n "${!variable_name:-}" ]] || { echo "Missing production configuration: $variable_name" >&2; exit 1; }
           done
-          [[ "$MODE" == "inventory" || "$MODE" == "cleanup" ]] || { echo "Invalid maintenance mode" >&2; exit 1; }
+          [[ "$MODE" == "inventory" || "$MODE" == "cleanup" || "$MODE" == "cleanup-mam" ]] || { echo "Invalid maintenance mode" >&2; exit 1; }
           [[ "$DATABASE_VOLUMES" =~ ^[A-Za-z0-9_.\ -]*$ ]] || { echo "Invalid database volume list" >&2; exit 1; }
           if [[ "$MODE" == "cleanup" && "$CONFIRMATION" != "DELETE_UNUSED_SERVER_RESOURCES" ]]; then
             echo "Cleanup confirmation is missing or invalid." >&2
+            exit 1
+          fi
+          if [[ "$MODE" == "cleanup-mam" && "$CONFIRMATION" != "DELETE_MAM_AND_DATABASES" ]]; then
+            echo "MAM cleanup confirmation is missing or invalid." >&2
             exit 1
           fi
 
@@ -89,9 +94,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh snapkit-production "mkdir -p '$PROD_PATH/scripts'"
+          ssh snapkit-production "mkdir -p '$PROD_PATH/scripts' '$PROD_PATH/infra/caddy'"
           rsync -az -e ssh scripts/server-maintenance.sh \
             "snapkit-production:$PROD_PATH/scripts/server-maintenance.sh"
+          rsync -az -e ssh docker-compose.prod.yml docker-compose.github.yml \
+            "snapkit-production:$PROD_PATH/"
+          rsync -az -e ssh infra/caddy/Caddyfile \
+            "snapkit-production:$PROD_PATH/infra/caddy/Caddyfile"
 
       - name: Run maintenance
         shell: bash
@@ -102,4 +111,4 @@ jobs:
           set -euo pipefail
           database_volumes_b64="$(printf '%s' "$DATABASE_VOLUMES" | base64 -w0)"
           ssh snapkit-production \
-            "cd '$PROD_PATH' && MAINTENANCE_MODE='$MODE' MAINTENANCE_CONFIRM='$CONFIRMATION' DATABASE_VOLUMES_B64='$database_volumes_b64' bash scripts/server-maintenance.sh"
+            "cd '$PROD_PATH' && GHCR_IMAGE_PREFIX='ghcr.io/${{ github.repository }}' MAINTENANCE_MODE='$MODE' MAINTENANCE_CONFIRM='$CONFIRMATION' DATABASE_VOLUMES_B64='$database_volumes_b64' bash scripts/server-maintenance.sh"

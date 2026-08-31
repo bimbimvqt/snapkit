@@ -9,6 +9,8 @@ protected_volumes=(
   snapkit_postgres_prod
   snapkit_media_prod
   snapkit_postgres_dev
+  snapkit_caddy_data
+  snapkit_caddy_config
 )
 
 is_protected_volume() {
@@ -173,6 +175,148 @@ verify_production() {
   echo "SnapKit production health checks passed."
 }
 
+restore_legacy_ingress() {
+  echo "Restoring the legacy Caddy ingress after migration failure." >&2
+  docker container rm --force snapkit-prod-edge-1 >/dev/null 2>&1 || true
+  docker container start backend-caddy-1 >/dev/null
+  for attempt in $(seq 1 30); do
+    if curl --fail --silent --show-error \
+      https://snapkit.45-119-214-94.sslip.io/healthz >/dev/null 2>&1; then
+      echo "Legacy ingress restored." >&2
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Legacy ingress could not be restored." >&2
+  return 1
+}
+
+migrate_snapkit_ingress() {
+  local image_tag healthy attempt
+  local -a compose
+
+  : "${GHCR_IMAGE_PREFIX:?GHCR_IMAGE_PREFIX is required for ingress migration}"
+  if [[ ! -s .deployed-image-tag ]]; then
+    echo "Missing SnapKit deployed image tag." >&2
+    exit 1
+  fi
+  image_tag="$(tr -d '[:space:]' < .deployed-image-tag)"
+  if [[ ! "$image_tag" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "Invalid SnapKit deployed image tag." >&2
+    exit 1
+  fi
+
+  compose=(docker compose -f docker-compose.prod.yml -f docker-compose.github.yml)
+  export IMAGE_TAG="$image_tag"
+  export GHCR_IMAGE_PREFIX
+  "${compose[@]}" config --quiet
+  docker pull caddy:2.10-alpine
+
+  if ! docker container inspect backend-caddy-1 >/dev/null 2>&1; then
+    echo "Legacy MAM Caddy container was not found; refusing an unverified ingress migration." >&2
+    exit 1
+  fi
+
+  echo "Stopping the legacy MAM Caddy ingress."
+  docker container stop backend-caddy-1 >/dev/null
+  if ! "${compose[@]}" up -d --no-build --no-deps edge; then
+    restore_legacy_ingress
+    exit 1
+  fi
+
+  healthy=false
+  for attempt in $(seq 1 60); do
+    if curl --fail --silent --show-error \
+      https://snapkit.45-119-214-94.sslip.io/healthz >/dev/null 2>&1 && \
+      curl --fail --silent --show-error \
+      https://snapkit.45-119-214-94.sslip.io/api/health >/dev/null 2>&1; then
+      healthy=true
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$healthy" != "true" ]]; then
+    "${compose[@]}" logs --tail=120 edge || true
+    restore_legacy_ingress
+    exit 1
+  fi
+
+  echo "SnapKit dedicated Caddy ingress is healthy."
+  docker container rm backend-caddy-1 >/dev/null
+}
+
+remove_mam_resources() {
+  local container volume network
+  local -a mam_containers mam_volumes mam_networks
+  mam_containers=(
+    admin-admin-1
+    backend-api-1
+    mam-dev-admin-1
+    mam-dev-api-1
+    mam-dev-postgres-1
+    postgres-global
+  )
+  mam_volumes=(
+    backend_caddy_config
+    backend_caddy_data
+    mam-dev_mam_dev_postgres_data
+    postgres_global_data
+  )
+  mam_networks=(
+    backend_default
+    mam-dev_internal
+    mam_edge
+    postgres-global_default
+  )
+
+  for container in "${mam_containers[@]}"; do
+    if docker container inspect "$container" >/dev/null 2>&1; then
+      echo "Removing MAM container: $container"
+      docker container rm --force "$container"
+    fi
+  done
+
+  if docker network inspect mam_edge >/dev/null 2>&1 && \
+     docker container inspect snapkit-prod-nginx-1 >/dev/null 2>&1; then
+    docker network disconnect --force mam_edge snapkit-prod-nginx-1 >/dev/null 2>&1 || true
+  fi
+
+  for volume in "${mam_volumes[@]}"; do
+    if ! docker volume inspect "$volume" >/dev/null 2>&1; then
+      continue
+    fi
+    if is_protected_volume "$volume"; then
+      echo "Refusing to remove protected volume: $volume" >&2
+      exit 1
+    fi
+    if [[ -n "$(docker ps -aq --filter "volume=$volume")" ]]; then
+      echo "Refusing to remove MAM volume still attached to a container: $volume" >&2
+      exit 1
+    fi
+    echo "Removing MAM volume: $volume"
+    docker volume rm "$volume"
+  done
+
+  for network in "${mam_networks[@]}"; do
+    if docker network inspect "$network" >/dev/null 2>&1; then
+      echo "Removing MAM network: $network"
+      docker network rm "$network"
+    fi
+  done
+
+  echo "Removing MAM application files and postgres-global configuration."
+  docker pull alpine:3.22
+  docker run --rm \
+    -v /opt:/host-opt \
+    -v /root:/host-root \
+    alpine:3.22 \
+    sh -c 'rm -rf -- /host-opt/mam /host-root/postgres-global'
+
+  echo "Pruning images and networks no longer referenced after MAM removal."
+  docker image prune --all --force
+  docker network prune --force
+}
+
 case "$mode" in
   inventory)
     print_inventory
@@ -191,6 +335,17 @@ case "$mode" in
     docker image prune --all --force
     echo "Pruning unused Docker networks."
     docker network prune --force
+    verify_production
+    print_inventory
+    ;;
+  cleanup-mam)
+    if [[ "$confirmation" != "DELETE_MAM_AND_DATABASES" ]]; then
+      echo "MAM cleanup confirmation is missing or invalid." >&2
+      exit 1
+    fi
+    verify_production
+    migrate_snapkit_ingress
+    remove_mam_resources
     verify_production
     print_inventory
     ;;
