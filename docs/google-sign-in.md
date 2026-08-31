@@ -93,6 +93,17 @@ pnpm --dir backend dev
 make dev-app-ios
 ```
 
+iPhone thật dùng backend local trên máy phát triển:
+
+```bash
+make dev-app-ios-device
+```
+
+Lệnh này tự phát hiện IPv4 của interface mạng vật lý đang hoạt động, bỏ qua loopback/VPN/bridge, kiểm tra
+`/api/health` rồi sinh `app/config/development.device.json`. File sinh ra bị Git ignore và chứa cùng OAuth client ID
+development với `API_BASE_URL` mà iPhone có thể truy cập. Trong VS Code/Antigravity, profile
+`Snapkit · iPhone thật` tự chạy bước chuẩn bị này trước mỗi phiên Debug.
+
 Android emulator:
 
 ```bash

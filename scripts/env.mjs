@@ -127,6 +127,7 @@ function productionValues() {
     ADMIN_PASSWORD: randomBytes(24).toString("base64url"),
     COOKIE_SECURE: "false",
     GOOGLE_OAUTH_CLIENT_IDS: "",
+    STORAGE_SERVER_LABEL: "45.119.214.94",
   };
 }
 
@@ -134,7 +135,7 @@ function initProduction() {
   if (existsSync(paths.production) && !force) {
     ensureKeys(
       paths.production,
-      { APP_ENV: "production", COOKIE_SECURE: "false", GOOGLE_OAUTH_CLIENT_IDS: "" },
+      { APP_ENV: "production", COOKIE_SECURE: "false", GOOGLE_OAUTH_CLIENT_IDS: "", STORAGE_SERVER_LABEL: "45.119.214.94" },
       "# Production secrets. Keep this file off Git and back it up securely.",
     );
     console.log(

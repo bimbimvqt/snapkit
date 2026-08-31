@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cleanerSchema, themeSchema } from "@/app/api/admin/config/route";
 import { mediaScanBatchSchema } from "@/app/api/v1/media-scans/route";
 import { qrStyleSchema } from "@/app/api/v1/qr/route";
+import { subscriptionConfigSchema } from "@/lib/subscription-plans";
 
 describe("mobile appearance config", () => {
   it("accepts a supported remote theme", () => {
@@ -40,6 +41,8 @@ describe("media cleaner config", () => {
         largeVideoThresholdMb: 150,
         adminSyncEnabled: true,
         adminSyncLimit: 500,
+        adminImagePreviewMaxPx: 1920,
+        adminPreviewMaxFileMb: 512,
       }),
     ).toMatchObject({ maxScanAssets: 800, adminSyncLimit: 500 });
   });
@@ -52,8 +55,40 @@ describe("media cleaner config", () => {
         largeVideoThresholdMb: 1,
         adminSyncEnabled: true,
         adminSyncLimit: 50_000,
+        adminImagePreviewMaxPx: 10_000,
+        adminPreviewMaxFileMb: 10_000,
       }),
     ).toThrow();
+  });
+});
+
+describe("subscription plan config", () => {
+  const plan = {
+    id: "monthly",
+    productId: "snapkit_pro_monthly",
+    name: "Pro tháng",
+    badge: "Phổ biến",
+    price: 79000,
+    currency: "vnd",
+    priceLabel: "79.000đ",
+    periodLabel: "/ tháng",
+    trialDays: 7,
+    ctaLabel: "Dùng thử",
+    description: "Đầy đủ tính năng Pro",
+    features: ["Không quảng cáo"],
+    benefits: ["Huỷ bất kỳ lúc nào"],
+    highlighted: true,
+    enabled: true,
+    sortOrder: 0,
+  };
+
+  it("accepts and normalizes a configurable plan", () => {
+    expect(subscriptionConfigSchema.parse({ title: "Snapkit Pro", subtitle: "Nâng cấp trải nghiệm", footer: "Thanh toán an toàn", plans: [plan] }))
+      .toMatchObject({ plans: [{ id: "monthly", currency: "VND" }] });
+  });
+
+  it("rejects duplicate product IDs and multiple highlighted plans", () => {
+    expect(() => subscriptionConfigSchema.parse({ title: "Snapkit Pro", subtitle: "Nâng cấp trải nghiệm", footer: "", plans: [plan, { ...plan, id: "yearly" }] })).toThrow();
   });
 });
 

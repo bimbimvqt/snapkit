@@ -5,6 +5,8 @@ class CleanerScanSettings {
     this.largeVideoThresholdMb = 100,
     this.adminSyncEnabled = true,
     this.adminSyncLimit = 500,
+    this.adminImagePreviewMaxPx = 1920,
+    this.adminPreviewMaxFileMb = 512,
   });
 
   final int maxScanAssets;
@@ -12,6 +14,8 @@ class CleanerScanSettings {
   final int largeVideoThresholdMb;
   final bool adminSyncEnabled;
   final int adminSyncLimit;
+  final int adminImagePreviewMaxPx;
+  final int adminPreviewMaxFileMb;
 
   factory CleanerScanSettings.fromMobile(Map<String, Object?> mobile) {
     final raw = mobile['cleaner'];
@@ -22,6 +26,13 @@ class CleanerScanSettings {
       largeVideoThresholdMb: _boundedInt(cleaner['largeVideoThresholdMb'], fallback: 100, minimum: 10, maximum: 4096),
       adminSyncEnabled: cleaner['adminSyncEnabled'] is bool ? cleaner['adminSyncEnabled']! as bool : true,
       adminSyncLimit: _boundedInt(cleaner['adminSyncLimit'], fallback: 500, minimum: 0, maximum: 5000),
+      adminImagePreviewMaxPx: _boundedInt(
+        cleaner['adminImagePreviewMaxPx'],
+        fallback: 1920,
+        minimum: 640,
+        maximum: 4096,
+      ),
+      adminPreviewMaxFileMb: _boundedInt(cleaner['adminPreviewMaxFileMb'], fallback: 512, minimum: 1, maximum: 1024),
     );
   }
 

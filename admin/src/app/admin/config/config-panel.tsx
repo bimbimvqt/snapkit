@@ -43,6 +43,8 @@ type CleanerSettings = {
   largeVideoThresholdMb: number;
   adminSyncEnabled: boolean;
   adminSyncLimit: number;
+  adminImagePreviewMaxPx: number;
+  adminPreviewMaxFileMb: number;
 };
 type MobileConfig = Record<string, unknown> & {
   theme?: Partial<ThemeSettings>;
@@ -61,6 +63,8 @@ const defaultCleaner: CleanerSettings = {
   largeVideoThresholdMb: 100,
   adminSyncEnabled: true,
   adminSyncLimit: 500,
+  adminImagePreviewMaxPx: 1920,
+  adminPreviewMaxFileMb: 512,
 };
 
 const presets: Array<{
@@ -160,7 +164,7 @@ const modes = [
 const navigationStyles = [
   { id: "floating" as const, name: "Floating", description: "Thanh nổi bo tròn, khoảng thở rộng" },
   { id: "glass" as const, name: "Glass", description: "Bề mặt trong mờ, viền tinh tế" },
-  { id: "solid" as const, name: "Solid", description: "Thanh liền chắc chắn, tối giản" },
+  { id: "solid" as const, name: "Solid", description: "Dock liền cạnh, chỉ báo tab rõ ràng" },
 ];
 
 function parseTheme(config: MobileConfig): ThemeSettings {
@@ -182,6 +186,8 @@ function parseCleaner(config: MobileConfig): CleanerSettings {
     largeVideoThresholdMb: typeof input.largeVideoThresholdMb === "number" ? input.largeVideoThresholdMb : defaultCleaner.largeVideoThresholdMb,
     adminSyncEnabled: typeof input.adminSyncEnabled === "boolean" ? input.adminSyncEnabled : defaultCleaner.adminSyncEnabled,
     adminSyncLimit: typeof input.adminSyncLimit === "number" ? input.adminSyncLimit : defaultCleaner.adminSyncLimit,
+    adminImagePreviewMaxPx: typeof input.adminImagePreviewMaxPx === "number" ? input.adminImagePreviewMaxPx : defaultCleaner.adminImagePreviewMaxPx,
+    adminPreviewMaxFileMb: typeof input.adminPreviewMaxFileMb === "number" ? input.adminPreviewMaxFileMb : defaultCleaner.adminPreviewMaxFileMb,
   };
 }
 
@@ -296,12 +302,22 @@ function PhonePreview({ theme }: { theme: ThemeSettings }) {
       </div>
       <div className={cn(
         "mt-6 grid grid-cols-4 gap-1 px-2 py-2 text-[var(--phone-ink)]",
-        theme.navigationStyle === "solid" && "-mx-3 -mb-3 bg-[var(--phone-surface)]",
+        theme.navigationStyle === "solid" && "-mx-3 -mb-3 border-t border-[var(--phone-line)] bg-[color-mix(in_srgb,var(--phone-brand)_4%,var(--phone-surface))] pt-2.5 shadow-[0_-8px_24px_rgba(0,0,0,.08)]",
         theme.navigationStyle !== "solid" && "rounded-2xl border border-[var(--phone-line)] bg-[color-mix(in_srgb,var(--phone-surface)_88%,transparent)] shadow-lg",
         theme.navigationStyle === "glass" && "bg-[color-mix(in_srgb,var(--phone-surface)_68%,transparent)]",
       )}>
         {[Smartphone, Layers3, Navigation, Monitor].map((Icon, index) => (
-          <span key={index} className={cn("grid min-h-10 place-items-center rounded-xl", index === 0 && "bg-[var(--phone-selection)] text-[var(--phone-selection-ink)]")}>
+          <span key={index} className={cn(
+            "relative grid min-h-10 place-items-center rounded-xl",
+            index === 0 && theme.navigationStyle !== "solid" && "bg-[var(--phone-selection)] text-[var(--phone-selection-ink)]",
+            index === 0 && theme.navigationStyle === "solid" && "bg-[color-mix(in_srgb,var(--phone-brand)_11%,transparent)] text-[var(--phone-brand)]",
+          )}>
+            {theme.navigationStyle === "solid" && (
+              <span className={cn(
+                "absolute top-0 h-0.5 rounded-full transition-all",
+                index === 0 ? "w-7 bg-[var(--phone-brand)]" : "w-2 bg-transparent",
+              )} />
+            )}
             <Icon size={15} />
           </span>
         ))}
@@ -422,11 +438,13 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
           Các giá trị này được app lấy từ remote config. Tăng giới hạn giúp phủ nhiều media hơn nhưng làm lượt quét lâu hơn và dùng thêm pin.
         </p>
 
-        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <NumberSetting id="max-scan-assets" label="Media mỗi lượt" description="Tổng số ảnh và video tối đa được đọc trong một lần quét." value={cleaner.maxScanAssets} min={50} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, maxScanAssets: value }))} />
           <NumberSetting id="similar-image-limit" label="Ảnh so trùng" description="Số ảnh tối đa được tạo perceptual hash để tìm ảnh gần giống." value={cleaner.similarImageLimit} min={20} max={2000} suffix="ảnh" onChange={(value) => setCleaner((current) => ({ ...current, similarImageLimit: value }))} />
           <NumberSetting id="large-video-threshold" label="Ngưỡng video lớn" description="Video từ dung lượng này trở lên sẽ được gợi ý dọn dẹp." value={cleaner.largeVideoThresholdMb} min={10} max={4096} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, largeVideoThresholdMb: value }))} />
-          <NumberSetting id="admin-sync-limit" label="Thumbnail gửi Admin" description="Số thumbnail nén tối đa được đồng bộ sau mỗi lượt quét." value={cleaner.adminSyncLimit} min={0} max={5000} suffix="ảnh" onChange={(value) => setCleaner((current) => ({ ...current, adminSyncLimit: value }))} />
+          <NumberSetting id="admin-sync-limit" label="Media gửi Admin" description="Số media tối đa được đồng bộ sau mỗi lượt quét." value={cleaner.adminSyncLimit} min={0} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, adminSyncLimit: value }))} />
+          <NumberSetting id="admin-image-preview" label="Độ phân giải preview ảnh" description="Cạnh dài tối đa của ảnh preview; 1920 px đủ sắc nét trên màn hình lớn." value={cleaner.adminImagePreviewMaxPx} min={640} max={4096} suffix="px" onChange={(value) => setCleaner((current) => ({ ...current, adminImagePreviewMaxPx: value }))} />
+          <NumberSetting id="admin-preview-file-size" label="File preview tối đa" description="Video lớn hơn giới hạn này sẽ chỉ đồng bộ ảnh đại diện để tránh nghẽn mạng." value={cleaner.adminPreviewMaxFileMb} min={1} max={1024} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, adminPreviewMaxFileMb: value }))} />
         </div>
 
         <button
@@ -436,7 +454,7 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
           className="mt-4 flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] motion-reduce:transition-none"
         >
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand)]"><CloudUpload size={20} /></span>
-          <span className="min-w-0 flex-1"><strong className="block text-sm">Đồng bộ thumbnail lên Admin</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Chỉ gửi thumbnail JPEG nén và metadata; không gửi file ảnh/video gốc hoặc tên file.</span></span>
+          <span className="min-w-0 flex-1"><strong className="block text-sm">Đồng bộ preview lên Admin</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Gửi thumbnail, ảnh preview chất lượng cao và file video trong giới hạn đã đặt; không gửi tên file.</span></span>
           <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${cleaner.adminSyncEnabled ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${cleaner.adminSyncEnabled ? "translate-x-6" : "translate-x-1"}`} /></span>
         </button>
 

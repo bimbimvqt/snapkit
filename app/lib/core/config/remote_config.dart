@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../network/api_client.dart';
 import '../theme/snapkit_theme.dart';
 import '../../features/cleaner/domain/cleaner_scan_settings.dart';
+import '../../features/settings/domain/pro_subscription_config.dart';
 
 class RemoteConfig extends ChangeNotifier {
   RemoteConfig._();
@@ -15,6 +16,7 @@ class RemoteConfig extends ChangeNotifier {
   };
   AppThemeSettings theme = const AppThemeSettings();
   CleanerScanSettings get cleaner => CleanerScanSettings.fromMobile(mobile);
+  ProSubscriptionConfig get proSubscription => ProSubscriptionConfig.fromMobile(mobile);
   bool enabled(String key) => flags[key] ?? false;
   Future<void> refresh() async {
     try {

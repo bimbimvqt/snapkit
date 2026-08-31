@@ -7,5 +7,5 @@ class ApiSettingsRepository implements SettingsRepository {
   final ApiClient _apiClient;
 
   @override
-  Future<void> trackPaywallViewed() => _apiClient.event('paywall_view');
+  Future<void> trackPaywallViewed({String? planId}) => _apiClient.event('paywall_view', {'planId': ?planId});
 }

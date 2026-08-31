@@ -13,7 +13,7 @@ design-system/  Visual language dùng chung
 
 ## Kiến trúc
 
-- `app/` xử lý media trên thiết bị; khi Admin bật đồng bộ, app gửi thumbnail JPEG nén và metadata giới hạn, không gửi file media gốc hoặc tên file.
+- `app/` xử lý media trên thiết bị; khi Admin bật đồng bộ preview, app gửi thumbnail, ảnh preview chất lượng cao và video trong giới hạn cấu hình. Tên file không được gửi.
 - `admin/` không truy cập database trực tiếp. Server Components gọi `BACKEND_INTERNAL_URL`; request trình duyệt đi qua `/backend/*` để giữ cookie HttpOnly cùng origin.
 - `backend/` là chủ sở hữu duy nhất của API, JWT, refresh-token rotation/revocation, RBAC, Prisma schema, migrations và seed.
 - Production dùng Postgres, migrate job, backend, admin và Nginx trong các container riêng.
@@ -140,12 +140,17 @@ pnpm --dir admin exec next dev --port 3002
 
 ```bash
 make dev-app-ios
+make dev-app-ios-device
 make dev-app-android
 ```
 
 - iOS simulator dùng `http://localhost:3001`.
 - Android emulator dùng `http://10.0.2.2:3001`.
-- Thiết bị thật cần truyền IP LAN của máy phát triển bằng `--dart-define=API_BASE_URL=http://<LAN-IP>:3001`.
+- `make dev-app-ios-device` tự tìm IP LAN đang hoạt động, kiểm tra backend rồi tạo
+  `app/config/development.device.json` cục bộ trước khi chạy trên iPhone thật.
+- Trong VS Code/Antigravity, chọn `Snapkit · iPhone thật`; pre-launch task thực hiện cùng bước tự động nên không cần
+  hard-code hoặc cập nhật IP khi đổi Wi-Fi.
+- Có thể đặt `SNAPKIT_DEVICE_HOST=<hostname-or-ip>` khi cần override lựa chọn interface tự động.
 - App bắt buộc đăng nhập Google trước khi mở các công cụ. Cần cấu hình Web/Android/iOS OAuth credentials theo [hướng dẫn Google Sign-In](docs/google-sign-in.md).
 
 ### Theme từ admin và QR Studio
@@ -245,8 +250,8 @@ Những giá trị này phụ thuộc tài khoản/domain bên ngoài nên khôn
 
 - `POST /api/v1/auth/anonymous|register|login|google|refresh|logout`, `GET /api/v1/auth/me`
 - `GET /api/v1/config`, `GET|POST /api/v1/qr`
-- `POST /api/v1/events`, `POST /api/v1/media-cleanups|media-scans`
-- `GET /api/admin/overview|users|qr|media-scans|config|audit|flags`, `PATCH /api/admin/config|flags`
+- `POST /api/v1/events`, `POST /api/v1/media-cleanups|media-scans`, `PUT /api/v1/media-scans/assets/:id/preview`
+- `GET /api/admin/overview|users|qr|media-scans|config|audit|flags`, `GET /api/admin/media-scans/assets/:id/preview`, `PATCH /api/admin/config|flags`
 - `GET /api/health`
 
 Response thống nhất: `{ "data": ... }` hoặc `{ "error": { "code", "message" } }`.

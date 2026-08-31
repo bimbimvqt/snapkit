@@ -17,8 +17,8 @@ class SettingsController extends GetxController {
   AuthUser? get user => _authController.user;
   bool get isSigningOut => _authController.isSigningOut;
 
-  void openPaywall() {
-    unawaited(_repository.trackPaywallViewed());
+  void openPaywall({String? planId}) {
+    unawaited(_repository.trackPaywallViewed(planId: planId));
   }
 
   Future<void> signOut() => _authController.signOut();

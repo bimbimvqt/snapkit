@@ -50,11 +50,15 @@ services:
     environment:
       PORT: 3001
       HOSTNAME: 0.0.0.0
+      MEDIA_STORAGE_DIR: /app/media
+      STORAGE_SERVER_LABEL: ${STORAGE_SERVER_LABEL:-45.119.214.94}
     depends_on:
       migrate:
         condition: service_completed_successfully
     expose:
       - "3001"
+    volumes:
+      - snapkit_media_prod:/app/media
     networks:
       default:
         aliases:
@@ -123,3 +127,5 @@ volumes:
   snapkit_postgres_prod:
     name: snapkit_postgres_prod
     external: true
+  snapkit_media_prod:
+    name: snapkit_media_prod

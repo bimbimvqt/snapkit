@@ -36,6 +36,14 @@ async function expectResponse(label, url, init, expected = 200) {
   return response;
 }
 
+async function expectAdminPage(label, path, authenticated) {
+  const response = await expectResponse(label, `${adminBase}${path}`, authenticated);
+  const body = await response.text();
+  if (/Runtime TypeError|Application error|Internal Server Error/i.test(body)) {
+    throw new Error(`${label}: rendered a server error page`);
+  }
+}
+
 try {
   await expectResponse("backend health", `${backendBase}/api/health`);
   await expectResponse("public remote config", `${backendBase}/api/v1/config`);
@@ -62,7 +70,13 @@ try {
   const authenticated = { headers: { cookie }, redirect: "manual" };
   await expectResponse("current user", `${adminBase}/backend/api/v1/auth/me`, authenticated);
   await expectResponse("admin overview API", `${adminBase}/backend/api/admin/overview`, authenticated);
-  await expectResponse("admin dashboard", `${adminBase}/admin`, authenticated);
+  await expectAdminPage("admin dashboard", "/admin", authenticated);
+  await expectAdminPage("admin users", "/admin/users", authenticated);
+  await expectAdminPage("admin QR", "/admin/qr", authenticated);
+  await expectAdminPage("admin media scans", "/admin/media-scans", authenticated);
+  await expectAdminPage("admin subscriptions", "/admin/subscriptions", authenticated);
+  await expectAdminPage("admin config", "/admin/config", authenticated);
+  await expectAdminPage("admin audit", "/admin/audit", authenticated);
   await expectResponse("logout", `${adminBase}/backend/api/v1/auth/logout`, { ...authenticated, method: "POST" });
   await expectResponse("revoked refresh token", `${adminBase}/backend/api/v1/auth/refresh`, {
     method: "POST",

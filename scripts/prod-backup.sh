@@ -7,7 +7,9 @@ cd "$project_dir"
 node scripts/env.mjs check-prod
 umask 077
 mkdir -p backups
-backup_path="backups/snapkit-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+backup_stamp="snapkit-$(date -u +%Y%m%dT%H%M%SZ)"
+backup_path="backups/$backup_stamp.sql.gz"
+media_backup_path="backups/$backup_stamp.media.tar.gz"
 
 docker compose -f docker-compose.prod.yml exec -T postgres \
   sh -c 'pg_dump --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" "$POSTGRES_DB"' \
@@ -18,4 +20,13 @@ if [[ ! -s "$backup_path" ]]; then
   exit 1
 fi
 
-echo "Backup created: $backup_path"
+docker compose -f docker-compose.prod.yml exec -T backend \
+  tar -czf - -C /app/media . > "$media_backup_path"
+
+if [[ ! -s "$media_backup_path" ]]; then
+  echo "Media backup is empty." >&2
+  exit 1
+fi
+
+echo "Database backup created: $backup_path"
+echo "Media backup created: $media_backup_path"

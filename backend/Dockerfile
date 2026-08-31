@@ -35,6 +35,7 @@ FROM node:22-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN mkdir -p /app/media && chown nextjs:nodejs /app/media
 COPY --from=builder /app/backend/public ./backend/public
 COPY --from=builder --chown=nextjs:nodejs /app/backend/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/backend/.next/static ./backend/.next/static

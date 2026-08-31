@@ -115,12 +115,12 @@ class _QrScreenState extends State<QrScreen> {
     if (!mounted) return;
     final message = switch (result) {
       QrSaveResult.saved => 'Đã lưu nội dung và thông số thiết kế QR vào lịch sử.',
-      QrSaveResult.unavailable => 'QR Studio đang tạm tắt trong cấu hình hệ thống.',
+      QrSaveResult.unavailable => 'QR Studio đang tạm bảo trì. Vui lòng thử lại sau.',
       QrSaveResult.invalid =>
         _controller.design.isScannable
             ? 'Hãy nhập nội dung trước khi lưu.'
             : 'Hãy tăng độ tương phản giữa mã QR và nền trước khi lưu.',
-      QrSaveResult.failed => 'Chưa thể đồng bộ QR. Kiểm tra mạng rồi thử lại.',
+      QrSaveResult.failed => 'Chưa thể lưu QR vào lịch sử. Kiểm tra mạng rồi thử lại.',
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }

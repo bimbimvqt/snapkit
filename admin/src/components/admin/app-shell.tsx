@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, Bell, Flag, Images, LogOut, Menu, QrCode, Settings2, Users, X } from "lucide-react";
+import { BarChart3, Bell, Crown, Flag, Images, LogOut, Menu, QrCode, Settings2, Users, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import Button from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { href: "/admin", label: "Tổng quan", icon: BarChart3 }, { href: "/admin/users", label: "Người dùng", icon: Users },
-  { href: "/admin/qr", label: "QR Studio", icon: QrCode }, { href: "/admin/media-scans", label: "Media đã quét", icon: Images }, { href: "/admin/config", label: "Cấu hình app", icon: Settings2 }, { href: "/admin/audit", label: "Audit log", icon: Flag },
+  { href: "/admin/qr", label: "QR Studio", icon: QrCode }, { href: "/admin/media-scans", label: "Media đã quét", icon: Images }, { href: "/admin/subscriptions", label: "Gói Pro", icon: Crown }, { href: "/admin/config", label: "Cấu hình app", icon: Settings2 }, { href: "/admin/audit", label: "Audit log", icon: Flag },
 ];
 
 export function AppShell({ children, email }: { children: ReactNode; email?: string | null }) {

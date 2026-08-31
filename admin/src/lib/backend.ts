@@ -53,12 +53,65 @@ export type AdminSessionUser = {
 };
 
 export type Overview = {
-  users: number;
-  activeSubscriptions: number;
-  qrCreated: number;
-  cleanups: number;
-  bytesFreed: number;
-  events: Array<{ name: string; count: number }>;
+  apiVersion: "legacy" | "analytics_v2";
+  period: { days: number; start: string; end: string };
+  audience: {
+    totalUsers: number;
+    newUsers: number;
+    previousNewUsers: number;
+    newUsersChange: number | null;
+    activeUsers: number;
+    activeSubscriptions: number;
+    proConversion: number;
+  };
+  engagement: {
+    totalEvents: number;
+    previousEvents: number;
+    eventsChange: number | null;
+    events: Array<{ name: string; count: number }>;
+    platforms: Array<{ name: string; count: number }>;
+  };
+  productivity: {
+    qrCreated: number;
+    previousQrCreated: number;
+    qrChange: number | null;
+    cleanups: number;
+    previousCleanups: number;
+    cleanupChange: number | null;
+    scannedForCleanup: number;
+    removedItems: number;
+    bytesFreed: number;
+  };
+  media: {
+    scans: number;
+    scannedAssets: number;
+    images: number;
+    videos: number;
+    duplicates: number;
+    screenshots: number;
+    largeVideos: number;
+    averageScanSeconds: number;
+    totalPreviewAssets: number;
+    previewReadyAssets: number;
+    previewCoverage: number;
+  };
+  storage: {
+    sourceHost?: string;
+    totalBytes: number;
+    usedBytes: number;
+    freeBytes: number;
+    usedPercent: number;
+    databaseBytes: number;
+    previewBytes: number;
+  } | null;
+  trend: Array<{
+    date: string;
+    events: number;
+    newUsers: number;
+    qrCreated: number;
+    cleanups: number;
+    mediaScans: number;
+  }>;
 };
 
 export type AdminUser = {
@@ -90,6 +143,37 @@ export type AdminConfig = {
   mobileConfig: unknown;
 };
 
+export type SubscriptionPlan = {
+  id: string;
+  productId: string;
+  name: string;
+  badge: string;
+  price: number;
+  currency: string;
+  priceLabel: string;
+  periodLabel: string;
+  trialDays: number;
+  ctaLabel: string;
+  description: string;
+  features: string[];
+  benefits: string[];
+  highlighted: boolean;
+  enabled: boolean;
+  sortOrder: number;
+};
+
+export type SubscriptionPlanConfig = {
+  title: string;
+  subtitle: string;
+  footer: string;
+  plans: SubscriptionPlan[];
+};
+
+export type AdminSubscriptionPlans = {
+  config: SubscriptionPlanConfig;
+  updatedAt: string | null;
+};
+
 export type MediaScanAsset = {
   id: string;
   type: "IMAGE" | "VIDEO";
@@ -99,30 +183,38 @@ export type MediaScanAsset = {
   height: number;
   durationSeconds: number | null;
   capturedAt: string | null;
+  createdAt: string;
   hasThumbnail: boolean;
+  hasPreview: boolean;
+  previewMimeType: string | null;
 };
 
-export type MediaScanSession = {
-  id: string;
-  deviceId: string;
-  scannedCount: number;
+export type MediaScanGroup = {
+  key: string;
+  user: { id: string; email: string | null; name: string | null } | null;
+  deviceId: string | null;
+  scanCount: number;
+  deviceCount: number;
+  assetCount: number;
   imageCount: number;
   videoCount: number;
-  duplicateCount: number;
-  screenshotCount: number;
-  largeVideoCount: number;
-  durationMs: number;
-  createdAt: string;
-  user: { email: string | null; name: string | null } | null;
-  assets: MediaScanAsset[];
-  _count: { assets: number };
+  latestScanAt: string;
 };
 
 export type MediaScanAnalytics = {
   totalScans: number;
   totalAssets: number;
   duplicateAssets: number;
-  latest: MediaScanSession[];
+  groups: MediaScanGroup[];
+  selectedGroupKey: string | null;
+  assets: {
+    items: MediaScanAsset[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    type: "ALL" | "IMAGE" | "VIDEO";
+  };
 };
 
 export type AuditEntry = {

@@ -56,11 +56,18 @@ class DeviceCleanerRepository implements CleanerRepository {
       final batch = start >= assets.length ? const <ScannedMediaAsset>[] : assets.sublist(start, end);
       final serialized = <Map<String, Object?>>[];
       for (final item in batch) {
-        final thumbnail = await item.asset.thumbnailDataWithSize(
-          const ThumbnailSize.square(160),
+        var thumbnail = await item.asset.thumbnailDataWithSize(
+          const ThumbnailSize.square(360),
           format: ThumbnailFormat.jpeg,
-          quality: 42,
+          quality: 72,
         );
+        if (thumbnail != null && thumbnail.length > 90 * 1024) {
+          thumbnail = await item.asset.thumbnailDataWithSize(
+            const ThumbnailSize.square(240),
+            format: ThumbnailFormat.jpeg,
+            quality: 60,
+          );
+        }
         serialized.add({
           'assetId': item.asset.id,
           'type': item.asset.type == AssetType.video ? 'VIDEO' : 'IMAGE',
@@ -74,7 +81,7 @@ class DeviceCleanerRepository implements CleanerRepository {
         });
       }
 
-      final accepted = await _apiClient.syncMediaScanBatch({
+      final response = await _apiClient.syncMediaScanBatch({
         'clientScanId': clientScanId,
         'deviceId': deviceId,
         'scannedCount': result.scanned,
@@ -89,9 +96,86 @@ class DeviceCleanerRepository implements CleanerRepository {
         'largeVideoThresholdMb': settings.largeVideoThresholdMb,
         'assets': serialized,
       });
-      if (!accepted) return false;
+      if (response == null) return false;
+
+      final remoteAssets = <String, Map<String, dynamic>>{};
+      final rawAssets = response['assets'];
+      if (rawAssets is List) {
+        for (final raw in rawAssets) {
+          if (raw is! Map) continue;
+          final mapped = Map<String, dynamic>.from(raw);
+          final clientAssetId = mapped['assetId'];
+          if (clientAssetId is String) remoteAssets[clientAssetId] = mapped;
+        }
+      }
+      for (final item in batch) {
+        final remote = remoteAssets[item.asset.id];
+        final remoteId = remote?['id'];
+        if (remoteId is! String || remote?['hasPreview'] == true) continue;
+        final uploaded = await _uploadPreview(item, remoteId, settings);
+        if (!uploaded) return false;
+      }
     }
     return true;
+  }
+
+  Future<bool> _uploadPreview(ScannedMediaAsset item, String remoteId, CleanerScanSettings settings) async {
+    final maximumBytes = settings.adminPreviewMaxFileMb * 1024 * 1024;
+    if (item.asset.type == AssetType.image) {
+      final longest = item.asset.width > item.asset.height ? item.asset.width : item.asset.height;
+      final scale = longest > settings.adminImagePreviewMaxPx ? settings.adminImagePreviewMaxPx / longest : 1.0;
+      final width = (item.asset.width * scale).round().clamp(1, settings.adminImagePreviewMaxPx);
+      final height = (item.asset.height * scale).round().clamp(1, settings.adminImagePreviewMaxPx);
+      final preview = await item.asset.thumbnailDataWithSize(
+        ThumbnailSize(width, height),
+        format: ThumbnailFormat.jpeg,
+        quality: 90,
+      );
+      if (preview == null || preview.isEmpty || preview.length > maximumBytes) {
+        return false;
+      }
+      return _apiClient.uploadMediaPreview(
+        assetId: remoteId,
+        stream: Stream<List<int>>.value(preview),
+        length: preview.length,
+        mimeType: 'image/jpeg',
+      );
+    }
+
+    final file = await item.asset.file;
+    if (file == null) return false;
+    final length = await file.length();
+    if (length <= 0) return false;
+    // The administrator can intentionally cap video uploads. Keep the scan
+    // synced with its poster thumbnail instead of reporting the whole batch as
+    // failed when the original file is larger than that cap.
+    if (length > maximumBytes) return true;
+    final mimeType = await _videoMimeType(item.asset, file.path);
+    return _apiClient.uploadMediaPreview(
+      assetId: remoteId,
+      stream: file.openRead(),
+      length: length,
+      mimeType: mimeType,
+    );
+  }
+
+  Future<String> _videoMimeType(AssetEntity asset, String path) async {
+    final reported = (await asset.mimeTypeAsync)?.toLowerCase();
+    if (reported == 'video/mp4' ||
+        reported == 'video/quicktime' ||
+        reported == 'video/x-m4v' ||
+        reported == 'video/3gpp' ||
+        reported == 'video/webm') {
+      return reported!;
+    }
+    final extension = path.toLowerCase().split('.').last;
+    return switch (extension) {
+      'mov' => 'video/quicktime',
+      'm4v' => 'video/x-m4v',
+      '3gp' => 'video/3gpp',
+      'webm' => 'video/webm',
+      _ => 'video/mp4',
+    };
   }
 
   String _categoryName(MediaAssetCategory category) => switch (category) {

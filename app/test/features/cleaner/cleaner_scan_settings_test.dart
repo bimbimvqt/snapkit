@@ -10,6 +10,8 @@ void main() {
         'largeVideoThresholdMb': 150,
         'adminSyncEnabled': false,
         'adminSyncLimit': 300,
+        'adminImagePreviewMaxPx': 2560,
+        'adminPreviewMaxFileMb': 800,
       },
     });
 
@@ -18,6 +20,8 @@ void main() {
     expect(settings.largeVideoThresholdMb, 150);
     expect(settings.adminSyncEnabled, isFalse);
     expect(settings.adminSyncLimit, 300);
+    expect(settings.adminImagePreviewMaxPx, 2560);
+    expect(settings.adminPreviewMaxFileMb, 800);
   });
 
   test('uses safe defaults and clamps remote values', () {
@@ -28,6 +32,8 @@ void main() {
         'largeVideoThresholdMb': 'invalid',
         'adminSyncEnabled': 'invalid',
         'adminSyncLimit': -50,
+        'adminImagePreviewMaxPx': 100000,
+        'adminPreviewMaxFileMb': 100000,
       },
     });
 
@@ -36,5 +42,7 @@ void main() {
     expect(settings.largeVideoThresholdMb, 100);
     expect(settings.adminSyncEnabled, isTrue);
     expect(settings.adminSyncLimit, 0);
+    expect(settings.adminImagePreviewMaxPx, 4096);
+    expect(settings.adminPreviewMaxFileMb, 1024);
   });
 }

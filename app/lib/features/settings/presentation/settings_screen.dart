@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
-import '../../../core/config/app_environment.dart';
-import '../../../core/styles/app_colors.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/styles/app_dimensions.dart';
 import '../../../core/styles/app_text_styles.dart';
 import '../../../shared/widgets/snapkit_widgets.dart';
 import '../../auth/domain/auth_user.dart';
 import '../application/settings_controller.dart';
+import '../domain/pro_subscription_config.dart';
+import 'widgets/pro_pricing_section.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
   const SettingsScreen({super.key});
@@ -32,41 +33,18 @@ class SettingsScreen extends GetView<SettingsController> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const PageHeader(
-                      eyebrow: 'Preferences',
+                      eyebrow: 'Tài khoản',
                       title: 'Cài đặt',
-                      description: 'Quyền riêng tư, gói sử dụng và thông tin môi trường.',
+                      description: 'Quản lý tài khoản và trải nghiệm Snapkit của bạn.',
                     ),
                     SizedBox(height: AppDimensions.space24),
-                    Container(
-                      padding: EdgeInsets.all(22.w),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [AppColors.proGradientStart, AppColors.proGradientEnd]),
-                        borderRadius: BorderRadius.circular(AppDimensions.radius24),
+                    if (RemoteConfig.instance.enabled('pro_paywall')) ...[
+                      ProPricingSection(
+                        config: RemoteConfig.instance.proSubscription,
+                        onPlanSelected: (plan) => _selectPlan(context, plan),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.workspace_premium_rounded, color: AppColors.darkInk),
-                          SizedBox(height: 22.h),
-                          Text('Snapkit Pro', style: AppTextStyles.titleLarge.copyWith(color: AppColors.darkInk)),
-                          SizedBox(height: 7.h),
-                          Text(
-                            'Không quảng cáo, quét thư viện lớn và QR style premium.',
-                            style: AppTextStyles.body.copyWith(color: AppColors.darkInk.withValues(alpha: .8)),
-                          ),
-                          SizedBox(height: 18.h),
-                          FilledButton(
-                            onPressed: controller.openPaywall,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.darkInk,
-                              foregroundColor: AppColors.white,
-                            ),
-                            child: const Text('Xem gói nâng cấp'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: AppDimensions.space24),
+                      SizedBox(height: AppDimensions.space32),
+                    ],
                     Obx(() {
                       final user = controller.user;
                       if (user == null) return const SizedBox.shrink();
@@ -84,22 +62,14 @@ class SettingsScreen extends GetView<SettingsController> {
                         children: [
                           const _Tile(
                             icon: Icons.shield_outlined,
-                            title: 'Privacy by default',
-                            subtitle: 'Media không rời khỏi thiết bị',
+                            title: 'Xóa có xác nhận',
+                            subtitle: 'Luôn xem lại và chọn nội dung trước khi xóa',
                           ),
                           const _Divider(),
                           const _Tile(
                             icon: Icons.ads_click_outlined,
                             title: 'Quảng cáo có kiểm soát',
                             subtitle: 'Không hiển thị trong lúc chọn/xóa media',
-                          ),
-                          const _Divider(),
-                          _Tile(icon: Icons.cloud_outlined, title: 'API backend', subtitle: AppEnvironment.apiBaseUrl),
-                          const _Divider(),
-                          _Tile(
-                            icon: Icons.science_outlined,
-                            title: 'Môi trường',
-                            subtitle: AppEnvironment.isProduction ? 'Production' : 'Development',
                           ),
                         ],
                       ),
@@ -108,7 +78,7 @@ class SettingsScreen extends GetView<SettingsController> {
                     const PrivacyPill(),
                     SizedBox(height: AppDimensions.space12),
                     Text(
-                      'Snapkit 1.0.0 · Build privacy-first',
+                      'Snapkit 1.0.0',
                       textAlign: TextAlign.center,
                       style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
@@ -121,6 +91,45 @@ class SettingsScreen extends GetView<SettingsController> {
       ),
     ),
   );
+
+  void _selectPlan(BuildContext context, ProPlan plan) {
+    controller.openPaywall(planId: plan.id);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 24.h),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(Icons.shopping_bag_outlined, size: 36.sp, color: scheme.primary),
+                SizedBox(height: AppDimensions.space16),
+                Text('Bạn đã chọn ${plan.name}', textAlign: TextAlign.center, style: AppTextStyles.titleLarge),
+                SizedBox(height: AppDimensions.space8),
+                Text(
+                  '${plan.priceLabel} ${plan.periodLabel}. Bạn chưa bị tính phí; bước thanh toán qua cửa hàng ứng dụng sẽ được mở khi sản phẩm sẵn sàng.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                SizedBox(height: AppDimensions.space20),
+                SizedBox(
+                  height: AppDimensions.minTouchTarget,
+                  child: FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Đã hiểu')),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _AccountCard extends StatelessWidget {

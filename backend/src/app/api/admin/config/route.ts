@@ -17,6 +17,8 @@ export const cleanerSchema = z
     largeVideoThresholdMb: z.number().int().min(10).max(4096),
     adminSyncEnabled: z.boolean(),
     adminSyncLimit: z.number().int().min(0).max(5000),
+    adminImagePreviewMaxPx: z.number().int().min(640).max(4096),
+    adminPreviewMaxFileMb: z.number().int().min(1).max(1024),
   })
   .refine((input) => input.similarImageLimit <= input.maxScanAssets, {
     message: "Số ảnh so trùng không được lớn hơn tổng media mỗi lượt",

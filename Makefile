@@ -1,4 +1,4 @@
-.PHONY: setup local-up local-down local-logs dev-db dev-admin dev-backend dev-app-ios dev-app-android test test-admin test-backend test-app build-admin build-backend app-signing-init build-app-prod build-app-ios-prod prod-init prod-check prod-deploy prod-backup prod-restore prod-down prod-logs smoke
+.PHONY: setup local-up local-down local-logs dev-db dev-admin dev-backend dev-app-ios dev-app-ios-device dev-app-android test test-admin test-backend test-app test-device-config build-admin build-backend app-signing-init build-app-prod build-app-ios-prod prod-init prod-check prod-deploy prod-backup prod-restore prod-down prod-logs smoke
 
 setup:
 	pnpm setup
@@ -24,6 +24,10 @@ dev-backend:
 dev-app-ios:
 	cd app && flutter run --dart-define-from-file=config/development.json
 
+dev-app-ios-device:
+	node scripts/device-config.mjs --check-backend
+	cd app && flutter run --dart-define-from-file=config/development.device.json
+
 dev-app-android:
 	cd app && flutter run --dart-define-from-file=config/development.json --dart-define=API_BASE_URL=http://10.0.2.2:3001
 
@@ -40,6 +44,9 @@ test-backend:
 
 test-app:
 	cd app && flutter test
+
+test-device-config:
+	node --test scripts/device-config.test.mjs
 
 build-admin:
 	pnpm --dir admin build

@@ -21,4 +21,13 @@ node scripts/env.mjs check-prod
 gzip -cd "$backup_path" | docker compose -f docker-compose.prod.yml exec -T postgres \
   sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" "$POSTGRES_DB"'
 
+media_backup_path="${backup_path%.sql.gz}.media.tar.gz"
+if [[ -f "$media_backup_path" ]]; then
+  docker compose -f docker-compose.prod.yml run --rm --no-deps -T backend \
+    sh -c 'rm -rf /app/media/* && tar -xzf - -C /app/media' < "$media_backup_path"
+  echo "Media restored from $media_backup_path"
+else
+  echo "No companion media backup found at $media_backup_path; database only was restored."
+fi
+
 echo "Restore completed from $backup_path"

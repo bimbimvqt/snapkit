@@ -155,9 +155,31 @@ class ApiClient {
     } catch (_) {}
   }
 
-  Future<bool> syncMediaScanBatch(Map<String, Object?> payload) async {
+  Future<Map<String, dynamic>?> syncMediaScanBatch(Map<String, Object?> payload) async {
     try {
-      await dio.post('/api/v1/media-scans', data: payload);
+      final response = await dio.post<Map<String, dynamic>>('/api/v1/media-scans', data: payload);
+      return _dataMap(response.data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> uploadMediaPreview({
+    required String assetId,
+    required Stream<List<int>> stream,
+    required int length,
+    required String mimeType,
+  }) async {
+    try {
+      await dio.put<Map<String, dynamic>>(
+        '/api/v1/media-scans/assets/$assetId/preview',
+        data: stream,
+        options: Options(
+          headers: {Headers.contentTypeHeader: mimeType, Headers.contentLengthHeader: length},
+          sendTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+      );
       return true;
     } catch (_) {
       return false;

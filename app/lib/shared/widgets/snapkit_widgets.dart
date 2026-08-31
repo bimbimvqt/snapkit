@@ -103,7 +103,7 @@ class PrivacyPill extends StatelessWidget {
           Icon(Icons.shield_outlined, size: 16.sp, color: primary),
           SizedBox(width: 7.w),
           Text(
-            'Xử lý trên thiết bị',
+            'Bạn luôn duyệt trước khi xóa',
             style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: primary),
           ),
         ],

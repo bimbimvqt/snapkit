@@ -70,6 +70,7 @@ class _BottomNavigation extends StatelessWidget {
     final glass = style == SnapkitNavigationStyle.glass;
     final threadsMono = preset == SnapkitThemePreset.threadsMono;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final solidSurface = Color.alphaBlend(scheme.primary.withValues(alpha: .035), scheme.surface);
     final bar = Container(
       margin: solid
           ? EdgeInsets.zero
@@ -79,13 +80,22 @@ class _BottomNavigation extends StatelessWidget {
               AppDimensions.space12,
               AppDimensions.space8,
             ),
-      padding: EdgeInsets.symmetric(horizontal: solid ? 8.w : 7.w, vertical: solid ? 7.h : 6.h),
+      padding: EdgeInsets.symmetric(
+        horizontal: solid ? AppDimensions.space8 : 7.w,
+        vertical: solid ? AppDimensions.space8 : 6.h,
+      ),
       decoration: BoxDecoration(
-        color: glass ? scheme.surface.withValues(alpha: .78) : scheme.surface,
+        color: solid
+            ? solidSurface
+            : glass
+            ? scheme.surface.withValues(alpha: .78)
+            : scheme.surface,
         borderRadius: solid ? BorderRadius.zero : BorderRadius.circular(AppDimensions.radius28),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: glass ? .72 : 1)),
+        border: solid
+            ? Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: .86)))
+            : Border.all(color: scheme.outlineVariant.withValues(alpha: glass ? .72 : 1)),
         boxShadow: solid
-            ? null
+            ? [BoxShadow(color: AppColors.black.withValues(alpha: .1), blurRadius: 22.r, offset: Offset(0, -6.h))]
             : [BoxShadow(color: AppColors.black.withValues(alpha: .18), blurRadius: 28.r, offset: Offset(0, 10.h))],
       ),
       child: Row(
@@ -94,8 +104,10 @@ class _BottomNavigation extends StatelessWidget {
           final selected = currentIndex == index;
           final selectedBackground = threadsMono
               ? scheme.onSurface.withValues(alpha: solid ? .1 : .14)
-              : scheme.secondary.withValues(alpha: solid ? .2 : 1);
-          final selectedForeground = threadsMono ? scheme.onSurface : (solid ? scheme.secondary : scheme.onSecondary);
+              : solid
+              ? scheme.primary.withValues(alpha: .11)
+              : scheme.secondary;
+          final selectedForeground = threadsMono ? scheme.onSurface : (solid ? scheme.primary : scheme.onSecondary);
           return Expanded(
             child: InkWell(
               onTap: () => onSelected(index),
@@ -103,8 +115,8 @@ class _BottomNavigation extends StatelessWidget {
               child: AnimatedContainer(
                 duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
-                constraints: BoxConstraints(minHeight: 58.h.clamp(AppDimensions.minTouchTarget, double.infinity)),
-                padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: 6.h),
+                constraints: BoxConstraints(minHeight: 60.h.clamp(AppDimensions.minTouchTarget, double.infinity)),
+                padding: EdgeInsets.symmetric(horizontal: 3.w, vertical: solid ? 4.h : 6.h),
                 decoration: BoxDecoration(
                   color: selected ? selectedBackground : AppColors.transparent,
                   borderRadius: BorderRadius.circular(AppDimensions.radius20),
@@ -113,6 +125,19 @@ class _BottomNavigation extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (solid) ...[
+                      AnimatedContainer(
+                        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        width: selected ? 28.w : 8.w,
+                        height: 3.h,
+                        decoration: BoxDecoration(
+                          color: selected ? selectedForeground : AppColors.transparent,
+                          borderRadius: BorderRadius.circular(99.r),
+                        ),
+                      ),
+                      SizedBox(height: 5.h),
+                    ],
                     Icon(
                       selected ? destination.selectedIcon ?? destination.icon : destination.icon,
                       size: AppDimensions.iconMedium,
@@ -137,11 +162,18 @@ class _BottomNavigation extends StatelessWidget {
       ),
     );
 
+    if (solid) {
+      return Material(
+        color: solidSurface,
+        child: SafeArea(top: false, child: bar),
+      );
+    }
+
     return Material(
       color: AppColors.transparent,
       child: SafeArea(
         top: false,
-        minimum: solid ? EdgeInsets.zero : EdgeInsets.only(bottom: AppDimensions.space4),
+        minimum: EdgeInsets.only(bottom: AppDimensions.space4),
         child: glass
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(AppDimensions.radius28),

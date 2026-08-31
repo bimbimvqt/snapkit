@@ -15,6 +15,8 @@ class LoginScreen extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
+      top: false,
+      bottom: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= AppDimensions.tabletBreakpoint;
@@ -98,9 +100,9 @@ class _LoginContent extends StatelessWidget {
             padding: EdgeInsets.all(AppDimensions.space20),
             child: Column(
               children: const [
-                _Benefit(icon: Icons.phone_iphone_rounded, text: 'Media vẫn được xử lý trực tiếp trên thiết bị'),
+                _Benefit(icon: Icons.photo_library_outlined, text: 'Quét và xem lại thư viện ngay trong ứng dụng'),
                 _BenefitGap(),
-                _Benefit(icon: Icons.lock_outline_rounded, text: 'Backend chỉ xác minh danh tính Google của bạn'),
+                _Benefit(icon: Icons.verified_user_outlined, text: 'Bạn luôn xác nhận trước khi xóa nội dung'),
                 _BenefitGap(),
                 _Benefit(icon: Icons.sync_rounded, text: 'Giữ phiên đăng nhập an toàn giữa các lần mở app'),
               ],

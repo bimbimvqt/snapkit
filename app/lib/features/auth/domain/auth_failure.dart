@@ -8,8 +8,7 @@ class AuthCanceledFailure extends AuthFailure {
 }
 
 class AuthConfigurationFailure extends AuthFailure {
-  const AuthConfigurationFailure()
-    : super('Google Sign-In chưa được cấu hình cho bản build này. Vui lòng liên hệ quản trị viên.');
+  const AuthConfigurationFailure() : super('Google Sign-In chưa sẵn sàng trên phiên bản này. Vui lòng thử lại sau.');
 }
 
 class AuthNetworkFailure extends AuthFailure {

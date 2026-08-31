@@ -27,6 +27,8 @@
     "prod:restore": "bash scripts/prod-restore.sh",
     "prod:down": "docker compose -f docker-compose.prod.yml down",
     "prod:logs": "docker compose -f docker-compose.prod.yml logs -f --tail=150",
-    "app:signing:init": "bash scripts/android-signing.sh"
+    "app:signing:init": "bash scripts/android-signing.sh",
+    "app:config:device": "node scripts/device-config.mjs --check-backend",
+    "test:device-config": "node --test scripts/device-config.test.mjs"
   }
 }

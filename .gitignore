@@ -8,6 +8,7 @@ admin/.next/
 admin/node_modules/
 backend/.next/
 backend/node_modules/
+backend/.media-previews/
 backend/prisma/dev.db*
 app/.dart_tool/
 app/build/
@@ -16,6 +17,7 @@ app/.flutter-plugins*
 app/ios/Pods/
 app/ios/.symlinks/
 app/ios/Flutter/GoogleSignIn.xcconfig
+app/config/development.device.json
 coverage/
 backups/
 .android-signing.env

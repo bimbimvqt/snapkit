@@ -46,6 +46,7 @@ export async function POST(request: Request) {
         throw new Error("THUMBNAIL_TOO_LARGE");
       }
       return {
+        clientAssetId: asset.assetId,
         deviceAssetKey: createHash("sha256").update(asset.assetId).digest("hex"),
         type: asset.type,
         categories: asset.categories,
@@ -92,12 +93,41 @@ export async function POST(request: Request) {
 
     if (parsedAssets.length > 0) {
       await db.mediaScanAsset.createMany({
-        data: parsedAssets.map((asset) => ({ scanId: scan.id, ...asset })),
+        data: parsedAssets.map((asset) => ({
+          scanId: scan.id,
+          deviceAssetKey: asset.deviceAssetKey,
+          type: asset.type,
+          categories: asset.categories,
+          bytes: asset.bytes,
+          width: asset.width,
+          height: asset.height,
+          durationSeconds: asset.durationSeconds,
+          capturedAt: asset.capturedAt,
+          thumbnail: asset.thumbnail,
+          thumbnailMimeType: asset.thumbnailMimeType,
+        })),
         skipDuplicates: true,
       });
     }
 
-    return ok({ id: scan.id, accepted: parsedAssets.length }, { status: 201 });
+    const storedAssets = parsedAssets.length === 0
+      ? []
+      : await db.mediaScanAsset.findMany({
+          where: { scanId: scan.id, deviceAssetKey: { in: parsedAssets.map((asset) => asset.deviceAssetKey) } },
+          select: { id: true, deviceAssetKey: true, previewStorageKey: true },
+        });
+    const storedByKey = new Map(storedAssets.map((asset) => [asset.deviceAssetKey, asset]));
+
+    return ok({
+      id: scan.id,
+      accepted: parsedAssets.length,
+      assets: parsedAssets.flatMap((asset) => {
+        const stored = storedByKey.get(asset.deviceAssetKey);
+        return stored
+          ? [{ assetId: asset.clientAssetId, id: stored.id, hasPreview: stored.previewStorageKey !== null }]
+          : [];
+      }),
+    }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "THUMBNAIL_TOO_LARGE") {
       return fail("Thumbnail vượt quá dung lượng cho phép", 413, "THUMBNAIL_TOO_LARGE");

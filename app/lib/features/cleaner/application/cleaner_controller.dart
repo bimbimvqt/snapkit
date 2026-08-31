@@ -41,7 +41,7 @@ class CleanerController extends GetxController {
   Future<void> scan() async {
     if (isLoading || isRefreshing) return;
     if (!_isFeatureEnabled()) {
-      errorMessage = 'Tính năng đang được bảo trì từ hệ thống.';
+      errorMessage = 'Tính năng đang tạm bảo trì. Vui lòng thử lại sau.';
       status = result == null ? CleanerStatus.error : CleanerStatus.success;
       update();
       return;

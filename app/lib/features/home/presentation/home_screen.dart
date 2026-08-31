@@ -52,8 +52,7 @@ class HomeScreen extends GetView<HomeController> {
                       const PageHeader(
                         eyebrow: 'Snapkit',
                         title: 'Nhẹ máy. Gọn việc.',
-                        description:
-                            'Bộ công cụ thiết yếu, được thiết kế để dữ liệu riêng tư luôn ở lại trên điện thoại của bạn.',
+                        description: 'Dọn thư viện và tạo mã QR nhanh chóng trong một ứng dụng gọn nhẹ.',
                       ),
                       SizedBox(height: AppDimensions.space28),
                       Container(
@@ -97,18 +96,6 @@ class HomeScreen extends GetView<HomeController> {
                         color: scheme.secondary,
                         onTap: () => _openTool(context, featureKey: 'qr_studio', tab: AppTab.qr),
                       ),
-                      SizedBox(height: AppDimensions.space28),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: _Stat(value: '0 B', label: 'Media tải lên'),
-                          ),
-                          SizedBox(width: AppDimensions.space12),
-                          const Expanded(
-                            child: _Stat(value: '100%', label: 'Xử lý local'),
-                          ),
-                        ],
-                      ),
                       SizedBox(height: 22.h),
                       const SnapkitBannerAd(),
                     ],
@@ -126,31 +113,4 @@ class HomeScreen extends GetView<HomeController> {
     if (controller.openTool(featureKey: featureKey, tab: tab)) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tính năng đang được bảo trì.')));
   }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: EdgeInsets.all(18.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value, style: AppTextStyles.titleLarge),
-          SizedBox(height: 5.h),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    ),
-  );
 }
