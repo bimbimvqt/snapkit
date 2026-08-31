@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@prisma/client": "6.19.0",
+    "@prisma/client": "7.10.0",
     "bcryptjs": "^3.0.3",
-    "prisma": "6.19.0",
+    "prisma": "7.10.0",
     "tsx": "^4.23.12"
   },
   "packageManager": "pnpm@11.19.0"
