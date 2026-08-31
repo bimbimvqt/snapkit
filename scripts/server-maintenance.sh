@@ -95,6 +95,34 @@ print_inventory() {
   done < <(docker volume ls --format '{{.Name}}' | sort)
 }
 
+print_sync_diagnostics() {
+  echo "SnapKit media sync diagnostics"
+  if ! docker container inspect snapkit-prod-postgres-1 >/dev/null 2>&1; then
+    echo "SnapKit PostgreSQL container is unavailable."
+    return 1
+  fi
+  docker exec -i snapkit-prod-postgres-1 \
+    sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off' <<'SQL'
+SELECT
+  (SELECT COUNT(*) FROM "User") AS users,
+  (SELECT COUNT(*) FROM "MediaScan") AS scans,
+  (SELECT COUNT(*) FROM "MediaScanAsset") AS assets,
+  (SELECT COUNT(*) FROM "MediaScanAsset" WHERE "previewStorageKey" IS NOT NULL) AS previews,
+  (SELECT MAX("createdAt") FROM "MediaScan") AS latest_scan;
+
+SELECT
+  COALESCE(u.email, 'anonymous') AS owner,
+  COUNT(DISTINCT s.id) AS scans,
+  COUNT(a.id) AS assets,
+  MAX(s."createdAt") AS latest_scan
+FROM "MediaScan" s
+LEFT JOIN "User" u ON u.id = s."userId"
+LEFT JOIN "MediaScanAsset" a ON a."scanId" = s.id
+GROUP BY COALESCE(u.email, 'anonymous')
+ORDER BY latest_scan DESC;
+SQL
+}
+
 remove_portainer() {
   local container_id container_name volume
   mapfile -t portainer_containers < <(
@@ -320,6 +348,7 @@ remove_mam_resources() {
 case "$mode" in
   inventory)
     print_inventory
+    print_sync_diagnostics
     ;;
   cleanup)
     if [[ "$confirmation" != "DELETE_UNUSED_SERVER_RESOURCES" ]]; then
