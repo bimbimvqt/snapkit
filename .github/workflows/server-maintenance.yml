@@ -11,6 +11,7 @@ on:
         options:
           - inventory
           - cleanup
+          - cleanup-media
           - cleanup-mam
       database_volumes:
         description: Space-separated unused PostgreSQL Docker volumes from inventory
@@ -56,10 +57,14 @@ jobs:
           for variable_name in PROD_HOST PROD_PORT PROD_USER PROD_PATH SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
             [[ -n "${!variable_name:-}" ]] || { echo "Missing production configuration: $variable_name" >&2; exit 1; }
           done
-          [[ "$MODE" == "inventory" || "$MODE" == "cleanup" || "$MODE" == "cleanup-mam" ]] || { echo "Invalid maintenance mode" >&2; exit 1; }
+          [[ "$MODE" == "inventory" || "$MODE" == "cleanup" || "$MODE" == "cleanup-media" || "$MODE" == "cleanup-mam" ]] || { echo "Invalid maintenance mode" >&2; exit 1; }
           [[ "$DATABASE_VOLUMES" =~ ^[A-Za-z0-9_.\ -]*$ ]] || { echo "Invalid database volume list" >&2; exit 1; }
           if [[ "$MODE" == "cleanup" && "$CONFIRMATION" != "DELETE_UNUSED_SERVER_RESOURCES" ]]; then
             echo "Cleanup confirmation is missing or invalid." >&2
+            exit 1
+          fi
+          if [[ "$MODE" == "cleanup-media" && "$CONFIRMATION" != "DELETE_LEGACY_MEDIA" ]]; then
+            echo "Media cleanup confirmation is missing or invalid." >&2
             exit 1
           fi
           if [[ "$MODE" == "cleanup-mam" && "$CONFIRMATION" != "DELETE_MAM_AND_DATABASES" ]]; then

@@ -111,6 +111,23 @@ SELECT
   (SELECT MAX("createdAt") FROM "MediaScan") AS latest_scan;
 
 SELECT
+  COUNT(*) FILTER (
+    WHERE COALESCE("previewStorageKey" LIKE 'r2:%', FALSE)
+       OR COALESCE("originalStorageKey" LIKE 'r2:%', FALSE)
+       OR COALESCE("pendingStorageKey" LIKE 'r2:%', FALSE)
+  ) AS r2_assets,
+  COUNT(*) FILTER (
+    WHERE NOT (
+      COALESCE("previewStorageKey" LIKE 'r2:%', FALSE)
+      OR COALESCE("originalStorageKey" LIKE 'r2:%', FALSE)
+      OR COALESCE("pendingStorageKey" LIKE 'r2:%', FALSE)
+    )
+  ) AS legacy_assets,
+  COUNT(*) FILTER (WHERE thumbnail IS NOT NULL) AS database_thumbnails,
+  COALESCE(SUM(octet_length(thumbnail)), 0) AS database_thumbnail_bytes
+FROM "MediaScanAsset";
+
+SELECT
   COALESCE(u.email, 'anonymous') AS owner,
   COUNT(DISTINCT s.id) AS scans,
   COUNT(a.id) AS assets,
@@ -121,6 +138,88 @@ LEFT JOIN "MediaScanAsset" a ON a."scanId" = s.id
 GROUP BY COALESCE(u.email, 'anonymous')
 ORDER BY latest_scan DESC;
 SQL
+
+  echo "Local media volume usage"
+  docker run --rm -v snapkit_media_prod:/media:ro alpine:3.22 du -sh /media
+}
+
+backup_and_remove_legacy_media() {
+  local backend_container mounted_volume
+  backend_container="snapkit-prod-backend-1"
+
+  verify_production
+  if [[ ! -x scripts/prod-backup.sh ]]; then
+    echo "Production backup script is missing or not executable." >&2
+    exit 1
+  fi
+  echo "Creating recoverable database and local-media backups."
+  bash scripts/prod-backup.sh
+
+  mounted_volume="$(docker inspect "$backend_container" --format '{{ range .Mounts }}{{ if eq .Destination "/app/media" }}{{ .Name }}{{ end }}{{ end }}')"
+  if [[ "$mounted_volume" != "snapkit_media_prod" ]]; then
+    echo "Refusing media cleanup because the backend media mount is unexpected: $mounted_volume" >&2
+    exit 1
+  fi
+
+  echo "Stopping backend briefly to prevent uploads during media cleanup."
+  docker container stop "$backend_container" >/dev/null
+
+  if ! docker exec -i snapkit-prod-postgres-1 \
+    sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+BEGIN;
+
+DELETE FROM "MediaScanAsset"
+WHERE NOT (
+  COALESCE("previewStorageKey" LIKE 'r2:%', FALSE)
+  OR COALESCE("originalStorageKey" LIKE 'r2:%', FALSE)
+  OR COALESCE("pendingStorageKey" LIKE 'r2:%', FALSE)
+);
+
+UPDATE "MediaScanAsset"
+SET
+  thumbnail = NULL,
+  "thumbnailMimeType" = NULL,
+  "previewStorageKey" = CASE WHEN "previewStorageKey" LIKE 'r2:%' THEN "previewStorageKey" ELSE NULL END,
+  "previewMimeType" = CASE WHEN "previewStorageKey" LIKE 'r2:%' THEN "previewMimeType" ELSE NULL END,
+  "previewBytes" = CASE WHEN "previewStorageKey" LIKE 'r2:%' THEN "previewBytes" ELSE NULL END,
+  "previewExpiresAt" = CASE WHEN "previewStorageKey" LIKE 'r2:%' THEN "previewExpiresAt" ELSE NULL END,
+  "originalStorageKey" = CASE WHEN "originalStorageKey" LIKE 'r2:%' THEN "originalStorageKey" ELSE NULL END,
+  "originalMimeType" = CASE WHEN "originalStorageKey" LIKE 'r2:%' THEN "originalMimeType" ELSE NULL END,
+  "originalBytes" = CASE WHEN "originalStorageKey" LIKE 'r2:%' THEN "originalBytes" ELSE NULL END,
+  "originalExpiresAt" = CASE WHEN "originalStorageKey" LIKE 'r2:%' THEN "originalExpiresAt" ELSE NULL END,
+  "pendingStorageKey" = CASE WHEN "pendingStorageKey" LIKE 'r2:%' THEN "pendingStorageKey" ELSE NULL END,
+  "pendingMimeType" = CASE WHEN "pendingStorageKey" LIKE 'r2:%' THEN "pendingMimeType" ELSE NULL END,
+  "pendingBytes" = CASE WHEN "pendingStorageKey" LIKE 'r2:%' THEN "pendingBytes" ELSE NULL END,
+  "pendingExpiresAt" = CASE WHEN "pendingStorageKey" LIKE 'r2:%' THEN "pendingExpiresAt" ELSE NULL END;
+
+COMMIT;
+SQL
+  then
+    docker container start "$backend_container" >/dev/null
+    echo "Database media cleanup failed; backend was restarted." >&2
+    exit 1
+  fi
+
+  if ! docker run --rm -v snapkit_media_prod:/media alpine:3.22 \
+    sh -euc '[ "$(readlink -f /media)" = "/media" ] && find /media -mindepth 1 -delete'; then
+    docker container start "$backend_container" >/dev/null
+    echo "Local media volume cleanup failed; backend was restarted." >&2
+    exit 1
+  fi
+
+  docker container start "$backend_container" >/dev/null
+  for attempt in $(seq 1 60); do
+    if [[ "$(docker inspect "$backend_container" --format '{{.State.Health.Status}}' 2>/dev/null || true)" == "healthy" ]]; then
+      verify_production
+      print_sync_diagnostics
+      echo "Legacy database media and local media cache were cleared successfully."
+      return
+    fi
+    sleep 2
+  done
+  docker logs --tail=120 "$backend_container" >&2 || true
+  echo "Backend did not become healthy after media cleanup." >&2
+  exit 1
 }
 
 remove_portainer() {
@@ -366,6 +465,13 @@ case "$mode" in
     docker network prune --force
     verify_production
     print_inventory
+    ;;
+  cleanup-media)
+    if [[ "$confirmation" != "DELETE_LEGACY_MEDIA" ]]; then
+      echo "Media cleanup confirmation is missing or invalid." >&2
+      exit 1
+    fi
+    backup_and_remove_legacy_media
     ;;
   cleanup-mam)
     if [[ "$confirmation" != "DELETE_MAM_AND_DATABASES" ]]; then
