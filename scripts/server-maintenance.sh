@@ -35,6 +35,32 @@ print_inventory() {
   docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Mounts}}'
   echo
 
+  echo "Non-SnapKit container ownership"
+  local container_id container_name
+  while IFS= read -r container_id; do
+    [[ -n "$container_id" ]] || continue
+    container_name="$(docker inspect "$container_id" --format '{{.Name}}' | sed 's#^/##')"
+    if [[ "$container_name" == snapkit-prod-* ]]; then
+      continue
+    fi
+    docker inspect "$container_id" --format \
+      'Name={{.Name}} Image={{.Config.Image}} Project={{index .Config.Labels "com.docker.compose.project"}} WorkingDir={{index .Config.Labels "com.docker.compose.project.working_dir"}} ConfigFiles={{index .Config.Labels "com.docker.compose.project.config_files"}}'
+    docker inspect "$container_id" --format \
+      'Mounts={{range .Mounts}}{{.Type}}:{{.Source}}->{{.Destination}};{{end}}'
+    docker inspect "$container_id" --format \
+      'Networks={{range $name, $settings := .NetworkSettings.Networks}}{{$name}};{{end}}'
+    docker port "$container_id" || true
+  done < <(docker ps -aq)
+  echo
+
+  echo "Docker networks"
+  docker network ls --format 'table {{.Name}}\t{{.Driver}}\t{{.Scope}}'
+  echo
+
+  echo "Top-level application directories"
+  find /opt -mindepth 1 -maxdepth 3 -type d -printf '%p\n' 2>/dev/null | sort || true
+  echo
+
   echo "Volumes and attachment count"
   local volume attachment_count
   while IFS= read -r volume; do
