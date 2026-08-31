@@ -146,10 +146,11 @@ make dev-app-android
 
 - iOS simulator dùng `http://localhost:3001`.
 - Android emulator dùng `http://10.0.2.2:3001`.
-- `make dev-app-ios-device` tự tìm IP LAN đang hoạt động, kiểm tra backend rồi tạo
+- `make dev-app-ios-device` dùng production API để dữ liệu trên máy thật xuất hiện trong Admin production.
+- `make dev-app-ios-device-local` tự tìm IP LAN đang hoạt động, kiểm tra backend rồi tạo
   `app/config/development.device.json` cục bộ trước khi chạy trên iPhone thật.
-- Trong VS Code/Antigravity, chọn `Snapkit · iPhone thật`; pre-launch task thực hiện cùng bước tự động nên không cần
-  hard-code hoặc cập nhật IP khi đổi Wi-Fi.
+- Trong VS Code/Antigravity, chọn `Snapkit · iPhone thật · Production API` cho luồng đồng bộ Admin. Chỉ chọn
+  `Snapkit · iPhone thật · Local API` khi đang phát triển backend local; pre-launch task của cấu hình này tự cập nhật IP.
 - Có thể đặt `SNAPKIT_DEVICE_HOST=<hostname-or-ip>` khi cần override lựa chọn interface tự động.
 - App bắt buộc đăng nhập Google trước khi mở các công cụ. Cần cấu hình Web/Android/iOS OAuth credentials theo [hướng dẫn Google Sign-In](docs/google-sign-in.md).
 

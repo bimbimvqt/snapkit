@@ -5,12 +5,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Snapkit · iPhone thật",
+      "name": "Snapkit · iPhone thật · Production API",
       "cwd": "app",
       "request": "launch",
       "type": "dart",
       "deviceId": "00008110-00146D661482601E",
-      "preLaunchTask": "Snapkit: prepare iPhone debug",
+      "toolArgs": [
+        "--dart-define-from-file=config/production.json"
+      ]
+    },
+    {
+      "name": "Snapkit · iPhone thật · Local API",
+      "cwd": "app",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "00008110-00146D661482601E",
+      "preLaunchTask": "Snapkit: prepare iPhone local debug",
       "toolArgs": [
         "--dart-define-from-file=config/development.device.json"
       ]

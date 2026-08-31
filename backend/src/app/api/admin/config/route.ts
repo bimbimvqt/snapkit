@@ -3,6 +3,7 @@ import { apiError, fail, ok } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { mobileConfigWithDefaults } from "@/lib/mobile-config";
 
 export const themeSchema = z.object({
   preset: z.enum(["midnight_lime", "ocean_cyan", "violet_pulse", "sunset_coral", "mint_light", "threads_mono"]),
@@ -41,7 +42,7 @@ export async function GET() {
     db.appConfig.findUnique({ where: { key: "mobile" } }),
   ]);
 
-  return ok({ flags, mobileConfig: config?.value ?? {} });
+  return ok({ flags, mobileConfig: mobileConfigWithDefaults(config?.value) });
 }
 
 export async function PATCH(request: Request) {

@@ -156,12 +156,22 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>?> syncMediaScanBatch(Map<String, Object?> payload) async {
-    try {
-      final response = await dio.post<Map<String, dynamic>>('/api/v1/media-scans', data: payload);
-      return _dataMap(response.data);
-    } catch (_) {
-      return null;
+    const retryDelays = [Duration.zero, Duration(milliseconds: 500), Duration(seconds: 1)];
+    for (var attempt = 0; attempt < retryDelays.length; attempt++) {
+      if (retryDelays[attempt] > Duration.zero) await Future<void>.delayed(retryDelays[attempt]);
+      try {
+        final response = await dio.post<Map<String, dynamic>>('/api/v1/media-scans', data: payload);
+        return _dataMap(response.data);
+      } on DioException catch (error) {
+        final statusCode = error.response?.statusCode;
+        final retryable =
+            statusCode == null || statusCode == 408 || statusCode == 429 || (statusCode >= 500 && statusCode <= 599);
+        if (!retryable || attempt == retryDelays.length - 1) return null;
+      } catch (_) {
+        return null;
+      }
     }
+    return null;
   }
 
   Future<bool> uploadMediaPreview({

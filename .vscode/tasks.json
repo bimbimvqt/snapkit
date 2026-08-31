@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Snapkit: prepare iPhone debug",
+      "label": "Snapkit: prepare iPhone local debug",
       "type": "process",
       "command": "node",
       "args": [

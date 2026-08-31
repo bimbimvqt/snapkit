@@ -27,3 +27,6 @@ Production:
 ```bash
 flutter build appbundle --release --dart-define-from-file=config/production.json
 ```
+
+Khi debug trên iPhone thật và cần dữ liệu xuất hiện trong Admin production, vẫn chạy Flutter ở debug mode nhưng dùng
+`config/production.json`. Cấu hình `development.device.json` chỉ gửi dữ liệu về backend local trên máy phát triển.

@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     const scan = await db.mediaScan.upsert({
       where: { deviceId_clientScanId: { deviceId: input.deviceId, clientScanId: input.clientScanId } },
       update: {
+        userId: session.userId,
         scannedCount: input.scannedCount,
         imageCount: input.imageCount,
         videoCount: input.videoCount,

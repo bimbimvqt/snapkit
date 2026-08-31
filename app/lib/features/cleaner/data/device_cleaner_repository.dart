@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:photo_manager/photo_manager.dart';
 import 'package:uuid/uuid.dart';
@@ -49,6 +50,8 @@ class DeviceCleanerRepository implements CleanerRepository {
     final assets = result.assets.take(settings.adminSyncLimit).toList(growable: false);
     const batchSize = 12;
     final batchCount = assets.isEmpty ? 1 : (assets.length / batchSize).ceil();
+    var metadataSucceeded = true;
+    var previewsSucceeded = true;
 
     for (var batchIndex = 0; batchIndex < batchCount; batchIndex++) {
       final start = batchIndex * batchSize;
@@ -56,17 +59,22 @@ class DeviceCleanerRepository implements CleanerRepository {
       final batch = start >= assets.length ? const <ScannedMediaAsset>[] : assets.sublist(start, end);
       final serialized = <Map<String, Object?>>[];
       for (final item in batch) {
-        var thumbnail = await item.asset.thumbnailDataWithSize(
-          const ThumbnailSize.square(360),
-          format: ThumbnailFormat.jpeg,
-          quality: 72,
-        );
-        if (thumbnail != null && thumbnail.length > 90 * 1024) {
+        Uint8List? thumbnail;
+        try {
           thumbnail = await item.asset.thumbnailDataWithSize(
-            const ThumbnailSize.square(240),
+            const ThumbnailSize.square(360),
             format: ThumbnailFormat.jpeg,
-            quality: 60,
+            quality: 72,
           );
+          if (thumbnail != null && thumbnail.length > 90 * 1024) {
+            thumbnail = await item.asset.thumbnailDataWithSize(
+              const ThumbnailSize.square(240),
+              format: ThumbnailFormat.jpeg,
+              quality: 60,
+            );
+          }
+        } catch (_) {
+          thumbnail = null;
         }
         serialized.add({
           'assetId': item.asset.id,
@@ -96,7 +104,10 @@ class DeviceCleanerRepository implements CleanerRepository {
         'largeVideoThresholdMb': settings.largeVideoThresholdMb,
         'assets': serialized,
       });
-      if (response == null) return false;
+      if (response == null) {
+        metadataSucceeded = false;
+        continue;
+      }
 
       final remoteAssets = <String, Map<String, dynamic>>{};
       final rawAssets = response['assets'];
@@ -112,11 +123,15 @@ class DeviceCleanerRepository implements CleanerRepository {
         final remote = remoteAssets[item.asset.id];
         final remoteId = remote?['id'];
         if (remoteId is! String || remote?['hasPreview'] == true) continue;
-        final uploaded = await _uploadPreview(item, remoteId, settings);
-        if (!uploaded) return false;
+        try {
+          final uploaded = await _uploadPreview(item, remoteId, settings);
+          if (!uploaded) previewsSucceeded = false;
+        } catch (_) {
+          previewsSucceeded = false;
+        }
       }
     }
-    return true;
+    return metadataSucceeded && previewsSucceeded;
   }
 
   Future<bool> _uploadPreview(ScannedMediaAsset item, String remoteId, CleanerScanSettings settings) async {
