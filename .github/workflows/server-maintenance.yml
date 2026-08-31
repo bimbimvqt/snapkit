@@ -1,0 +1,105 @@
+name: Production server maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Inventory only, or perform the confirmed cleanup
+        required: true
+        type: choice
+        default: inventory
+        options:
+          - inventory
+          - cleanup
+      database_volumes:
+        description: Space-separated unused PostgreSQL Docker volumes from inventory
+        required: false
+        type: string
+      confirmation:
+        description: Enter DELETE_UNUSED_SERVER_RESOURCES when mode is cleanup
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    name: ${{ inputs.mode }} 45.119.214.94
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    env:
+      PROD_HOST: ${{ vars.PROD_HOST }}
+      PROD_PORT: ${{ vars.PROD_PORT }}
+      PROD_USER: ${{ vars.PROD_USER }}
+      PROD_PATH: ${{ vars.PROD_PATH }}
+      SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+      DATABASE_VOLUMES: ${{ inputs.database_volumes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate maintenance request
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          for variable_name in PROD_HOST PROD_PORT PROD_USER PROD_PATH SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+            [[ -n "${!variable_name:-}" ]] || { echo "Missing production configuration: $variable_name" >&2; exit 1; }
+          done
+          [[ "$MODE" == "inventory" || "$MODE" == "cleanup" ]] || { echo "Invalid maintenance mode" >&2; exit 1; }
+          [[ "$DATABASE_VOLUMES" =~ ^[A-Za-z0-9_.\ -]*$ ]] || { echo "Invalid database volume list" >&2; exit 1; }
+          if [[ "$MODE" == "cleanup" && "$CONFIRMATION" != "DELETE_UNUSED_SERVER_RESOURCES" ]]; then
+            echo "Cleanup confirmation is missing or invalid." >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/snapkit_maintenance
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host snapkit-production
+            HostName $PROD_HOST
+            Port $PROD_PORT
+            User $PROD_USER
+            IdentityFile ~/.ssh/snapkit_maintenance
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+          EOF
+          chmod 600 ~/.ssh/config ~/.ssh/snapkit_maintenance ~/.ssh/known_hosts
+
+      - name: Upload maintenance script
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh snapkit-production "mkdir -p '$PROD_PATH/scripts'"
+          rsync -az -e ssh scripts/server-maintenance.sh \
+            "snapkit-production:$PROD_PATH/scripts/server-maintenance.sh"
+
+      - name: Run maintenance
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          database_volumes_b64="$(printf '%s' "$DATABASE_VOLUMES" | base64 -w0)"
+          ssh snapkit-production \
+            "cd '$PROD_PATH' && MAINTENANCE_MODE='$MODE' MAINTENANCE_CONFIRM='$CONFIRMATION' DATABASE_VOLUMES_B64='$database_volumes_b64' bash scripts/server-maintenance.sh"
