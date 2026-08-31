@@ -72,15 +72,24 @@ async function expectPlayableVideo(authenticated) {
     console.log("SKIP admin video preview (no synchronized video)");
     return;
   }
-  const preview = await fetch(
-    `${adminBase}/backend/api/admin/media-scans/assets/${encodeURIComponent(video.id)}/preview`,
+  const previewUrl = `${adminBase}/backend/api/admin/media-scans/assets/${encodeURIComponent(video.id)}/preview`;
+  let preview = await fetch(
+    previewUrl,
     {
       ...authenticated,
       headers: { ...authenticated.headers, range: "bytes=0-1023" },
       signal: AbortSignal.timeout(30 * 60_000),
     },
   );
-  if (preview.status !== 206 || preview.headers.get("content-type") !== "video/mp4") {
+  if (preview.status === 302) {
+    const location = preview.headers.get("location");
+    if (!location) throw new Error("admin video preview: R2 redirect did not include a location");
+    preview = await fetch(location, {
+      headers: { range: "bytes=0-1023" },
+      signal: AbortSignal.timeout(30 * 60_000),
+    });
+  }
+  if (preview.status !== 206 || !preview.headers.get("content-type")?.startsWith("video/mp4")) {
     const errorBody = await preview.text();
     throw new Error(
       `admin video preview: expected playable MP4 range, received ${preview.status} ${preview.headers.get("content-type")}: ${errorBody.slice(0, 300)}`,
