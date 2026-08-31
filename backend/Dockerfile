@@ -34,6 +34,7 @@ RUN pnpm install --frozen-lockfile --prod --filter @snapkit/migrator... \
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
+RUN apk add --no-cache ffmpeg
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 RUN mkdir -p /app/media && chown nextjs:nodejs /app/media
 COPY --from=builder /app/backend/public ./backend/public

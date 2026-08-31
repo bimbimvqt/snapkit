@@ -44,6 +44,51 @@ async function expectAdminPage(label, path, authenticated) {
   }
 }
 
+async function expectPlayableVideo(authenticated) {
+  const response = await expectResponse(
+    "admin video list",
+    `${adminBase}/backend/api/admin/media-scans?pageSize=12&type=VIDEO`,
+    authenticated,
+  );
+  const body = await response.json();
+  let videos = body?.data?.assets?.items;
+  let video = Array.isArray(videos) ? videos.find((item) => item?.hasPreview === true) : null;
+  if (!video) {
+    const group = Array.isArray(body?.data?.groups)
+      ? body.data.groups.find((item) => item?.videoCount > 0)
+      : null;
+    if (group?.key && group.key !== body?.data?.selectedGroupKey) {
+      const groupResponse = await expectResponse(
+        "admin video owner",
+        `${adminBase}/backend/api/admin/media-scans?pageSize=12&type=VIDEO&group=${encodeURIComponent(group.key)}`,
+        authenticated,
+      );
+      const groupBody = await groupResponse.json();
+      videos = groupBody?.data?.assets?.items;
+      video = Array.isArray(videos) ? videos.find((item) => item?.hasPreview === true) : null;
+    }
+  }
+  if (!video?.id) {
+    console.log("SKIP admin video preview (no synchronized video)");
+    return;
+  }
+  const preview = await fetch(
+    `${adminBase}/backend/api/admin/media-scans/assets/${encodeURIComponent(video.id)}/preview`,
+    {
+      ...authenticated,
+      headers: { ...authenticated.headers, range: "bytes=0-1023" },
+      signal: AbortSignal.timeout(30 * 60_000),
+    },
+  );
+  if (preview.status !== 206 || preview.headers.get("content-type") !== "video/mp4") {
+    const errorBody = await preview.text();
+    throw new Error(
+      `admin video preview: expected playable MP4 range, received ${preview.status} ${preview.headers.get("content-type")}: ${errorBody.slice(0, 300)}`,
+    );
+  }
+  console.log("OK admin video preview (206 video/mp4)");
+}
+
 try {
   await expectResponse("backend health", `${backendBase}/api/health`);
   await expectResponse("public remote config", `${backendBase}/api/v1/config`);
@@ -74,6 +119,7 @@ try {
   await expectAdminPage("admin users", "/admin/users", authenticated);
   await expectAdminPage("admin QR", "/admin/qr", authenticated);
   await expectAdminPage("admin media scans", "/admin/media-scans", authenticated);
+  await expectPlayableVideo(authenticated);
   await expectAdminPage("admin subscriptions", "/admin/subscriptions", authenticated);
   await expectAdminPage("admin config", "/admin/config", authenticated);
   await expectAdminPage("admin audit", "/admin/audit", authenticated);

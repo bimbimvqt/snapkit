@@ -160,7 +160,7 @@ export async function GET() {
       ORDER BY DATE_TRUNC('day', "createdAt")
     `,
     readDiskUsage(),
-    db.mediaScanAsset.aggregate({ _sum: { previewBytes: true } }),
+    db.mediaScanAsset.aggregate({ _sum: { previewBytes: true, originalBytes: true } }),
     db.$queryRaw<Array<{ bytes: string }>>`
       SELECT PG_DATABASE_SIZE(CURRENT_DATABASE())::text AS "bytes"
     `,
@@ -187,7 +187,9 @@ export async function GET() {
   const mediaScans = scanSummary._count._all;
   const scanDurationMs = scanSummary._sum.durationMs ?? 0;
   const databaseBytes = Number(databaseSizeRows[0]?.bytes ?? 0);
-  const previewBytes = Number(previewStorage._sum.previewBytes ?? BigInt(0));
+  const previewBytes =
+    Number(previewStorage._sum.previewBytes ?? BigInt(0)) +
+    Number(previewStorage._sum.originalBytes ?? BigInt(0));
 
   return ok({
     period: { days: 30, start: since.toISOString(), end: new Date().toISOString() },

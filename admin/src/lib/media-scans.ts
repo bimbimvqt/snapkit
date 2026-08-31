@@ -42,6 +42,7 @@ function legacyAsset(value: unknown, createdAt: string): MediaScanAsset | null {
     createdAt,
     hasThumbnail: asset.hasThumbnail === true,
     hasPreview: false,
+    hasOriginal: false,
     previewMimeType: null,
   };
 }

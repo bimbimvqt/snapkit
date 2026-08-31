@@ -186,6 +186,7 @@ export type MediaScanAsset = {
   createdAt: string;
   hasThumbnail: boolean;
   hasPreview: boolean;
+  hasOriginal: boolean;
   previewMimeType: string | null;
 };
 

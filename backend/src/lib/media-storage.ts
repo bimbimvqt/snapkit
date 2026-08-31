@@ -2,6 +2,7 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
@@ -44,6 +45,16 @@ export function storageKeyFor(assetId: string, mimeType: string) {
   const extension = extensions[mimeType];
   if (!extension) throw new Error("UNSUPPORTED_PREVIEW_TYPE");
   return `${assetId.slice(-2)}/${assetId}.${extension}`;
+}
+
+export function originalStorageKeyFor(assetId: string, mimeType: string) {
+  const extension = extensions[mimeType];
+  if (!extension) throw new Error("UNSUPPORTED_PREVIEW_TYPE");
+  return `original/${assetId.slice(-2)}/${assetId}.${extension}`;
+}
+
+export function browserVideoStorageKeyFor(assetId: string) {
+  return `preview/${assetId.slice(-2)}/${assetId}.mp4`;
 }
 
 export function resolveStoragePath(storageKey: string) {
@@ -97,6 +108,94 @@ export async function storedPreview(storageKey: string) {
   const filePath = resolveStoragePath(storageKey);
   const details = await stat(/* turbopackIgnore: true */ filePath);
   return { filePath, size: details.size };
+}
+
+const videoTranscodes = new Map<string, Promise<number>>();
+const videoTranscodeWaiters: Array<() => void> = [];
+const maximumConcurrentVideoTranscodes = 2;
+let activeVideoTranscodes = 0;
+
+export function transcodeBrowserVideo(sourceStorageKey: string, destinationStorageKey: string) {
+  const active = videoTranscodes.get(destinationStorageKey);
+  if (active) return active;
+  const transcode = withVideoTranscodeSlot(() => runVideoTranscode(sourceStorageKey, destinationStorageKey)).finally(() => {
+    videoTranscodes.delete(destinationStorageKey);
+  });
+  videoTranscodes.set(destinationStorageKey, transcode);
+  return transcode;
+}
+
+async function withVideoTranscodeSlot<T>(operation: () => Promise<T>) {
+  if (activeVideoTranscodes >= maximumConcurrentVideoTranscodes) {
+    await new Promise<void>((resolve) => videoTranscodeWaiters.push(resolve));
+  } else {
+    activeVideoTranscodes += 1;
+  }
+  try {
+    return await operation();
+  } finally {
+    const next = videoTranscodeWaiters.shift();
+    if (next) next();
+    else activeVideoTranscodes -= 1;
+  }
+}
+
+async function runVideoTranscode(sourceStorageKey: string, destinationStorageKey: string) {
+  const source = resolveStoragePath(sourceStorageKey);
+  const destination = resolveStoragePath(destinationStorageKey);
+  const temporary = `${destination}.${randomUUID()}.mp4`;
+  await mkdir(path.dirname(destination), { recursive: true });
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const ffmpeg = spawn(
+        "ffmpeg",
+        [
+          "-y",
+          "-i",
+          source,
+          "-map",
+          "0:v:0",
+          "-map",
+          "0:a:0?",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-vf",
+          "scale=w='min(1920,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "128k",
+          "-movflags",
+          "+faststart",
+          "-sn",
+          temporary,
+        ],
+        { stdio: ["ignore", "ignore", "pipe"] },
+      );
+      let errorOutput = "";
+      ffmpeg.stderr.setEncoding("utf8");
+      ffmpeg.stderr.on("data", (chunk: string) => {
+        errorOutput = `${errorOutput}${chunk}`.slice(-4_000);
+      });
+      ffmpeg.once("error", reject);
+      ffmpeg.once("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`VIDEO_TRANSCODE_FAILED:${code ?? "unknown"}:${errorOutput}`));
+      });
+    });
+    await rename(temporary, destination);
+    return (await stat(destination)).size;
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 export function previewStream(filePath: string, start?: number, end?: number) {

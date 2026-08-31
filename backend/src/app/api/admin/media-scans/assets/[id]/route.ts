@@ -23,7 +23,13 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
     const matches = await db.mediaScanAsset.findMany({
       where: { deviceAssetKey: asset.deviceAssetKey, scan: { deviceId: asset.scan.deviceId } },
-      select: { id: true, previewStorageKey: true, previewBytes: true },
+      select: {
+        id: true,
+        previewStorageKey: true,
+        previewBytes: true,
+        originalStorageKey: true,
+        originalBytes: true,
+      },
     });
     await db.$transaction(async (transaction) => {
       await transaction.mediaScanAsset.deleteMany({ where: { id: { in: matches.map((item) => item.id) } } });
@@ -36,13 +42,21 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
           before: {
             type: asset.type,
             repeatedRecords: matches.length,
-            previewBytes: matches.reduce((sum, item) => sum + Number(item.previewBytes ?? 0), 0),
+            storedBytes: matches.reduce(
+              (sum, item) => sum + Number(item.previewBytes ?? 0) + Number(item.originalBytes ?? 0),
+              0,
+            ),
           },
           after: { deleted: true },
         },
       });
     });
-    await Promise.all(matches.map((item) => removeStoredPreview(item.previewStorageKey)));
+    await Promise.all(
+      matches.flatMap((item) => [
+        removeStoredPreview(item.previewStorageKey),
+        removeStoredPreview(item.originalStorageKey),
+      ]),
+    );
     return ok({ id, deletedRecords: matches.length });
   } catch (error) {
     return apiError(error);

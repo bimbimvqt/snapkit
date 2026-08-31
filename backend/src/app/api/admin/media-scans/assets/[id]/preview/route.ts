@@ -1,7 +1,15 @@
 import { fail } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { extensionForMimeType, parseByteRange, previewStream, storedPreview } from "@/lib/media-storage";
+import {
+  browserVideoStorageKeyFor,
+  extensionForMimeType,
+  parseByteRange,
+  previewStream,
+  removeStoredPreview,
+  storedPreview,
+  transcodeBrowserVideo,
+} from "@/lib/media-storage";
 
 export const runtime = "nodejs";
 
@@ -10,23 +18,46 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const { id } = await context.params;
   const asset = await db.mediaScanAsset.findUnique({
     where: { id },
-    select: { id: true, type: true, previewStorageKey: true, previewMimeType: true },
+    select: {
+      id: true,
+      type: true,
+      previewStorageKey: true,
+      previewMimeType: true,
+      originalStorageKey: true,
+    },
   });
-  if (!asset?.previewStorageKey || !asset.previewMimeType) return fail("Không có file preview", 404, "NOT_FOUND");
+  if (!asset) return fail("Không có file preview", 404, "NOT_FOUND");
 
   try {
-    const { filePath, size } = await storedPreview(asset.previewStorageKey);
+    let storageKey = asset.previewStorageKey;
+    let mimeType = asset.previewMimeType;
+    if ((!storageKey || mimeType !== "video/mp4") && asset.type === "VIDEO" && asset.originalStorageKey) {
+      const previousPreview = storageKey;
+      storageKey = browserVideoStorageKeyFor(asset.id);
+      const previewBytes = await transcodeBrowserVideo(asset.originalStorageKey, storageKey);
+      mimeType = "video/mp4";
+      await db.mediaScanAsset.update({
+        where: { id: asset.id },
+        data: { previewStorageKey: storageKey, previewMimeType: mimeType, previewBytes: BigInt(previewBytes) },
+      });
+      if (previousPreview !== asset.originalStorageKey) {
+        await removeStoredPreview(previousPreview);
+      }
+    }
+    if (!storageKey || !mimeType) return fail("Không có file preview", 404, "NOT_FOUND");
+
+    const { filePath, size } = await storedPreview(storageKey);
     const rangeHeader = request.headers.get("range");
     const range = parseByteRange(rangeHeader, size);
     if (range === false) {
       return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
     }
     const download = new URL(request.url).searchParams.get("download") === "1";
-    const extension = extensionForMimeType(asset.previewMimeType);
+    const extension = extensionForMimeType(mimeType);
     const headers = new Headers({
       "accept-ranges": "bytes",
       "cache-control": "private, max-age=3600",
-      "content-type": asset.previewMimeType,
+      "content-type": mimeType,
       "content-disposition": `${download ? "attachment" : "inline"}; filename="${asset.type.toLowerCase()}-preview-${asset.id}.${extension}"`,
       "x-content-type-options": "nosniff",
     });
@@ -37,7 +68,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     }
     headers.set("content-length", String(size));
     return new Response(previewStream(filePath), { headers });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith("VIDEO_TRANSCODE_FAILED") || error.message.includes("spawn ffmpeg"))
+    ) {
+      return fail("Không thể tạo bản video tương thích trình duyệt", 500, "VIDEO_TRANSCODE_FAILED");
+    }
     return fail("File preview không còn tồn tại", 404, "NOT_FOUND");
   }
 }

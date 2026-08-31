@@ -56,6 +56,12 @@ function previewUrl(asset: MediaScanAsset, download = false) {
   return `/backend/api/admin/media-scans/assets/${asset.id}/preview${download ? "?download=1" : ""}`;
 }
 
+function downloadUrl(asset: MediaScanAsset) {
+  return asset.hasOriginal
+    ? `/backend/api/admin/media-scans/assets/${asset.id}/download`
+    : previewUrl(asset, true);
+}
+
 function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -365,7 +371,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
               <div className="flex shrink-0 items-center gap-2">
                 {(activeAsset.hasPreview || activeAsset.hasThumbnail) && (
                   <a
-                    href={activeAsset.hasPreview ? previewUrl(activeAsset, true) : thumbnailUrl(activeAsset, true)}
+                    href={activeAsset.hasPreview ? downloadUrl(activeAsset) : thumbnailUrl(activeAsset, true)}
                     download
                     className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-semibold transition duration-200 hover:bg-[var(--surface-raised)]"
                     aria-label={activeAsset.type === "VIDEO" && activeAsset.hasPreview ? "Tải video" : "Tải ảnh preview"}

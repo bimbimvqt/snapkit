@@ -187,7 +187,7 @@ class ApiClient {
         options: Options(
           headers: {Headers.contentTypeHeader: mimeType, Headers.contentLengthHeader: length},
           sendTimeout: const Duration(minutes: 30),
-          receiveTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 30),
         ),
       );
       return true;

@@ -39,6 +39,7 @@ type AssetRow = {
   createdAt: Date;
   hasThumbnail: boolean;
   hasPreview: boolean;
+  hasOriginal: boolean;
   previewMimeType: string | null;
 };
 
@@ -181,8 +182,15 @@ export async function GET(request: Request) {
           a."capturedAt",
           a."createdAt",
           a.thumbnail IS NOT NULL AS "hasThumbnail",
-          a."previewStorageKey" IS NOT NULL AS "hasPreview",
-          a."previewMimeType",
+          (
+            a."previewStorageKey" IS NOT NULL
+            OR (a.type = 'VIDEO' AND a."originalStorageKey" IS NOT NULL)
+          ) AS "hasPreview",
+          a."originalStorageKey" IS NOT NULL AS "hasOriginal",
+          CASE
+            WHEN a.type = 'VIDEO' AND a."originalStorageKey" IS NOT NULL THEN 'video/mp4'
+            ELSE a."previewMimeType"
+          END AS "previewMimeType",
           ROW_NUMBER() OVER (
             PARTITION BY s."deviceId", a."deviceAssetKey"
             ORDER BY a."createdAt" DESC, a.id DESC
@@ -203,6 +211,7 @@ export async function GET(request: Request) {
         "createdAt",
         "hasThumbnail",
         "hasPreview",
+        "hasOriginal",
         "previewMimeType"
       FROM ranked_assets
       WHERE position = 1

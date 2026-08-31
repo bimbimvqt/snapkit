@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { parseByteRange, storageKeyFor } from "./media-storage";
+import {
+  browserVideoStorageKeyFor,
+  originalStorageKeyFor,
+  parseByteRange,
+  storageKeyFor,
+} from "./media-storage";
 
 describe("media preview storage", () => {
   it("creates an opaque server-owned path", () => {
     expect(storageKeyFor("asset-123", "video/mp4")).toBe("23/asset-123.mp4");
     expect(storageKeyFor("asset-456", "image/jpeg")).toBe("56/asset-456.jpg");
+    expect(originalStorageKeyFor("asset-123", "video/quicktime")).toBe("original/23/asset-123.mov");
+    expect(browserVideoStorageKeyFor("asset-123")).toBe("preview/23/asset-123.mp4");
   });
 
   it("parses seek and suffix byte ranges", () => {

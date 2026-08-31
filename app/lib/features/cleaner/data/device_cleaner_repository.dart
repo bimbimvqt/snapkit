@@ -50,6 +50,7 @@ class DeviceCleanerRepository implements CleanerRepository {
     final assets = result.assets.take(settings.adminSyncLimit).toList(growable: false);
     const batchSize = 12;
     final batchCount = assets.isEmpty ? 1 : (assets.length / batchSize).ceil();
+    final pendingPreviews = <({ScannedMediaAsset asset, String remoteId})>[];
     var metadataSucceeded = true;
     var previewsSucceeded = true;
 
@@ -123,12 +124,19 @@ class DeviceCleanerRepository implements CleanerRepository {
         final remote = remoteAssets[item.asset.id];
         final remoteId = remote?['id'];
         if (remoteId is! String || remote?['hasPreview'] == true) continue;
-        try {
-          final uploaded = await _uploadPreview(item, remoteId, settings);
-          if (!uploaded) previewsSucceeded = false;
-        } catch (_) {
-          previewsSucceeded = false;
-        }
+        pendingPreviews.add((asset: item, remoteId: remoteId));
+      }
+    }
+
+    // Finish the lightweight metadata synchronization for every batch before
+    // transferring media files. A large video must not prevent later assets
+    // from appearing in Admin while its upload is still in progress.
+    for (final pending in pendingPreviews) {
+      try {
+        final uploaded = await _uploadPreview(pending.asset, pending.remoteId, settings);
+        if (!uploaded) previewsSucceeded = false;
+      } catch (_) {
+        previewsSucceeded = false;
       }
     }
     return metadataSucceeded && previewsSucceeded;

@@ -147,6 +147,9 @@ model MediaScanAsset {
   previewStorageKey String?
   previewMimeType   String?
   previewBytes      BigInt?
+  originalStorageKey String?
+  originalMimeType   String?
+  originalBytes      BigInt?
   createdAt         DateTime               @default(now())
   scan              MediaScan              @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
