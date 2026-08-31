@@ -144,16 +144,26 @@ SQL
 }
 
 backup_and_remove_legacy_media() {
-  local backend_container mounted_volume
+  local backend_container mounted_volume backup_stamp backup_path media_backup_path
   backend_container="snapkit-prod-backend-1"
 
   verify_production
-  if [[ ! -x scripts/prod-backup.sh ]]; then
-    echo "Production backup script is missing or not executable." >&2
+  echo "Creating recoverable database and local-media backups."
+  umask 077
+  mkdir -p backups
+  backup_stamp="snapkit-before-r2-cleanup-$(date -u +%Y%m%dT%H%M%SZ)"
+  backup_path="backups/$backup_stamp.sql.gz"
+  media_backup_path="backups/$backup_stamp.media.tar.gz"
+  docker exec snapkit-prod-postgres-1 \
+    sh -c 'pg_dump --clean --if-exists --no-owner --no-privileges -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+    | gzip -9 > "$backup_path"
+  docker exec "$backend_container" tar -czf - -C /app/media . > "$media_backup_path"
+  if [[ ! -s "$backup_path" || ! -s "$media_backup_path" ]]; then
+    echo "Refusing cleanup because a production backup is empty." >&2
     exit 1
   fi
-  echo "Creating recoverable database and local-media backups."
-  bash scripts/prod-backup.sh
+  echo "Database backup created: $backup_path"
+  echo "Media backup created: $media_backup_path"
 
   mounted_volume="$(docker inspect "$backend_container" --format '{{ range .Mounts }}{{ if eq .Destination "/app/media" }}{{ .Name }}{{ end }}{{ end }}')"
   if [[ "$mounted_volume" != "snapkit_media_prod" ]]; then
