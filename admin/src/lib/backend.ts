@@ -104,6 +104,14 @@ export type Overview = {
     databaseBytes: number;
     previewBytes: number;
     mediaProvider?: string;
+    r2: {
+      bucket: string;
+      prefix: string;
+      usedBytes: number;
+      objectCount: number | null;
+      measuredAt: string | null;
+      source: "bucket" | "database";
+    } | null;
   } | null;
   trend: Array<{
     date: string;

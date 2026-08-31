@@ -48,6 +48,7 @@ export function normalizeOverview(input: unknown, now = new Date()): Overview {
   const media = record(source.media);
   const period = record(source.period);
   const storage = record(source.storage);
+  const r2 = record(storage.r2);
   const currentShape = Object.keys(audience).length > 0 && Object.keys(productivity).length > 0;
   const legacyEvents = counts(source.events);
   const events = counts(engagement.events);
@@ -111,6 +112,14 @@ export function normalizeOverview(input: unknown, now = new Date()): Overview {
       databaseBytes: number(storage.databaseBytes),
       previewBytes: number(storage.previewBytes),
       mediaProvider: typeof storage.mediaProvider === "string" ? storage.mediaProvider : undefined,
+      r2: Object.keys(r2).length > 0 ? {
+        bucket: typeof r2.bucket === "string" ? r2.bucket : "",
+        prefix: typeof r2.prefix === "string" ? r2.prefix : "",
+        usedBytes: number(r2.usedBytes),
+        objectCount: nullableNumber(r2.objectCount),
+        measuredAt: typeof r2.measuredAt === "string" ? r2.measuredAt : null,
+        source: r2.source === "bucket" ? "bucket" : "database",
+      } : null,
     } : null,
     trend: trend(source.trend),
   };

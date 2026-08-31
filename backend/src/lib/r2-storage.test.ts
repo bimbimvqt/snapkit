@@ -3,6 +3,7 @@ import {
   isR2Reference,
   mediaR2Reference,
   r2ConfigurationStatus,
+  r2MediaPrefix,
   r2ObjectKey,
   r2Reference,
 } from "./r2-storage";
@@ -22,6 +23,14 @@ describe("Cloudflare R2 storage references", () => {
     expect(reference).toBe("r2:snapkit-prod/users/user-1/assets/asset-1/original.mov");
     expect(isR2Reference(reference)).toBe(true);
     expect(r2ObjectKey(reference)).toBe("snapkit-prod/users/user-1/assets/asset-1/original.mov");
+  });
+
+  it("normalizes the media prefix used for usage measurements", () => {
+    process.env.R2_MEDIA_PREFIX = "/snapkit-prod/";
+    expect(r2MediaPrefix()).toBe("snapkit-prod");
+
+    delete process.env.R2_MEDIA_PREFIX;
+    expect(r2MediaPrefix()).toBe("snapkit-media");
   });
 
   it("rejects unsafe object keys and reports incomplete configuration", () => {

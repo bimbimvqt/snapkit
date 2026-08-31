@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, FolderArchive, HardDrive, type LucideIcon } from "lucide-react";
+import { Cloud, Database, Files, FolderArchive, HardDrive, type LucideIcon } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -57,6 +57,23 @@ function formatBytes(value: number) {
   if (value >= 1_048_576) return `${(value / 1_048_576).toFixed(1)} MB`;
   if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${value.toLocaleString("vi-VN")} B`;
+}
+
+function formatDecimalGb(value: number) {
+  const gigabytes = value / 1_000_000_000;
+  if (value > 0 && gigabytes < 0.001) return "< 0,001 GB";
+  return `${gigabytes.toLocaleString("vi-VN", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} GB`;
+}
+
+function formatMeasuredAt(value: string | null) {
+  if (!value) return "Chưa có thời điểm đo trực tiếp";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa có thời điểm đo trực tiếp";
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "medium",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(date);
 }
 
 function EmptyChart({ message }: { message: string }) {
@@ -283,7 +300,10 @@ export function DashboardAnalytics({ data }: { data: Overview }) {
       </div>
 
       {data.storage ? (
-        <ServerStorage storage={data.storage} />
+        <>
+          <ServerStorage storage={data.storage} />
+          {data.storage.r2 && <R2StorageUsage storage={data.storage} r2={data.storage.r2} />}
+        </>
       ) : (
         <SeraSurface className="p-5 sm:p-6">
           <SeraSectionTitle eyebrow="Hạ tầng" title="Dung lượng server" />
@@ -346,6 +366,97 @@ export function DashboardAnalytics({ data }: { data: Overview }) {
         </div>
       </details>
     </div>
+  );
+}
+
+function R2StorageUsage({
+  storage,
+  r2,
+}: {
+  storage: NonNullable<Overview["storage"]>;
+  r2: NonNullable<NonNullable<Overview["storage"]>["r2"]>;
+}) {
+  const isBucketSnapshot = r2.source === "bucket";
+  const difference = r2.usedBytes - storage.previewBytes;
+
+  return (
+    <SeraSurface className="overflow-hidden p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <SeraSectionTitle eyebrow="Object storage" title="Dung lượng Cloudflare R2" />
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">
+            Tổng dung lượng object media trong bucket, được đo độc lập với ổ đĩa server.
+          </p>
+        </div>
+        <span
+          className={`inline-flex min-h-8 items-center rounded-full px-3 text-xs font-bold ${
+            isBucketSnapshot
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "bg-amber-500/10 text-amber-800 dark:text-amber-200"
+          }`}
+          role="status"
+        >
+          {isBucketSnapshot ? "Đo trực tiếp từ R2" : "Tạm tính từ database"}
+        </span>
+      </div>
+
+      <div className="mt-6 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
+        <div className="rounded-3xl bg-[var(--surface-raised)] p-5 sm:p-6">
+          <div className="flex items-center gap-3 text-[var(--brand)]">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[var(--surface)]">
+              <Cloud size={21} aria-hidden="true" />
+            </span>
+            <p className="text-sm font-bold uppercase tracking-[.08em]">Đã sử dụng trên R2</p>
+          </div>
+          <p className="mt-6 text-4xl font-semibold tracking-[-.055em] tabular-nums sm:text-5xl">
+            {formatDecimalGb(r2.usedBytes)}
+          </p>
+          <p className="mt-2 text-sm tabular-nums text-[var(--ink-muted)]">
+            {formatBytes(r2.usedBytes)} · {r2.usedBytes.toLocaleString("vi-VN")} byte
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <StorageMetric
+            icon={Files}
+            label="Số object"
+            value={r2.objectCount === null ? "Chưa xác định" : r2.objectCount.toLocaleString("vi-VN")}
+            detail={isBucketSnapshot ? "Đếm trực tiếp trong prefix media" : "Cần quyền ListObjects để đo"}
+          />
+          <StorageMetric
+            icon={Database}
+            label="Media trong database"
+            value={formatBytes(storage.previewBytes)}
+            detail={
+              isBucketSnapshot
+                ? `Chênh lệch với R2: ${difference >= 0 ? "+" : "−"}${formatBytes(Math.abs(difference))}`
+                : "Số liệu đang dùng để dự phòng"
+            }
+          />
+        </div>
+      </div>
+
+      <dl className="mt-5 grid gap-4 rounded-2xl border bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-4 text-sm md:grid-cols-3">
+        <div className="min-w-0">
+          <dt className="text-xs font-semibold text-[var(--ink-muted)]">Bucket</dt>
+          <dd className="mt-1 truncate font-mono font-semibold" title={r2.bucket}>{r2.bucket || "Chưa cấu hình"}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-xs font-semibold text-[var(--ink-muted)]">Prefix được thống kê</dt>
+          <dd className="mt-1 truncate font-mono font-semibold" title={r2.prefix}>{r2.prefix || "—"}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-xs font-semibold text-[var(--ink-muted)]">Cập nhật lần cuối</dt>
+          <dd className="mt-1 font-semibold tabular-nums">{formatMeasuredAt(r2.measuredAt)}</dd>
+        </div>
+      </dl>
+
+      {!isBucketSnapshot && (
+        <p className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6 text-amber-800 dark:text-amber-200" role="status">
+          Backend chưa đọc được danh sách object từ R2. Dung lượng phía trên đang lấy từ metadata media trong database và sẽ tự chuyển sang số liệu bucket khi kết nối hoạt động lại.
+        </p>
+      )}
+    </SeraSurface>
   );
 }
 

@@ -26,11 +26,33 @@ describe("overview API compatibility", () => {
       engagement: { events: [], platforms: [] },
       productivity: { qrCreated: 2 },
       media: {},
-      storage: { sourceHost: "45.119.214.94", totalBytes: 100, usedBytes: 40, freeBytes: 60, usedPercent: 40 },
+      storage: {
+        sourceHost: "45.119.214.94",
+        totalBytes: 100,
+        usedBytes: 40,
+        freeBytes: 60,
+        usedPercent: 40,
+        r2: {
+          bucket: "snap-kit",
+          prefix: "snapkit-media/",
+          usedBytes: 25,
+          objectCount: 3,
+          measuredAt: "2026-08-31T04:00:00.000Z",
+          source: "bucket",
+        },
+      },
       trend: [],
     });
 
     expect(data.apiVersion).toBe("analytics_v2");
     expect(data.storage).toMatchObject({ sourceHost: "45.119.214.94", usedPercent: 40 });
+    expect(data.storage?.r2).toEqual({
+      bucket: "snap-kit",
+      prefix: "snapkit-media/",
+      usedBytes: 25,
+      objectCount: 3,
+      measuredAt: "2026-08-31T04:00:00.000Z",
+      source: "bucket",
+    });
   });
 });

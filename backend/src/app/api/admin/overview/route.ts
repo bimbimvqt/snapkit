@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { mediaStorageRoot } from "@/lib/media-storage";
 import { cleanupExpiredMedia } from "@/lib/media-retention";
 import { totalMediaStorageBytes } from "@/lib/media-subscription";
-import { r2ConfigurationStatus } from "@/lib/r2-storage";
+import { r2ConfigurationStatus, r2MediaPrefix, r2UsageSnapshot } from "@/lib/r2-storage";
 
 type DailyCount = { day: string; count: number };
 type NamedCount = { name: string; count: number };
@@ -47,6 +47,7 @@ async function readDiskUsage() {
 export async function GET() {
   if (!(await requireAdmin())) return fail("Không có quyền truy cập", 403, "FORBIDDEN");
   await cleanupExpiredMedia({ limit: 200 });
+  const objectStorage = r2ConfigurationStatus();
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -77,6 +78,7 @@ export async function GET() {
     scanDaily,
     diskUsage,
     previewStorage,
+    r2Usage,
     databaseSizeRows,
   ] = await Promise.all([
     db.user.count(),
@@ -165,6 +167,7 @@ export async function GET() {
     `,
     readDiskUsage(),
     totalMediaStorageBytes(),
+    objectStorage.configured ? r2UsageSnapshot().catch(() => null) : Promise.resolve(null),
     db.$queryRaw<Array<{ bytes: string }>>`
       SELECT PG_DATABASE_SIZE(CURRENT_DATABASE())::text AS "bytes"
     `,
@@ -192,7 +195,6 @@ export async function GET() {
   const scanDurationMs = scanSummary._sum.durationMs ?? 0;
   const databaseBytes = Number(databaseSizeRows[0]?.bytes ?? 0);
   const previewBytes = previewStorage;
-  const objectStorage = r2ConfigurationStatus();
 
   return ok({
     period: { days: 30, start: since.toISOString(), end: new Date().toISOString() },
@@ -241,6 +243,16 @@ export async function GET() {
       databaseBytes,
       previewBytes,
       mediaProvider: objectStorage.configured ? "Cloudflare R2" : "Ổ đĩa server",
+      r2: objectStorage.configured
+        ? {
+            bucket: r2Usage?.bucket ?? process.env.R2_BUCKET?.trim() ?? "",
+            prefix: r2Usage?.prefix ?? `${r2MediaPrefix()}/`,
+            usedBytes: r2Usage?.bytes ?? previewBytes,
+            objectCount: r2Usage?.objectCount ?? null,
+            measuredAt: r2Usage?.measuredAt ?? null,
+            source: r2Usage ? "bucket" : "database",
+          }
+        : null,
     },
     trend,
   });

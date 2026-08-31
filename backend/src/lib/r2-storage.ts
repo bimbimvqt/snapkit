@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -11,12 +12,23 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const referencePrefix = "r2:";
 let cachedClient: S3Client | undefined;
+let cachedUsage: { expiresAt: number; value: R2UsageSnapshot } | undefined;
+
+const usageCacheMs = 5 * 60_000;
 
 type R2Config = {
   bucket: string;
   endpoint: string;
   accessKeyId: string;
   secretAccessKey: string;
+};
+
+export type R2UsageSnapshot = {
+  bucket: string;
+  prefix: string;
+  bytes: number;
+  objectCount: number;
+  measuredAt: Date;
 };
 
 function r2Config(): R2Config | null {
@@ -71,14 +83,48 @@ export function r2ObjectKey(reference: string) {
   return reference.slice(referencePrefix.length);
 }
 
+export function r2MediaPrefix() {
+  return (process.env.R2_MEDIA_PREFIX?.trim() || "snapkit-media").replace(/^\/+|\/+$/g, "");
+}
+
 export function mediaR2Reference(
   userId: string,
   assetId: string,
   kind: "original" | "preview",
   extension: string,
 ) {
-  const prefix = (process.env.R2_MEDIA_PREFIX?.trim() || "snapkit-media").replace(/^\/+|\/+$/g, "");
+  const prefix = r2MediaPrefix();
   return r2Reference(`${prefix}/users/${userId}/assets/${assetId}/${kind}.${extension}`);
+}
+
+export async function r2UsageSnapshot() {
+  const now = Date.now();
+  if (cachedUsage && cachedUsage.expiresAt > now) return cachedUsage.value;
+
+  const config = requireR2Config();
+  const prefix = `${r2MediaPrefix()}/`;
+  let continuationToken: string | undefined;
+  let bytes = 0;
+  let objectCount = 0;
+
+  do {
+    const page = await r2Client().send(
+      new ListObjectsV2Command({
+        Bucket: config.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    for (const object of page.Contents ?? []) {
+      bytes += object.Size ?? 0;
+      objectCount++;
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  const value = { bucket: config.bucket, prefix, bytes, objectCount, measuredAt: new Date(now) };
+  cachedUsage = { expiresAt: now + usageCacheMs, value };
+  return value;
 }
 
 function uploadExpirySeconds() {
