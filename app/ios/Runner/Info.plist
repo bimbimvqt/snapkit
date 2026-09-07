@@ -44,7 +44,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Snapkit cần quyền thêm ảnh QR đã tạo và cập nhật media khi bạn yêu cầu.</string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>$(ADMOB_IOS_APP_ID)</string>
 	<!-- Transitional only while the production API has an IP but no TLS domain. Remove before store release. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

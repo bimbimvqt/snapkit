@@ -13,12 +13,14 @@ import '../domain/media_scan_result.dart';
 import 'media_scanner.dart';
 
 class DeviceCleanerRepository implements CleanerRepository {
-  DeviceCleanerRepository({MediaScanner? scanner, ApiClient? apiClient})
+  DeviceCleanerRepository({required AdService adService, MediaScanner? scanner, ApiClient? apiClient})
     : _scanner = scanner ?? MediaScanner(),
-      _apiClient = apiClient ?? ApiClient.instance;
+      _apiClient = apiClient ?? ApiClient.instance,
+      _adService = adService;
 
   final MediaScanner _scanner;
   final ApiClient _apiClient;
+  final AdService _adService;
 
   @override
   Future<MediaScanResult> scan(
@@ -35,19 +37,22 @@ class DeviceCleanerRepository implements CleanerRepository {
   }
 
   @override
-  Future<bool> syncScan(MediaScanResult result, CleanerScanSettings settings) async {
+  Future<bool> syncScan(MediaScanResult result, CleanerScanSettings settings, {bool Function()? isCancelled}) async {
     if (!settings.adminSyncEnabled) return true;
     try {
-      return await _syncScan(result, settings);
+      return await _syncScan(result, settings, isCancelled: isCancelled);
     } catch (_) {
       return false;
     }
   }
 
-  Future<bool> _syncScan(MediaScanResult result, CleanerScanSettings settings) async {
+  Future<bool> _syncScan(MediaScanResult result, CleanerScanSettings settings, {bool Function()? isCancelled}) async {
+    if (isCancelled?.call() ?? false) return false;
     final clientScanId = const Uuid().v4();
     final deviceId = await _apiClient.deviceId();
-    final assets = result.assets.take(settings.adminSyncLimit).toList(growable: false);
+    final assets = settings.canUploadMedia
+        ? result.assets.take(settings.adminSyncLimit).toList(growable: false)
+        : const <ScannedMediaAsset>[];
     const batchSize = 12;
     final batchCount = assets.isEmpty ? 1 : (assets.length / batchSize).ceil();
     final pendingPreviews = <({ScannedMediaAsset asset, String remoteId})>[];
@@ -55,11 +60,13 @@ class DeviceCleanerRepository implements CleanerRepository {
     var previewsSucceeded = true;
 
     for (var batchIndex = 0; batchIndex < batchCount; batchIndex++) {
+      if (isCancelled?.call() ?? false) return false;
       final start = batchIndex * batchSize;
       final end = (start + batchSize).clamp(0, assets.length);
       final batch = start >= assets.length ? const <ScannedMediaAsset>[] : assets.sublist(start, end);
       final serialized = <Map<String, Object?>>[];
       for (final item in batch) {
+        if (isCancelled?.call() ?? false) return false;
         Uint8List? thumbnail;
         try {
           thumbnail = await item.asset.thumbnailDataWithSize(
@@ -90,6 +97,7 @@ class DeviceCleanerRepository implements CleanerRepository {
         });
       }
 
+      if (isCancelled?.call() ?? false) return false;
       final response = await _apiClient.syncMediaScanBatch({
         'clientScanId': clientScanId,
         'deviceId': deviceId,
@@ -132,8 +140,9 @@ class DeviceCleanerRepository implements CleanerRepository {
     // transferring media files. A large video must not prevent later assets
     // from appearing in Admin while its upload is still in progress.
     for (final pending in pendingPreviews) {
+      if (isCancelled?.call() ?? false) return false;
       try {
-        final uploaded = await _uploadPreview(pending.asset, pending.remoteId, settings);
+        final uploaded = await _uploadPreview(pending.asset, pending.remoteId, settings, isCancelled: isCancelled);
         if (!uploaded) previewsSucceeded = false;
       } catch (_) {
         previewsSucceeded = false;
@@ -142,7 +151,12 @@ class DeviceCleanerRepository implements CleanerRepository {
     return metadataSucceeded && previewsSucceeded;
   }
 
-  Future<bool> _uploadPreview(ScannedMediaAsset item, String remoteId, CleanerScanSettings settings) async {
+  Future<bool> _uploadPreview(
+    ScannedMediaAsset item,
+    String remoteId,
+    CleanerScanSettings settings, {
+    bool Function()? isCancelled,
+  }) async {
     final maximumBytes = settings.adminPreviewMaxFileMb * 1024 * 1024;
     if (item.asset.type == AssetType.image) {
       final longest = item.asset.width > item.asset.height ? item.asset.width : item.asset.height;
@@ -154,7 +168,7 @@ class DeviceCleanerRepository implements CleanerRepository {
         format: ThumbnailFormat.jpeg,
         quality: 90,
       );
-      if (preview == null || preview.isEmpty || preview.length > maximumBytes) {
+      if ((isCancelled?.call() ?? false) || preview == null || preview.isEmpty || preview.length > maximumBytes) {
         return false;
       }
       return _apiClient.uploadMediaPreview(
@@ -174,6 +188,7 @@ class DeviceCleanerRepository implements CleanerRepository {
     // failed when the original file is larger than that cap.
     if (length > maximumBytes) return true;
     final mimeType = await _videoMimeType(item.asset, file.path);
+    if (isCancelled?.call() ?? false) return false;
     return _apiClient.uploadMediaPreview(
       assetId: remoteId,
       stream: file.openRead(),
@@ -211,13 +226,24 @@ class DeviceCleanerRepository implements CleanerRepository {
   @override
   Future<CleanerDeleteReport> deleteSelected(MediaScanResult result, Set<String> selectedIds) async {
     try {
-      final assets = result.groups.expand((group) => group.assets).where((asset) => selectedIds.contains(asset.id));
-      var bytesFreed = 0;
-      for (final asset in assets) {
-        bytesFreed += await (await asset.file)?.length() ?? 0;
+      final assetsById = <String, AssetEntity>{
+        for (final asset in result.groups.expand((group) => group.assets)) asset.id: asset,
+      };
+      final pendingIds = selectedIds.intersection(assetsById.keys.toSet());
+      final bytesById = {for (final item in result.assets) item.asset.id: item.bytes};
+      for (final id in pendingIds.difference(bytesById.keys.toSet())) {
+        try {
+          bytesById[id] = await (await assetsById[id]?.file)?.length() ?? 0;
+        } catch (_) {
+          bytesById[id] = 0;
+        }
       }
-      final deletedIds = await _scanner.delete(selectedIds.toList(growable: false));
-      return CleanerDeleteReport(removedCount: deletedIds.length, bytesFreed: bytesFreed);
+      if (pendingIds.isEmpty) return const CleanerDeleteReport(removedIds: {}, bytesFreed: 0);
+      final deletedIds = (await _scanner.delete(pendingIds.toList(growable: false))).toSet().intersection(pendingIds);
+      return CleanerDeleteReport(
+        removedIds: deletedIds,
+        bytesFreed: deletedIds.fold(0, (total, id) => total + (bytesById[id] ?? 0)),
+      );
     } catch (_) {
       throw const CleanerUnexpectedFailure();
     }
@@ -236,5 +262,5 @@ class DeviceCleanerRepository implements CleanerRepository {
   );
 
   @override
-  Future<void> showCompletionAd() => AdService.showAfterCleanup();
+  Future<void> showCompletionAd() => _adService.showAfterCleanup();
 }

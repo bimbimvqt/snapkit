@@ -40,15 +40,18 @@ class ToolCard extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.color,
+    this.tag,
     super.key,
   });
   final IconData icon;
   final String title, subtitle;
   final VoidCallback onTap;
   final Color? color;
+  final String? tag;
   @override
   Widget build(BuildContext context) {
     final resolvedColor = color ?? Theme.of(context).colorScheme.primary;
+    final tag = this.tag;
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(AppDimensions.radius24),
@@ -63,6 +66,7 @@ class ToolCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: resolvedColor.withValues(alpha: .14),
                   borderRadius: BorderRadius.circular(17.r),
+                  border: Border.all(color: resolvedColor.withValues(alpha: .2)),
                 ),
                 child: Icon(icon, color: resolvedColor, size: AppDimensions.iconMedium),
               ),
@@ -71,8 +75,27 @@ class ToolCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (tag != null) ...[
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        decoration: BoxDecoration(
+                          color: resolvedColor.withValues(alpha: .12),
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Text(
+                          tag.toUpperCase(),
+                          style: AppTextStyles.caption.copyWith(
+                            color: resolvedColor,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                    ],
                     Text(title, style: AppTextStyles.sectionTitle),
-                    SizedBox(height: 5.h),
+                    SizedBox(height: 4.h),
                     Text(
                       subtitle,
                       style: AppTextStyles.body.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -80,7 +103,7 @@ class ToolCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16.sp, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ],
           ),
         ),

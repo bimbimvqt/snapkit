@@ -6,30 +6,29 @@ import Button from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { SeraField } from "@/components/sera/field";
 import { SeraSurface } from "@/components/sera/surface";
+import { clientBackendFetch } from "@/lib/api-response";
 export function LoginForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false); const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
     const data = new FormData(event.currentTarget);
-    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
-      const response = await fetch("/backend/api/v1/auth/login", {
+      const result = await clientBackendFetch<{ user: { role: string } }>("/api/v1/auth/login", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: data.get("email"), password: data.get("password") }),
+        body: JSON.stringify({ email: String(data.get("email") ?? "").trim(), password: data.get("password") }),
       });
-      const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-      if (!response.ok) {
-        failureMessage = body?.error?.message ?? "Không thể đăng nhập";
-        throw new Error();
+      if (result.user?.role !== "ADMIN") {
+        setError("Tài khoản này không có quyền quản trị. Vui lòng dùng tài khoản admin.");
+        return;
       }
-      router.push("/admin");
+      router.replace("/admin");
       router.refresh();
-    } catch {
-      setError(failureMessage);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Không thể đăng nhập. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }

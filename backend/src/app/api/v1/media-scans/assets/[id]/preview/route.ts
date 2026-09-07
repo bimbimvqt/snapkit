@@ -65,7 +65,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     if (asset.type === "IMAGE") {
       const storageKey = storageKeyFor(asset.id, mimeType);
-      const storedBytes = await storePreview(storageKey, request.body, maximumBytes);
+      const storedBytes = await storePreview(storageKey, request.body, contentLength);
       await db.mediaScanAsset.update({
         where: { id: asset.id },
         data: {
@@ -80,7 +80,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
 
     const originalStorageKey = originalStorageKeyFor(asset.id, mimeType);
-    const originalBytes = await storePreview(originalStorageKey, request.body, maximumBytes);
+    const originalBytes = await storePreview(originalStorageKey, request.body, contentLength);
     await db.mediaScanAsset.update({
       where: { id: asset.id },
       data: {
@@ -89,7 +89,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         originalBytes: BigInt(originalBytes),
         originalExpiresAt: entitlement.policy.originalVideoRetentionDays > 0
           ? retentionDate(entitlement.policy.originalVideoRetentionDays)
-          : null,
+          : previewExpiresAt,
       },
     });
     if (asset.originalStorageKey !== originalStorageKey) await removeStoredPreview(asset.originalStorageKey);

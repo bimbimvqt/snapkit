@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, fail, ok } from "@/lib/api";
-import { createRefreshToken, setAuthCookies, signAccessToken } from "@/lib/auth";
+import { createRefreshToken, getSession, setAuthCookies, signAccessToken } from "@/lib/auth";
 import {
   GoogleAuthConfigurationError,
   InvalidGoogleIdTokenError,
   verifyGoogleIdToken,
 } from "@/lib/google-auth";
+import { mediaStorageEntitlement } from "@/lib/media-subscription";
 
 const schema = z.object({
   idToken: z.string().min(100).max(16_384),
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
   try {
     const input = schema.parse(await request.json());
     const identity = await verifyGoogleIdToken(input.idToken);
+    const session = input.deviceId ? await getSession() : null;
     const user = await db.$transaction(async (transaction) => {
       const bySubject = await transaction.user.findUnique({ where: { googleSubject: identity.subject } });
       if (bySubject) {
@@ -47,10 +49,11 @@ export async function POST(request: Request) {
         });
       }
 
-      const anonymousUser = input.deviceId
+      const anonymousUser = input.deviceId && session
         ? await transaction.user.findUnique({ where: { anonymousId: input.deviceId } })
         : null;
-      if (anonymousUser && !anonymousUser.email && !anonymousUser.googleSubject) {
+      if (anonymousUser && anonymousUser.id === session?.userId && !anonymousUser.disabled &&
+          anonymousUser.role === "USER" && !anonymousUser.email && !anonymousUser.googleSubject && !anonymousUser.passwordHash) {
         return transaction.user.update({
           where: { id: anonymousUser.id },
           data: {
@@ -73,11 +76,20 @@ export async function POST(request: Request) {
     });
 
     if (user.disabled) return fail("Tài khoản đã bị vô hiệu hóa", 403, "ACCOUNT_DISABLED");
+    const entitlement = await mediaStorageEntitlement(user.id);
     const accessToken = await signAccessToken(user);
     const refreshToken = await createRefreshToken(user.id);
     await setAuthCookies(accessToken, refreshToken);
     return ok({
-      user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, role: user.role },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        isPro: entitlement.isPro,
+        planId: entitlement.planId,
+      },
       accessToken,
       refreshToken,
     });

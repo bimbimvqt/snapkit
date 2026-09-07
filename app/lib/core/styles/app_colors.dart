@@ -57,6 +57,8 @@ abstract final class AppColors {
 
   static const proGradientStart = Color(0xFFB7F34D);
   static const proGradientEnd = Color(0xFF78DFAF);
+  static const pulseQrLight = Color(0xFF2563EB);
+  static const pulseQrDark = Color(0xFF60A5FA);
 
   static const rainbow = <Color>[
     Color(0xFFEF4444),

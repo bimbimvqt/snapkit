@@ -51,7 +51,11 @@ void main() {
 
   test('uses safe defaults for missing config', () {
     final config = ProSubscriptionConfig.fromMobile(const {});
-    expect(config.enabledPlans, isNotEmpty);
+    expect(config.freeStorage.quotaMb, 100);
+    expect(config.freeStorage.previewRetentionDays, 7);
+    expect(config.enabledPlans, hasLength(2));
     expect(config.enabledPlans.first.features, contains('Không quảng cáo'));
+    expect(config.enabledPlans.last.id, 'yearly');
+    expect(config.enabledPlans.last.highlighted, isTrue);
   });
 }

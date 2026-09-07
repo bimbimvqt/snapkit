@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanerSchema, themeSchema } from "@/app/api/admin/config/route";
+import { adsSchema, cleanerSchema, themeSchema } from "@/app/api/admin/config/route";
 import { mediaScanBatchSchema } from "@/app/api/v1/media-scans/route";
 import { qrStyleSchema } from "@/app/api/v1/qr/route";
 import { subscriptionConfigSchema } from "@/lib/subscription-plans";
@@ -40,6 +40,7 @@ describe("media cleaner config", () => {
         similarImageLimit: 240,
         largeVideoThresholdMb: 150,
         adminSyncEnabled: true,
+        adminMediaUploadEnabled: false,
         adminSyncLimit: 500,
         adminImagePreviewMaxPx: 1920,
         adminPreviewMaxFileMb: 512,
@@ -54,11 +55,65 @@ describe("media cleaner config", () => {
         similarImageLimit: 10,
         largeVideoThresholdMb: 1,
         adminSyncEnabled: true,
+        adminMediaUploadEnabled: true,
         adminSyncLimit: 50_000,
         adminImagePreviewMaxPx: 10_000,
         adminPreviewMaxFileMb: 10_000,
       }),
     ).toThrow();
+  });
+
+  it("requires aggregate sync before media upload can be enabled", () => {
+    expect(() =>
+      cleanerSchema.parse({
+        maxScanAssets: 500,
+        similarImageLimit: 180,
+        largeVideoThresholdMb: 100,
+        adminSyncEnabled: false,
+        adminMediaUploadEnabled: true,
+        adminSyncLimit: 100,
+        adminImagePreviewMaxPx: 1920,
+        adminPreviewMaxFileMb: 50,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("mobile ads config", () => {
+  const testConfig = {
+    mode: "test",
+    bannerEnabled: true,
+    interstitialEnabled: true,
+    interstitialEvery: 3,
+    minimumInterstitialIntervalSeconds: 180,
+    nonPersonalizedAds: true,
+    androidBannerAdUnitId: "",
+    iosBannerAdUnitId: "",
+    androidInterstitialAdUnitId: "",
+    iosInterstitialAdUnitId: "",
+  } as const;
+
+  it("allows test mode without production ad unit IDs", () => {
+    expect(adsSchema.parse(testConfig)).toMatchObject({ mode: "test", interstitialEvery: 3 });
+  });
+
+  it("requires valid platform IDs before live ads can be enabled", () => {
+    expect(() => adsSchema.parse({ ...testConfig, mode: "live" })).toThrow();
+    expect(
+      adsSchema.parse({
+        ...testConfig,
+        mode: "live",
+        androidBannerAdUnitId: "ca-app-pub-1234567890123456/1234567890",
+        iosBannerAdUnitId: "ca-app-pub-1234567890123456/1234567891",
+        androidInterstitialAdUnitId: "ca-app-pub-1234567890123456/1234567892",
+        iosInterstitialAdUnitId: "ca-app-pub-1234567890123456/1234567893",
+      }),
+    ).toMatchObject({ mode: "live" });
+  });
+
+  it("rejects abusive interstitial cadence", () => {
+    expect(() => adsSchema.parse({ ...testConfig, interstitialEvery: 0 })).toThrow();
+    expect(() => adsSchema.parse({ ...testConfig, minimumInterstitialIntervalSeconds: 7200 })).toThrow();
   });
 });
 
@@ -85,7 +140,7 @@ describe("subscription plan config", () => {
   it("accepts and normalizes a configurable plan", () => {
     expect(subscriptionConfigSchema.parse({ title: "Snapkit Pro", subtitle: "Nâng cấp trải nghiệm", footer: "Thanh toán an toàn", plans: [plan] }))
       .toMatchObject({
-        freeStorage: { quotaMb: 512, originalVideoRetentionDays: 0 },
+        freeStorage: { quotaMb: 100, originalVideoRetentionDays: 0 },
         plans: [{ id: "monthly", currency: "VND", storage: { quotaMb: 10240 } }],
       });
   });

@@ -9,6 +9,7 @@ void main() {
         'similarImageLimit': 260,
         'largeVideoThresholdMb': 150,
         'adminSyncEnabled': false,
+        'adminMediaUploadEnabled': true,
         'adminSyncLimit': 300,
         'adminImagePreviewMaxPx': 2560,
         'adminPreviewMaxFileMb': 800,
@@ -19,9 +20,33 @@ void main() {
     expect(settings.similarImageLimit, 260);
     expect(settings.largeVideoThresholdMb, 150);
     expect(settings.adminSyncEnabled, isFalse);
+    expect(settings.adminMediaUploadEnabled, isTrue);
     expect(settings.adminSyncLimit, 300);
     expect(settings.adminImagePreviewMaxPx, 2560);
     expect(settings.adminPreviewMaxFileMb, 800);
+  });
+
+  test('remote configuration cannot grant local media consent', () {
+    final settings = CleanerScanSettings.fromMobile({
+      'cleaner': {'adminMediaUploadEnabled': true, 'userMediaUploadConsent': true},
+    });
+    expect(settings.canUploadMedia, isFalse);
+    expect(settings.withMediaUploadConsent(true).canUploadMedia, isTrue);
+    expect(
+      const CleanerScanSettings(
+        adminSyncEnabled: false,
+        adminMediaUploadEnabled: true,
+      ).withMediaUploadConsent(true).canUploadMedia,
+      isFalse,
+    );
+  });
+
+  test('non-finite numeric configuration uses defaults instead of throwing', () {
+    final settings = CleanerScanSettings.fromMobile({
+      'cleaner': {'maxScanAssets': double.nan, 'adminSyncLimit': double.infinity},
+    });
+    expect(settings.maxScanAssets, 500);
+    expect(settings.adminSyncLimit, 100);
   });
 
   test('uses safe defaults and clamps remote values', () {
@@ -31,6 +56,7 @@ void main() {
         'similarImageLimit': -1,
         'largeVideoThresholdMb': 'invalid',
         'adminSyncEnabled': 'invalid',
+        'adminMediaUploadEnabled': 'invalid',
         'adminSyncLimit': -50,
         'adminImagePreviewMaxPx': 100000,
         'adminPreviewMaxFileMb': 100000,
@@ -41,6 +67,7 @@ void main() {
     expect(settings.similarImageLimit, 20);
     expect(settings.largeVideoThresholdMb, 100);
     expect(settings.adminSyncEnabled, isTrue);
+    expect(settings.adminMediaUploadEnabled, isFalse);
     expect(settings.adminSyncLimit, 0);
     expect(settings.adminImagePreviewMaxPx, 4096);
     expect(settings.adminPreviewMaxFileMb, 1024);

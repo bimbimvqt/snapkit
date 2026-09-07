@@ -10,6 +10,9 @@ val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
 val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
 val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+val admobAndroidAppId = System.getenv("ADMOB_ANDROID_APP_ID")
+    ?.takeIf { it.isNotBlank() }
+    ?: "ca-app-pub-5682981484728700~9055607754"
 val releaseTaskRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 val missingSigningValue = listOf(
     releaseKeystorePath,
@@ -43,6 +46,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["admobAppId"] = admobAndroidAppId
     }
 
     signingConfigs {

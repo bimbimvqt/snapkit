@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { apiError, ok } from "@/lib/api";
+import { apiError, fail, ok } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 
 const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Màu phải có định dạng #RRGGBB");
@@ -35,18 +35,21 @@ const schema = z.object({
   style: qrStyleSchema.optional(),
 });
 
-export async function GET(request: Request) {
-  const session = await getSession();
-  const deviceId = new URL(request.url).searchParams.get("deviceId");
-  const codes = await db.qrCode.findMany({ where: session ? { userId: session.userId } : { deviceId: deviceId ?? "__missing__" }, orderBy: { createdAt: "desc" }, take: 30, select: { id: true, kind: true, content: true, style: true, createdAt: true } });
-  return ok(codes);
+export async function GET() {
+  try {
+    const session = await getSession();
+    if (!session) return fail("Vui lòng đăng nhập để xem lịch sử QR", 401, "UNAUTHORIZED");
+    const codes = await db.qrCode.findMany({ where: { userId: session.userId }, orderBy: { createdAt: "desc" }, take: 30, select: { id: true, kind: true, content: true, style: true, createdAt: true } });
+    return ok(codes);
+  } catch (error) { return apiError(error); }
 }
 
 export async function POST(request: Request) {
   try {
-    const input = schema.parse(await request.json());
     const session = await getSession();
-    const code = await db.qrCode.create({ data: { ...input, userId: session?.userId } });
+    if (!session) return fail("Vui lòng đăng nhập để đồng bộ mã QR", 401, "UNAUTHORIZED");
+    const input = schema.parse(await request.json());
+    const code = await db.qrCode.create({ data: { ...input, userId: session.userId } });
     return ok({ id: code.id, createdAt: code.createdAt }, { status: 201 });
   } catch (error) { return apiError(error); }
 }

@@ -1,12 +1,17 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'app.dart';
+import 'core/bootstrap/app_startup.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await MobileAds.instance.initialize();
-  runApp(const SnapkitApp());
+  runApp(
+    AppStartup(
+      initialize: () async {
+        await Firebase.initializeApp();
+      },
+      appBuilder: (_) => const SnapkitApp(),
+    ),
+  );
 }

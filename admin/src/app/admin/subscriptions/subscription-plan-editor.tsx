@@ -6,6 +6,7 @@ import Button from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeraSectionTitle, SeraSurface } from "@/components/sera/surface";
 import type { SubscriptionPlan, SubscriptionPlanConfig, SubscriptionStoragePolicy } from "@/lib/backend";
+import { clientBackendFetch } from "@/lib/api-response";
 
 function fieldClass() {
   return "min-h-12 w-full rounded-2xl border bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand)_16%,transparent)]";
@@ -111,12 +112,13 @@ export function SubscriptionPlanEditor({ initialConfig, updatedAt }: { initialCo
   }
 
   async function save() {
+    if (saving) return;
     setSaving(true); setMessage(undefined);
     try {
-      const response = await fetch("/backend/api/admin/subscription-plans", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...config, plans: normalizeOrder(config.plans) }) });
-      const body = await response.json().catch(() => null) as { data?: { config: SubscriptionPlanConfig }; error?: { message?: string } } | null;
-      if (!response.ok || !body?.data) throw new Error(body?.error?.message ?? "Không thể lưu cấu hình gói Pro");
-      setConfig(body.data.config); setPersisted(body.data.config); setMessage({ kind: "success", text: "Đã lưu và đồng bộ cấu hình gói Pro tới ứng dụng." });
+      const saved = await clientBackendFetch<{ config: SubscriptionPlanConfig }>("/api/admin/subscription-plans", { method: "PUT", body: JSON.stringify({ ...config, plans: normalizeOrder(config.plans) }) });
+      setConfig((current) => current === config ? saved.config : current);
+      setPersisted(saved.config);
+      setMessage({ kind: "success", text: "Đã lưu phiên bản vừa gửi. Các chỉnh sửa thêm trong lúc lưu cần được lưu tiếp." });
     } catch (error) {
       setMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình gói Pro" });
     } finally { setSaving(false); }

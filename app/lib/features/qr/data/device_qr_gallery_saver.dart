@@ -13,7 +13,7 @@ class DeviceQrGallerySaver implements QrGallerySaver {
         androidPermission: AndroidPermission(type: RequestType.image, mediaLocation: false),
       ),
     );
-    if (!permission.isAuth) throw const QrGalleryPermissionException();
+    if (!permission.hasAccess) throw const QrGalleryPermissionException();
 
     final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
     await PhotoManager.editor.saveImage(

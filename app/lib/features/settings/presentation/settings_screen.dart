@@ -38,13 +38,23 @@ class SettingsScreen extends GetView<SettingsController> {
                       description: 'Quản lý tài khoản và trải nghiệm Snapkit của bạn.',
                     ),
                     SizedBox(height: AppDimensions.space24),
-                    if (RemoteConfig.instance.enabled('pro_paywall')) ...[
-                      ProPricingSection(
-                        config: RemoteConfig.instance.proSubscription,
-                        onPlanSelected: (plan) => _selectPlan(context, plan),
-                      ),
-                      SizedBox(height: AppDimensions.space32),
-                    ],
+                    Obx(() {
+                      final user = controller.user;
+                      if (user != null && user.isPro) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: AppDimensions.space24),
+                          child: _ProStatusCard(planId: user.planId),
+                        );
+                      }
+                      if (!RemoteConfig.instance.enabled('pro_paywall')) return const SizedBox.shrink();
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: AppDimensions.space32),
+                        child: ProPricingSection(
+                          config: RemoteConfig.instance.proSubscription,
+                          onPlanSelected: (plan) => _selectPlan(context, plan),
+                        ),
+                      );
+                    }),
                     Obx(() {
                       final user = controller.user;
                       if (user == null) return const SizedBox.shrink();
@@ -66,11 +76,16 @@ class SettingsScreen extends GetView<SettingsController> {
                             subtitle: 'Luôn xem lại và chọn nội dung trước khi xóa',
                           ),
                           const _Divider(),
-                          const _Tile(
-                            icon: Icons.ads_click_outlined,
-                            title: 'Quảng cáo có kiểm soát',
-                            subtitle: 'Không hiển thị trong lúc chọn/xóa media',
-                          ),
+                          Obx(() {
+                            final isPro = controller.user?.isPro == true;
+                            return _Tile(
+                              icon: isPro ? Icons.block_rounded : Icons.ads_click_outlined,
+                              title: isPro ? 'Trải nghiệm không quảng cáo' : 'Quảng cáo có kiểm soát',
+                              subtitle: isPro
+                                  ? 'Quyền lợi Pro đang hoạt động trên tài khoản này'
+                                  : 'Banner ở trang chủ; interstitial chỉ sau khi dọn xong',
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -101,7 +116,7 @@ class SettingsScreen extends GetView<SettingsController> {
       isScrollControlled: true,
       builder: (context) {
         final scheme = Theme.of(context).colorScheme;
-        return Padding(
+        return SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 24.h),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
@@ -128,6 +143,50 @@ class SettingsScreen extends GetView<SettingsController> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProStatusCard extends StatelessWidget {
+  const _ProStatusCard({required this.planId});
+
+  final String planId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.space20),
+        child: Row(
+          children: [
+            Container(
+              width: 48.r,
+              height: 48.r,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(AppDimensions.radius16),
+              ),
+              child: Icon(Icons.workspace_premium_rounded, color: scheme.primary),
+            ),
+            SizedBox(width: AppDimensions.space16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Snapkit Pro đang hoạt động', style: AppTextStyles.bodyStrong),
+                  SizedBox(height: AppDimensions.space4),
+                  Text(
+                    'Gói $planId · không quảng cáo',
+                    style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.check_circle_rounded, color: scheme.primary),
+          ],
+        ),
+      ),
     );
   }
 }

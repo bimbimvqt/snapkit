@@ -17,6 +17,7 @@ void main() {
     expect(find.text('Nhẹ máy. Gọn việc.'), findsOneWidget);
     expect(find.text('Smart Media Cleaner'), findsOneWidget);
     expect(find.text('QR Studio'), findsWidgets);
+    expect(find.text('AI Social Studio'), findsOneWidget);
   });
 
   testWidgets('requires Google login when there is no session', (tester) async {

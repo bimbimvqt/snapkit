@@ -45,6 +45,12 @@ class ProPricingSection extends StatelessWidget {
           textAlign: TextAlign.center,
           style: AppTextStyles.body.copyWith(color: scheme.onSurfaceVariant),
         ),
+        SizedBox(height: AppDimensions.space16),
+        Text(
+          'Thanh toán chưa khả dụng trên phiên bản này. Giá và ưu đãi dưới đây là dự kiến.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyStrong.copyWith(color: scheme.onSurfaceVariant),
+        ),
         SizedBox(height: AppDimensions.space24),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -90,7 +96,7 @@ class ProPricingSection extends StatelessWidget {
             SizedBox(width: AppDimensions.space8),
             Flexible(
               child: Text(
-                config.footer,
+                'Bạn có thể xem thông tin gói; thao tác này không bắt đầu dùng thử hoặc tính phí.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
               ),
@@ -138,21 +144,30 @@ class _PricingCard extends StatelessWidget {
                 ),
                 child: Icon(Icons.auto_awesome_rounded, color: scheme.primary, size: AppDimensions.iconMedium),
               ),
-              const Spacer(),
+              SizedBox(width: AppDimensions.space8),
               if (plan.badge.isNotEmpty)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: plan.highlighted ? scheme.primary : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(99.r),
-                  ),
-                  child: Text(
-                    plan.badge,
-                    style: AppTextStyles.label.copyWith(
-                      color: plan.highlighted ? scheme.onPrimary : scheme.onSurfaceVariant,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 152),
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: plan.highlighted ? scheme.primary : scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(99.r),
+                      ),
+                      child: Text(
+                        plan.badge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.label.copyWith(
+                          color: plan.highlighted ? scheme.onPrimary : scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
                 ),
+              if (plan.badge.isEmpty) const Spacer(),
             ],
           ),
           SizedBox(height: AppDimensions.space20),
@@ -231,13 +246,13 @@ class _PricingCard extends StatelessWidget {
             width: double.infinity,
             height: AppDimensions.minTouchTarget,
             child: plan.highlighted
-                ? FilledButton(onPressed: onSelected, child: Text(plan.ctaLabel))
-                : OutlinedButton(onPressed: onSelected, child: Text(plan.ctaLabel)),
+                ? FilledButton(onPressed: onSelected, child: const Text('Xem thông tin gói'))
+                : OutlinedButton(onPressed: onSelected, child: const Text('Xem thông tin gói')),
           ),
           if (plan.trialDays > 0) ...[
             SizedBox(height: AppDimensions.space8),
             Text(
-              'Dùng thử ${plan.trialDays} ngày · Huỷ bất kỳ lúc nào',
+              'Dự kiến dùng thử ${plan.trialDays} ngày',
               textAlign: TextAlign.center,
               style: AppTextStyles.caption.copyWith(color: scheme.onSurfaceVariant),
             ),

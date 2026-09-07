@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,9 @@ import 'package:snapkit/features/qr/data/device_qr_logo_picker.dart';
 import 'package:snapkit/features/qr/domain/qr_design.dart';
 import 'package:snapkit/features/qr/domain/qr_gallery_saver.dart';
 import 'package:snapkit/features/qr/domain/qr_repository.dart';
+import 'package:snapkit/features/pulse/domain/pulse_repository.dart';
+
+import 'support/noop_pulse_activity_recorder.dart';
 
 void main() {
   test('decorative presets remain scannable and serialize the extended contract', () {
@@ -30,10 +34,12 @@ void main() {
 
   test('editor saves the encoded Wi-Fi content once and tracks safe design metadata', () async {
     final repository = _FakeQrRepository();
+    final pulse = _RecordingPulseActivity();
     final controller = QrEditorController(
       repository: repository,
       logoPicker: _FakeQrLogoPicker(),
       gallerySaver: _FakeQrGallerySaver(),
+      pulseRecorder: pulse,
       isFeatureEnabled: () => true,
     );
 
@@ -48,6 +54,66 @@ void main() {
     expect(repository.savedStyle, containsPair('frameStyle', 'rainbow'));
     expect(repository.trackedFrameStyle, 'rainbow');
     expect(controller.isSaved, isTrue);
+    expect(pulse.qrActions, 1);
+  });
+
+  test('editing during save keeps the newer draft unsaved and tracks the saved design', () async {
+    final completer = Completer<bool>();
+    final repository = _FakeQrRepository()..saveCompleter = completer;
+    final controller = QrEditorController(
+      repository: repository,
+      logoPicker: _FakeQrLogoPicker(),
+      gallerySaver: _FakeQrGallerySaver(),
+      pulseRecorder: const NoopPulseActivityRecorder(),
+      isFeatureEnabled: () => true,
+    )..setContent('first draft');
+
+    final pending = controller.save();
+    controller.setContent('new draft');
+    controller.applyPreset(QrDesignPreset.rainbow);
+    completer.complete(true);
+    expect(await pending, QrSaveResult.saved);
+    expect(repository.savedContent, 'first draft');
+    expect(repository.trackedFrameStyle, QrDesign.initial.frameStyle.wireName);
+    expect(controller.isSaved, isFalse);
+  });
+
+  test('session reset clears Wi-Fi secrets and rejects completion of the previous account save', () async {
+    final completer = Completer<bool>();
+    final pulse = _RecordingPulseActivity();
+    final controller =
+        QrEditorController(
+            repository: _FakeQrRepository()..saveCompleter = completer,
+            logoPicker: _FakeQrLogoPicker(),
+            gallerySaver: _FakeQrGallerySaver(),
+            pulseRecorder: pulse,
+            isFeatureEnabled: () => true,
+          )
+          ..setKind(QrContentKind.wifi)
+          ..setContent('private network')
+          ..setWifiPassword('secret');
+    final pending = controller.save();
+    controller.resetForSessionChange();
+    expect(controller.content, isEmpty);
+    expect(controller.wifiPassword, isEmpty);
+    expect(controller.isSaved, isFalse);
+    completer.complete(true);
+    expect(await pending, QrSaveResult.invalid);
+    expect(controller.isSaved, isFalse);
+    expect(pulse.qrActions, 0);
+  });
+
+  test('Pulse failure cannot turn a completed save or gallery export into an error', () async {
+    final controller = QrEditorController(
+      repository: _FakeQrRepository(),
+      logoPicker: _FakeQrLogoPicker(),
+      gallerySaver: _FakeQrGallerySaver(),
+      pulseRecorder: _FailingPulseActivity(),
+      isFeatureEnabled: () => true,
+    )..setContent('local QR');
+
+    expect(await controller.save(), QrSaveResult.saved);
+    expect(await controller.saveToGallery(Uint8List.fromList([1, 2, 3])), QrGallerySaveResult.saved);
   });
 
   test('custom logo stays local while its rendering options remain in history', () async {
@@ -56,6 +122,7 @@ void main() {
       repository: repository,
       logoPicker: _FakeQrLogoPicker(),
       gallerySaver: _FakeQrGallerySaver(),
+      pulseRecorder: const NoopPulseActivityRecorder(),
       isFeatureEnabled: () => true,
     );
 
@@ -74,6 +141,7 @@ void main() {
       repository: _FakeQrRepository(),
       logoPicker: _FakeQrLogoPicker(),
       gallerySaver: gallerySaver,
+      pulseRecorder: const NoopPulseActivityRecorder(),
       isFeatureEnabled: () => true,
     );
     controller.setContent('https://snapkit.local');
@@ -90,6 +158,7 @@ void main() {
       repository: _FakeQrRepository(),
       logoPicker: _FakeQrLogoPicker(),
       gallerySaver: _FakeQrGallerySaver(denyPermission: true),
+      pulseRecorder: const NoopPulseActivityRecorder(),
       isFeatureEnabled: () => true,
     );
     controller.setContent('https://snapkit.local');
@@ -102,6 +171,7 @@ void main() {
 }
 
 class _FakeQrRepository implements QrRepository {
+  Completer<bool>? saveCompleter;
   String? savedContent;
   Map<String, Object>? savedStyle;
   String? trackedFrameStyle;
@@ -110,7 +180,7 @@ class _FakeQrRepository implements QrRepository {
   Future<bool> save({required String kind, required String content, required Map<String, Object> style}) async {
     savedContent = content;
     savedStyle = style;
-    return true;
+    return saveCompleter?.future ?? true;
   }
 
   @override
@@ -135,4 +205,19 @@ class _FakeQrGallerySaver implements QrGallerySaver {
     if (denyPermission) throw const QrGalleryPermissionException();
     savedBytes = bytes;
   }
+}
+
+class _RecordingPulseActivity implements PulseActivityRecorder {
+  int qrActions = 0;
+
+  @override
+  Future<void> recordCleanup({required int removedCount, required int bytesFreed, required int focusedCount}) async {}
+
+  @override
+  Future<void> recordQrAction() async => qrActions += 1;
+}
+
+class _FailingPulseActivity extends _RecordingPulseActivity {
+  @override
+  Future<void> recordQrAction() async => throw StateError('storage unavailable');
 }

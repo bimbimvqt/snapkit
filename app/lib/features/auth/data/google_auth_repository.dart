@@ -27,8 +27,7 @@ class GoogleAuthRepository implements AuthRepository {
       final user = AuthUser.fromJson(await _apiClient.currentUser());
       return user.email.isEmpty ? null : user;
     } on DioException catch (error) {
-      if (error.response?.statusCode == 401) {
-        await _apiClient.clearSession();
+      if (error.response?.statusCode == 401 || error.response?.statusCode == 403) {
         return null;
       }
       throw _failureFromDio(error);

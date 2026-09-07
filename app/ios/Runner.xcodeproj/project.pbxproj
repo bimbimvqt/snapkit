@@ -203,6 +203,7 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				D4A7C11B31F1A6B200AD5101 /* Sign Native Asset Frameworks */,
 				A6C45CE681BEE7468CD23243 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
@@ -291,6 +292,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		D4A7C11B31F1A6B200AD5101 /* Sign Native Asset Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Native Asset Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nif [ \"${PLATFORM_NAME}\" != \"iphoneos\" ] || [ \"${CODE_SIGNING_ALLOWED}\" = \"NO\" ]; then\n  exit 0\nfi\n\nif [ -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n  echo \"error: A signing identity is required for embedded native asset frameworks.\" >&2\n  exit 1\nfi\n\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nfor framework in \"${frameworks_dir}\"/*.framework; do\n  [ -d \"${framework}\" ] || continue\n  if /usr/bin/codesign -dvv \"${framework}\" 2>&1 | /usr/bin/grep -q \"Signature=adhoc\"; then\n    /usr/bin/xattr -cr \"${framework}\"\n    /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --preserve-metadata=identifier -- \"${framework}\"\n  fi\ndone\n";
+			showEnvVarsInLog = 0;
 		};
 		6EC9AC698E0E8C2E8AA74E8D /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

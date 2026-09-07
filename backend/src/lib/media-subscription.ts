@@ -30,8 +30,9 @@ export async function mediaStorageEntitlement(userId: string): Promise<MediaStor
     }),
   ]);
   const config = storedConfig ? parseSubscriptionConfig(storedConfig.value) : defaultSubscriptionConfig;
+  // Visibility controls new sales; hiding a plan must not revoke a paid entitlement.
   const plan = subscription
-    ? config.plans.find((candidate) => candidate.enabled && candidate.productId === subscription.productId)
+    ? config.plans.find((candidate) => candidate.productId === subscription.productId)
     : undefined;
   if (!plan) {
     return { planId: "free", productId: subscription?.productId ?? null, isPro: false, policy: config.freeStorage };

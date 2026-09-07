@@ -228,6 +228,13 @@ class _ContentEditor extends StatelessWidget {
                   onChanged: controller.setWifiPassword,
                 ),
               ],
+              const SizedBox(height: 12),
+              Text(
+                controller.kind == QrContentKind.wifi
+                    ? 'Lưu lịch sử sẽ gửi tên mạng và mật khẩu Wi-Fi lên máy chủ Snapkit. Lưu ảnh chỉ lưu QR trên thiết bị.'
+                    : 'Lưu lịch sử sẽ gửi nội dung QR lên máy chủ Snapkit. Lưu ảnh chỉ lưu QR trên thiết bị.',
+                style: AppTextStyles.caption.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ],
           ),
         ),
@@ -893,7 +900,7 @@ class _StickyPreviewCard extends StatelessWidget {
                       dimension: 48,
                       child: IconButton.outlined(
                         onPressed: controller.canSave ? onSaveHistory : null,
-                        tooltip: controller.isSaved ? 'Đã lưu vào lịch sử' : 'Lưu QR vào lịch sử',
+                        tooltip: controller.isSaved ? 'Đã lưu lịch sử trên máy chủ' : 'Lưu lịch sử QR trên máy chủ',
                         icon: controller.isSaving
                             ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                             : Icon(controller.isSaved ? Icons.cloud_done_rounded : Icons.cloud_upload_outlined),

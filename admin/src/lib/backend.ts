@@ -1,23 +1,13 @@
 import { cookies } from "next/headers";
+import { BackendError, readApiResponse } from "@/lib/api-response";
+
+export { BackendError } from "@/lib/api-response";
 
 const backendUrl = (
   process.env.BACKEND_INTERNAL_URL ??
   process.env.NEXT_PUBLIC_BACKEND_URL ??
   "http://localhost:3001"
 ).replace(/\/$/, "");
-
-type ApiEnvelope<T> = { data: T } | { error: { code: string; message: string } };
-
-export class BackendError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code: string,
-  ) {
-    super(message);
-    this.name = "BackendError";
-  }
-}
 
 export async function backendFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const requestCookies = (await cookies()).toString();
@@ -26,23 +16,18 @@ export async function backendFetch<T>(path: string, init: RequestInit = {}): Pro
   if (requestCookies) headers.set("cookie", requestCookies);
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
 
-  const response = await fetch(`${backendUrl}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers,
-  });
-  const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
-
-  if (!response.ok || !body || !("data" in body)) {
-    const error = body && "error" in body ? body.error : null;
-    throw new BackendError(
-      error?.message ?? "Backend không phản hồi hợp lệ",
-      response.status,
-      error?.code ?? "BACKEND_ERROR",
-    );
+  try {
+    const response = await fetch(`${backendUrl}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers,
+      signal: init.signal ?? AbortSignal.timeout(30_000),
+    });
+    return await readApiResponse<T>(response);
+  } catch (error) {
+    if (error instanceof BackendError) throw error;
+    throw new BackendError("Không thể kết nối máy chủ. Vui lòng thử lại.", 503, "BACKEND_UNAVAILABLE");
   }
-
-  return body.data;
 }
 
 export type AdminSessionUser = {
@@ -152,6 +137,24 @@ export type AdminConfig = {
   mobileConfig: unknown;
 };
 
+export type AdminAICaptionConfig = {
+  enabled: boolean;
+  provider: "openai";
+  openaiBaseUrl: string;
+  apiKeyConfigured: boolean;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  defaultTone: "meme" | "flirty" | "genz" | "foodie" | "deep" | "brand";
+  freeDailyLimit: number;
+  proDailyLimit: number;
+};
+
+export type AdminAICaptionResponse = {
+  config: AdminAICaptionConfig;
+  flag: FeatureFlag;
+};
+
 export type SubscriptionPlan = {
   id: string;
   productId: string;
@@ -180,6 +183,7 @@ export type SubscriptionStoragePolicy = {
 };
 
 export type SubscriptionPlanConfig = {
+  version: 2;
   title: string;
   subtitle: string;
   footer: string;

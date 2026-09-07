@@ -12,6 +12,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+import { defaultSubscriptionConfig } from "./subscription-plans";
+
 import { mediaStorageEntitlement } from "./media-subscription";
 
 describe("media storage subscription entitlement", () => {
@@ -29,12 +31,25 @@ describe("media storage subscription entitlement", () => {
     });
   });
 
+  it("keeps paid access when the plan is hidden from the paywall", async () => {
+    mocks.config.mockResolvedValue({
+      value: {
+        ...defaultSubscriptionConfig,
+        plans: defaultSubscriptionConfig.plans.map((plan) => ({ ...plan, enabled: false })),
+      },
+    });
+    mocks.subscription.mockResolvedValue({ productId: "snapkit_pro_monthly" });
+    await expect(mediaStorageEntitlement("user-1")).resolves.toMatchObject({
+      planId: "monthly", isPro: true, policy: { quotaMb: 10240 },
+    });
+  });
+
   it("uses the Free policy for an unknown or missing subscription", async () => {
     mocks.subscription.mockResolvedValue({ productId: "retired_product" });
     await expect(mediaStorageEntitlement("user-1")).resolves.toMatchObject({
       planId: "free",
       isPro: false,
-      policy: { quotaMb: 512, originalVideoRetentionDays: 0 },
+      policy: { quotaMb: 100, maxVideoUploadMb: 50, previewRetentionDays: 7, originalVideoRetentionDays: 0 },
     });
   });
 });

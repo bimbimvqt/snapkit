@@ -5,6 +5,13 @@ import { defaultSubscriptionConfig, parseSubscriptionConfig } from "@/lib/subscr
 
 export const dynamic = "force-dynamic";
 
+const defaultFeatureFlags = {
+  media_cleaner: true,
+  qr_studio: true,
+  pro_paywall: true,
+  ai_caption_studio: true,
+};
+
 export async function GET() {
   const [flags, config, subscriptionConfig] = await Promise.all([
     db.featureFlag.findMany({ orderBy: { key: "asc" } }),
@@ -13,7 +20,7 @@ export async function GET() {
   ]);
   const mobile = mobileConfigWithDefaults(config?.value);
   return ok({
-    flags: Object.fromEntries(flags.map((flag) => [flag.key, flag.enabled])),
+    flags: { ...defaultFeatureFlags, ...Object.fromEntries(flags.map((flag) => [flag.key, flag.enabled])) },
     mobile: { ...mobile, pro: subscriptionConfig ? parseSubscriptionConfig(subscriptionConfig.value) : defaultSubscriptionConfig },
   });
 }

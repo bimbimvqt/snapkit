@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { MediaScanAsset } from "@/lib/backend";
+import { clientBackendFetch } from "@/lib/api-response";
 
 const categoryLabels = {
   SIMILAR: "Tương tự",
@@ -72,6 +73,7 @@ function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
   const [speed, setSpeed] = useState(1);
   const [failed, setFailed] = useState(false);
   const [buffering, setBuffering] = useState(false);
+  const [playerNotice, setPlayerNotice] = useState("");
 
   async function togglePlayback() {
     const video = videoRef.current;
@@ -94,7 +96,13 @@ function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
   }
 
   async function enterFullscreen() {
-    await playerRef.current?.requestFullscreen?.();
+    try {
+      if (!playerRef.current?.requestFullscreen) throw new Error("Fullscreen unavailable");
+      await playerRef.current.requestFullscreen();
+      setPlayerNotice("");
+    } catch {
+      setPlayerNotice("Chưa thể mở toàn màn hình. Bạn vẫn có thể xem video tại đây.");
+    }
   }
 
   return (
@@ -102,12 +110,13 @@ function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
       ref={playerRef}
       tabIndex={0}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === " " || event.key.toLowerCase() === "k") {
           event.preventDefault();
           void togglePlayback();
         }
-        if (event.key === "ArrowLeft") seekBy(-5);
-        if (event.key === "ArrowRight") seekBy(5);
+        if (event.key === "ArrowLeft") { event.preventDefault(); seekBy(-5); }
+        if (event.key === "ArrowRight") { event.preventDefault(); seekBy(5); }
         if (event.key.toLowerCase() === "m") {
           const video = videoRef.current;
           if (video) video.muted = !video.muted;
@@ -117,6 +126,7 @@ function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
       className="group/player relative flex h-[min(72vh,46rem)] min-h-64 w-full items-center justify-center overflow-hidden bg-[#07100e] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--brand)]"
       aria-label="Trình phát video preview"
     >
+      {playerNotice && <p role="status" className="absolute inset-x-3 top-3 z-10 rounded-xl bg-black/80 p-3 text-sm text-white">{playerNotice}</p>}
       <video
         ref={videoRef}
         className="size-full object-contain"
@@ -220,6 +230,8 @@ function AdminVideoPlayer({ asset }: { asset: MediaScanAsset }) {
 export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset[] }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [assets, setAssets] = useState(initialAssets);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -240,13 +252,11 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
   }
 
   async function deleteActiveAsset() {
-    if (!activeAsset || activeIndex === null) return;
+    if (!activeAsset || activeIndex === null || deleting || !confirmingDelete) return;
     setDeleting(true);
     setDeleteError("");
     try {
-      const response = await fetch(`/backend/api/admin/media-scans/assets/${activeAsset.id}`, { method: "DELETE" });
-      const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-      if (!response.ok) throw new Error(body?.error?.message ?? "Không thể xoá media");
+      await clientBackendFetch(`/api/admin/media-scans/assets/${activeAsset.id}`, { method: "DELETE" });
       const nextAssets = assets.filter((asset) => asset.id !== activeAsset.id);
       setAssets(nextAssets);
       setConfirmingDelete(false);
@@ -261,6 +271,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
   }
 
   function movePreview(direction: -1 | 1) {
+    if (confirmingDelete || deleting) return;
     setActiveIndex((current) => {
       if (current === null) return null;
       return (current + direction + assets.length) % assets.length;
@@ -268,7 +279,14 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
   }
 
   useEffect(() => {
-    if (activeIndex === null) return;
+    if (!confirmingDelete) return;
+    cancelDeleteRef.current?.focus();
+    const trigger = deleteButtonRef.current;
+    return () => { trigger?.focus(); };
+  }, [confirmingDelete]);
+
+  useEffect(() => {
+    if (activeIndex === null || confirmingDelete || deleting) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const current = assets[activeIndex];
       if (current?.type === "VIDEO" && current.hasPreview) return;
@@ -281,7 +299,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIndex, assets]);
+  }, [activeIndex, assets, confirmingDelete, deleting]);
 
   return (
     <>
@@ -359,7 +377,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
       >
         {activeAsset && (
           <div className="relative flex max-h-[calc(100dvh-2rem)] flex-col">
-            <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
+            <header inert={confirmingDelete} className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">
                   {activeAsset.type === "VIDEO" ? "Video đã quét" : "Ảnh đã quét"}
@@ -381,6 +399,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
                   </a>
                 )}
                 <button
+                  ref={deleteButtonRef}
                   type="button"
                   onClick={() => { setDeleteError(""); setConfirmingDelete(true); }}
                   disabled={deleting}
@@ -396,7 +415,7 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
               </div>
             </header>
 
-            <div className="relative min-h-0 flex-1 bg-[#07100e]">
+            <div inert={confirmingDelete} className="relative min-h-0 flex-1 bg-[#07100e]">
               {activeAsset.type === "VIDEO" && activeAsset.hasPreview ? (
                 <AdminVideoPlayer key={activeAsset.id} asset={activeAsset} />
               ) : (
@@ -434,15 +453,24 @@ export function MediaGallery({ assets: initialAssets }: { assets: MediaScanAsset
 
             {confirmingDelete && (
               <div className="absolute inset-0 z-30 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="presentation">
-                <section role="alertdialog" aria-modal="true" aria-labelledby="delete-media-title" aria-describedby="delete-media-description" className="w-full max-w-md rounded-3xl border bg-[var(--surface)] p-6 text-[var(--ink)] shadow-2xl">
+                <section role="alertdialog" aria-modal="true" aria-busy={deleting} aria-labelledby="delete-media-title" aria-describedby="delete-media-description" onKeyDown={(event) => {
+                  if (event.key !== "Tab") return;
+                  const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
+                  const first = buttons[0];
+                  const last = buttons[buttons.length - 1];
+                  if (!first) { event.preventDefault(); return; }
+                  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+                }} className="max-h-full w-full max-w-md overflow-y-auto rounded-3xl border bg-[var(--surface)] p-6 text-[var(--ink)] shadow-2xl">
                   <span className="grid size-12 place-items-center rounded-2xl bg-red-500/12 text-red-600 dark:text-red-300"><Trash2 size={23} aria-hidden="true" /></span>
                   <h2 id="delete-media-title" className="mt-5 text-xl font-bold">Xoá media này?</h2>
+                  <p className="mt-2 text-sm font-semibold">{activeAsset.type === "VIDEO" ? "Video" : "Ảnh"} {(activeIndex ?? 0) + 1}/{assets.length} · {activeAsset.width}×{activeAsset.height}</p>
                   <p id="delete-media-description" className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">
                     Media, thumbnail và file preview đã đồng bộ sẽ bị xoá khỏi server. Hành động này được ghi vào audit log và không thể hoàn tác.
                   </p>
                   {deleteError && <p role="alert" className="mt-4 rounded-2xl bg-red-500/10 p-3 text-sm text-[var(--danger)]">{deleteError}</p>}
                   <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={() => { setConfirmingDelete(false); setDeleteError(""); }} disabled={deleting} className="min-h-12 cursor-pointer rounded-2xl border px-5 text-sm font-semibold transition hover:bg-[var(--surface-raised)] disabled:opacity-50">Huỷ</button>
+                    <button ref={cancelDeleteRef} type="button" onClick={() => { setConfirmingDelete(false); setDeleteError(""); }} disabled={deleting} className="min-h-12 cursor-pointer rounded-2xl border px-5 text-sm font-semibold transition hover:bg-[var(--surface-raised)] disabled:opacity-50">Huỷ</button>
                     <button type="button" onClick={() => void deleteActiveAsset()} disabled={deleting} className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
                       {deleting ? <LoaderCircle className="animate-spin motion-reduce:animate-none" size={18} aria-hidden="true" /> : <Trash2 size={18} aria-hidden="true" />}
                       {deleting ? "Đang xoá…" : "Xoá vĩnh viễn"}

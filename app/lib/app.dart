@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -8,7 +10,9 @@ import 'core/routes/app_pages.dart';
 import 'core/routes/app_routes.dart';
 import 'core/styles/app_dimensions.dart';
 import 'core/theme/snapkit_theme.dart';
+import 'features/auth/application/auth_controller.dart';
 import 'features/auth/domain/auth_repository.dart';
+import 'features/pulse/application/pulse_controller.dart';
 
 class SnapkitApp extends StatefulWidget {
   const SnapkitApp({this.authRepository, super.key});
@@ -32,7 +36,9 @@ class _SnapkitAppState extends State<SnapkitApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      RemoteConfig.instance.refresh();
+      unawaited(RemoteConfig.instance.refresh());
+      if (Get.isRegistered<AuthController>()) unawaited(Get.find<AuthController>().refreshSession());
+      if (Get.isRegistered<PulseController>()) unawaited(Get.find<PulseController>().refreshForCurrentWeek());
     }
   }
 

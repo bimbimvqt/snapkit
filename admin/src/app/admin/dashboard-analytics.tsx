@@ -308,7 +308,7 @@ export function DashboardAnalytics({ data }: { data: Overview }) {
         <SeraSurface className="p-5 sm:p-6">
           <SeraSectionTitle eyebrow="Hạ tầng" title="Dung lượng server" />
           <div className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6 text-amber-800 dark:text-amber-200" role="status">
-            Backend production tại 45.119.214.94 đang dùng phiên bản API cũ nên chưa trả về thống kê ổ đĩa. Dashboard vẫn dùng dữ liệu production và sẽ tự hiển thị dung lượng sau khi backend được triển khai bản mới.
+            Máy chủ chưa trả về thống kê ổ đĩa. Dung lượng sẽ xuất hiện khi máy chủ cung cấp dữ liệu này.
           </div>
         </SeraSurface>
       )}
@@ -471,7 +471,7 @@ function ServerStorage({ storage }: { storage: NonNullable<Overview["storage"]> 
         <div>
           <SeraSectionTitle eyebrow="Hạ tầng" title="Dung lượng server" />
           <p className="mt-2 text-xs font-semibold text-[var(--ink-muted)]">
-            Nguồn dữ liệu: {storage.sourceHost ?? "45.119.214.94"}
+            Nguồn dữ liệu: {storage.sourceHost ?? "máy chủ hiện tại"}
           </p>
         </div>
         <span
@@ -521,7 +521,7 @@ function ServerStorage({ storage }: { storage: NonNullable<Overview["storage"]> 
         </div>
 
         <p className="rounded-2xl bg-[var(--surface-raised)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
-          Ổ đĩa được đo trực tiếp trên server {storage.sourceHost ?? "45.119.214.94"}. Media đồng bộ được quản lý bởi {storage.mediaProvider ?? "ổ đĩa server"}; số liệu bên dưới đã loại trừ object trùng lặp.
+          Ổ đĩa được đo trực tiếp trên server {storage.sourceHost ?? "máy chủ hiện tại"}. Media đồng bộ được quản lý bởi {storage.mediaProvider ?? "ổ đĩa server"}; số liệu bên dưới đã loại trừ object trùng lặp.
         </p>
       </div>
 

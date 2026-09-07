@@ -12,6 +12,8 @@ import 'package:snapkit/features/qr/domain/qr_gallery_saver.dart';
 import 'package:snapkit/features/qr/domain/qr_repository.dart';
 import 'package:snapkit/features/qr/presentation/qr_screen.dart';
 
+import 'support/noop_pulse_activity_recorder.dart';
+
 void main() {
   setUp(() {
     Get.testMode = true;
@@ -20,6 +22,7 @@ void main() {
         repository: _FakeQrRepository(),
         logoPicker: _FakeQrLogoPicker(),
         gallerySaver: _FakeQrGallerySaver(),
+        pulseRecorder: const NoopPulseActivityRecorder(),
         isFeatureEnabled: () => true,
       ),
     );

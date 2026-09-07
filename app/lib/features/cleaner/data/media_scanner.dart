@@ -1,54 +1,72 @@
+import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:image/image.dart' as image;
 import 'package:photo_manager/photo_manager.dart';
+
 import '../domain/cleaner_scan_settings.dart';
 import '../domain/media_scan_result.dart';
+import 'screenshot_detection.dart';
+
+typedef _InspectedAsset = ({AssetEntity asset, int bytes, bool isScreenshot, BigInt? hash});
 
 class MediaScanner {
+  static const int _inspectionBatchSize = 6;
+
   Future<MediaScanResult> scan(
     CleanerScanSettings settings, {
     required void Function(MediaScanProgress) onProgress,
   }) async {
     final started = DateTime.now();
     final permission = await PhotoManager.requestPermissionExtend();
-    if (!permission.isAuth) throw const MediaPermissionException();
+    if (!permission.hasAccess) throw const MediaPermissionException();
     final paths = await PhotoManager.getAssetPathList(type: RequestType.common, onlyAll: true);
-    if (paths.isEmpty) {
+    final screenshotAssets = await _loadScreenshotAssets(limit: settings.maxScanAssets);
+    final assetsById = <String, AssetEntity>{for (final asset in screenshotAssets) asset.id: asset};
+    if (paths.isNotEmpty && assetsById.length < settings.maxScanAssets) {
+      final count = await paths.first.assetCountAsync;
+      final recentAssets = await paths.first.getAssetListRange(start: 0, end: min(count, settings.maxScanAssets));
+      for (final asset in recentAssets) {
+        if (assetsById.length >= settings.maxScanAssets) break;
+        assetsById.putIfAbsent(asset.id, () => asset);
+      }
+    }
+    final assets = assetsById.values.toList(growable: false);
+    if (assets.isEmpty) {
       return MediaScanResult(scanned: 0, groups: const [], duration: DateTime.now().difference(started));
     }
-    final count = await paths.first.assetCountAsync;
-    final assets = await paths.first.getAssetListRange(start: 0, end: count.clamp(0, settings.maxScanAssets));
+    final screenshotIds = screenshotAssets.map((asset) => asset.id).toSet();
     final screenshots = <AssetEntity>[];
     final largeVideos = <AssetEntity>[];
     final similarCandidates = <({AssetEntity asset, BigInt hash, int bytes})>[];
     final assetBytes = <String, int>{};
-    for (var index = 0; index < assets.length; index++) {
-      final asset = assets[index];
-      try {
-        final file = await asset.file;
-        final bytes = file == null ? 0 : await file.length();
-        assetBytes[asset.id] = bytes;
-        if (asset.type == AssetType.video && bytes >= settings.largeVideoThresholdMb * 1024 * 1024) {
-          largeVideos.add(asset);
-          continue;
+    var completed = 0;
+    var remainingSimilaritySlots = settings.similarImageLimit;
+    for (var start = 0; start < assets.length; start += _inspectionBatchSize) {
+      final end = min(start + _inspectionBatchSize, assets.length);
+      final inspections = <Future<_InspectedAsset>>[];
+      for (final asset in assets.sublist(start, end)) {
+        final includeSimilarity = asset.type == AssetType.image && remainingSimilaritySlots > 0;
+        if (includeSimilarity) remainingSimilaritySlots--;
+        inspections.add(
+          _inspectAsset(asset, screenshotIds: screenshotIds, includeSimilarity: includeSimilarity).whenComplete(() {
+            completed++;
+            onProgress(MediaScanProgress(completed: completed, total: assets.length));
+          }),
+        );
+      }
+      for (final inspected in await Future.wait(inspections)) {
+        assetBytes[inspected.asset.id] = inspected.bytes;
+        if (inspected.isScreenshot) screenshots.add(inspected.asset);
+        if (inspected.asset.type == AssetType.video &&
+            inspected.bytes >= settings.largeVideoThresholdMb * 1024 * 1024) {
+          largeVideos.add(inspected.asset);
         }
-        if (asset.type != AssetType.image) continue;
-        final title = (await asset.titleAsync).toLowerCase();
-        final path = asset.relativePath?.toLowerCase() ?? '';
-        if (title.contains('screenshot') || path.contains('screenshot')) {
-          screenshots.add(asset);
+        final hash = inspected.hash;
+        if (hash != null) {
+          similarCandidates.add((asset: inspected.asset, hash: hash, bytes: inspected.bytes));
         }
-        if (similarCandidates.length < settings.similarImageLimit) {
-          final data = await asset.thumbnailDataWithSize(const ThumbnailSize(18, 16), quality: 55);
-          if (data != null) {
-            final hash = _differenceHash(data);
-            if (hash != null) {
-              similarCandidates.add((asset: asset, hash: hash, bytes: bytes));
-            }
-          }
-        }
-      } finally {
-        onProgress(MediaScanProgress(completed: index + 1, total: assets.length));
       }
     }
     final clusters = <List<({AssetEntity asset, BigInt hash, int bytes})>>[];
@@ -63,11 +81,13 @@ class MediaScanner {
       (match ?? (clusters..add(<({AssetEntity asset, BigInt hash, int bytes})>[])).last).add(candidate);
     }
     final groups = <MediaGroup>[];
+    var similarGroupIndex = 0;
     for (final cluster in clusters.where((c) => c.length > 1)) {
+      similarGroupIndex++;
       groups.add(
         MediaGroup(
           type: MediaGroupType.similar,
-          title: 'Ảnh tương tự',
+          title: _similarGroupTitle(cluster.first.asset, similarGroupIndex),
           assets: cluster.map((e) => e.asset).toList(),
           bytes: cluster.skip(1).fold(0, (sum, e) => sum + e.bytes),
         ),
@@ -79,7 +99,7 @@ class MediaScanner {
           type: MediaGroupType.screenshots,
           title: 'Ảnh chụp màn hình',
           assets: screenshots,
-          bytes: await _total(screenshots),
+          bytes: screenshots.fold(0, (sum, asset) => sum + (assetBytes[asset.id] ?? 0)),
         ),
       );
     }
@@ -89,7 +109,7 @@ class MediaScanner {
           type: MediaGroupType.largeVideos,
           title: 'Video dung lượng lớn',
           assets: largeVideos,
-          bytes: await _total(largeVideos),
+          bytes: largeVideos.fold(0, (sum, asset) => sum + (assetBytes[asset.id] ?? 0)),
         ),
       );
     }
@@ -122,8 +142,53 @@ class MediaScanner {
     );
   }
 
-  BigInt? _differenceHash(List<int> bytes) {
-    final decoded = image.decodeImage(Uint8List.fromList(bytes));
+  Future<_InspectedAsset> _inspectAsset(
+    AssetEntity asset, {
+    required Set<String> screenshotIds,
+    required bool includeSimilarity,
+  }) async {
+    var bytes = 0;
+    try {
+      final file = await asset.file;
+      bytes = file == null ? 0 : await file.length();
+    } catch (_) {
+      // Cloud-only or recently deleted assets may not expose a local file.
+    }
+
+    if (asset.type == AssetType.video) {
+      return (asset: asset, bytes: bytes, isScreenshot: false, hash: null);
+    }
+    if (asset.type != AssetType.image) {
+      return (asset: asset, bytes: bytes, isScreenshot: false, hash: null);
+    }
+
+    var title = asset.title;
+    if (title == null || title.isEmpty) {
+      try {
+        title = await asset.titleAsync;
+      } catch (_) {
+        title = null;
+      }
+    }
+    final isScreenshot =
+        screenshotIds.contains(asset.id) ||
+        (Platform.isIOS && ScreenshotDetection.matchesDarwinSubtype(asset.subtype)) ||
+        ScreenshotDetection.matches(title) ||
+        ScreenshotDetection.matches(asset.relativePath);
+    BigInt? hash;
+    if (includeSimilarity) {
+      try {
+        final data = await asset.thumbnailDataWithSize(const ThumbnailSize(18, 16), quality: 55);
+        if (data != null) hash = _differenceHash(data);
+      } catch (_) {
+        // A single unreadable thumbnail must not abort the whole library scan.
+      }
+    }
+    return (asset: asset, bytes: bytes, isScreenshot: isScreenshot, hash: hash);
+  }
+
+  BigInt? _differenceHash(Uint8List bytes) {
+    final decoded = image.decodeImage(bytes);
     if (decoded == null) return null;
     final resized = image.copyResize(decoded, width: 9, height: 8);
     var hash = BigInt.zero;
@@ -149,12 +214,71 @@ class MediaScanner {
     return count;
   }
 
-  Future<int> _total(List<AssetEntity> assets) async {
-    var total = 0;
-    for (final asset in assets) {
-      total += await (await asset.file)?.length() ?? 0;
+  String _similarGroupTitle(AssetEntity asset, int index) {
+    final createdAt = asset.createDateTime.toLocal();
+    final day = createdAt.day.toString().padLeft(2, '0');
+    final month = createdAt.month.toString().padLeft(2, '0');
+    final hour = createdAt.hour.toString().padLeft(2, '0');
+    final minute = createdAt.minute.toString().padLeft(2, '0');
+    return '$day/$month/${createdAt.year} · $hour:$minute · Nhóm $index';
+  }
+
+  Future<List<AssetEntity>> _loadScreenshotAssets({required int limit}) async {
+    if (limit <= 0 || (!Platform.isIOS && !Platform.isAndroid)) return const <AssetEntity>[];
+
+    try {
+      final paths = Platform.isIOS ? await _loadIosScreenshotPaths() : await _loadAndroidScreenshotPaths();
+      final assetsById = <String, AssetEntity>{};
+      for (final path in paths) {
+        if (assetsById.length >= limit) break;
+        final count = await path.assetCountAsync;
+        if (count == 0) continue;
+        final assets = await path.getAssetListRange(start: 0, end: min(count, limit - assetsById.length));
+        for (final asset in assets) {
+          assetsById.putIfAbsent(asset.id, () => asset);
+        }
+      }
+      return assetsById.values.toList(growable: false);
+    } catch (_) {
+      // Album APIs vary between OS and OEM versions. The main library scan still
+      // recognizes screenshot metadata if the dedicated album cannot be read.
+      return const <AssetEntity>[];
     }
-    return total;
+  }
+
+  Future<List<AssetPathEntity>> _loadIosScreenshotPaths() async {
+    final paths = await PhotoManager.getAssetPathList(
+      hasAll: false,
+      type: RequestType.image,
+      pathFilterOption: const PMPathFilter(
+        darwin: PMDarwinPathFilter(
+          type: <PMDarwinAssetCollectionType>[PMDarwinAssetCollectionType.smartAlbum],
+          subType: <PMDarwinAssetCollectionSubtype>[PMDarwinAssetCollectionSubtype.smartAlbumScreenshots],
+        ),
+      ),
+    );
+    return paths
+        .where((path) => path.albumTypeEx?.darwin?.subtype == PMDarwinAssetCollectionSubtype.smartAlbumScreenshots)
+        .toList(growable: false);
+  }
+
+  Future<List<AssetPathEntity>> _loadAndroidScreenshotPaths() async {
+    final paths = await PhotoManager.getAssetPathList(hasAll: false, type: RequestType.image);
+    final screenshotPaths = <AssetPathEntity>[];
+    for (final path in paths) {
+      if (ScreenshotDetection.matches(path.name)) {
+        screenshotPaths.add(path);
+        continue;
+      }
+      String? relativePath;
+      try {
+        relativePath = await path.relativePathAsync;
+      } catch (_) {
+        continue;
+      }
+      if (ScreenshotDetection.matches(relativePath)) screenshotPaths.add(path);
+    }
+    return screenshotPaths;
   }
 
   Future<List<String>> delete(List<String> ids) => PhotoManager.editor.deleteWithIds(ids);

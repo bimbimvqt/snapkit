@@ -37,6 +37,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: builder
+    env_file:
+      - ./backend/.env
     environment: *local-environment
     depends_on:
       postgres:
@@ -49,6 +51,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
     init: true
     restart: unless-stopped
     environment:

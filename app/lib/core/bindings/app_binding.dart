@@ -9,6 +9,9 @@ import '../../features/cleaner/domain/cleaner_repository.dart';
 import '../../features/home/application/home_controller.dart';
 import '../../features/home/data/api_home_repository.dart';
 import '../../features/home/domain/home_repository.dart';
+import '../../features/pulse/application/pulse_controller.dart';
+import '../../features/pulse/data/shared_preferences_pulse_repository.dart';
+import '../../features/pulse/domain/pulse_repository.dart';
 import '../../features/qr/application/qr_editor_controller.dart';
 import '../../features/qr/data/api_qr_repository.dart';
 import '../../features/qr/data/device_qr_gallery_saver.dart';
@@ -19,6 +22,7 @@ import '../../features/settings/application/settings_controller.dart';
 import '../../features/settings/data/api_settings_repository.dart';
 import '../../features/settings/domain/settings_repository.dart';
 import '../../shared/application/app_shell_controller.dart';
+import '../ads/ad_service.dart';
 import '../config/remote_config.dart';
 import '../network/api_client.dart';
 
@@ -30,8 +34,18 @@ class AppBinding extends Bindings {
   @override
   void dependencies() {
     Get.put<AuthRepository>(authRepository ?? GoogleAuthRepository(), permanent: true);
-    Get.put(AuthController(Get.find<AuthRepository>()), permanent: true);
+    Get.put(AuthController(Get.find<AuthRepository>(), onSessionChanged: _resetSessionTools), permanent: true);
     Get.put(AppShellController(), permanent: true);
+    Get.put<PulseRepository>(SharedPreferencesPulseRepository(), permanent: true);
+    Get.put(PulseController(repository: Get.find<PulseRepository>()), permanent: true);
+    Get.put(
+      AdService(
+        config: () => RemoteConfig.instance.ads,
+        isPro: () => Get.find<AuthController>().user?.isPro ?? false,
+        isInterstitialRewardActive: () => Get.find<PulseRepository>().isInterstitialRewardActive(DateTime.now()),
+      ),
+      permanent: true,
+    );
 
     Get.put<SettingsRepository>(ApiSettingsRepository(ApiClient.instance), permanent: true);
     Get.put(
@@ -49,11 +63,13 @@ class AppBinding extends Bindings {
       permanent: true,
     );
 
-    Get.put<CleanerRepository>(DeviceCleanerRepository(), permanent: true);
+    Get.put<CleanerRepository>(DeviceCleanerRepository(adService: Get.find<AdService>()), permanent: true);
     Get.put(
       CleanerController(
         repository: Get.find<CleanerRepository>(),
+        pulseRecorder: Get.find<PulseController>(),
         isFeatureEnabled: () => RemoteConfig.instance.enabled('media_cleaner'),
+        isAIStudioEnabled: () => RemoteConfig.instance.enabled('ai_caption_studio'),
         scanSettings: () => RemoteConfig.instance.cleaner,
       ),
       permanent: true,
@@ -67,9 +83,16 @@ class AppBinding extends Bindings {
         repository: Get.find<QrRepository>(),
         logoPicker: Get.find<QrLogoPicker>(),
         gallerySaver: Get.find<QrGallerySaver>(),
+        pulseRecorder: Get.find<PulseController>(),
         isFeatureEnabled: () => RemoteConfig.instance.enabled('qr_studio'),
       ),
       permanent: true,
     );
+  }
+
+  void _resetSessionTools() {
+    if (Get.isRegistered<CleanerController>()) Get.find<CleanerController>().resetForSessionChange();
+    if (Get.isRegistered<QrEditorController>()) Get.find<QrEditorController>().resetForSessionChange();
+    if (Get.isRegistered<AppShellController>()) Get.find<AppShellController>().selectTab(AppTab.home);
   }
 }

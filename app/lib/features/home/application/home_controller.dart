@@ -21,7 +21,15 @@ class HomeController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    unawaited(_repository.trackAppOpened());
+    unawaited(_trackAppOpened());
+  }
+
+  Future<void> _trackAppOpened() async {
+    try {
+      await _repository.trackAppOpened();
+    } catch (_) {
+      // Home remains available when analytics is offline.
+    }
   }
 
   bool openTool({required String featureKey, required AppTab tab}) {
@@ -29,4 +37,6 @@ class HomeController extends GetxController {
     _shellController.selectTab(tab);
     return true;
   }
+
+  bool featureIsEnabled(String featureKey) => _isFeatureEnabled(featureKey);
 }

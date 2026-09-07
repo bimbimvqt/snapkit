@@ -4,10 +4,9 @@ import { db } from "@/lib/db";
 import { removeStoredPreview, transcodeBrowserVideo } from "@/lib/media-storage";
 import { mediaStorageEntitlement, retentionDate } from "@/lib/media-subscription";
 import { headR2Object, mediaR2Reference, r2Configured } from "@/lib/r2-storage";
+import { pendingUploadGraceMs } from "@/lib/media-retention";
 
 export const runtime = "nodejs";
-
-const pendingGraceMs = 10 * 60_000;
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -33,7 +32,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     if (!asset.pendingStorageKey || !asset.pendingMimeType || !asset.pendingBytes || !asset.pendingExpiresAt) {
       return fail("Không có lượt upload đang chờ", 409, "UPLOAD_NOT_PENDING");
     }
-    if (asset.pendingExpiresAt.getTime() + pendingGraceMs < Date.now()) {
+    if (asset.pendingExpiresAt.getTime() + pendingUploadGraceMs <= Date.now()) {
       return fail("Lượt upload đã hết hạn", 410, "UPLOAD_EXPIRED");
     }
 

@@ -3,16 +3,16 @@ import { z } from "zod";
 const planIdSchema = z.string().trim().min(2, "Mã gói phải có ít nhất 2 ký tự").max(40).regex(/^[a-z0-9_-]+$/, "Mã gói chỉ gồm chữ thường, số, _ hoặc -");
 
 export const freeStoragePolicy = {
-  quotaMb: 512,
-  maxVideoUploadMb: 200,
-  previewRetentionDays: 30,
+  quotaMb: 100,
+  maxVideoUploadMb: 50,
+  previewRetentionDays: 7,
   originalVideoRetentionDays: 0,
 } as const;
 
 export const proStoragePolicy = {
   quotaMb: 10_240,
   maxVideoUploadMb: 512,
-  previewRetentionDays: 365,
+  previewRetentionDays: 90,
   originalVideoRetentionDays: 30,
 } as const;
 
@@ -45,6 +45,7 @@ export const subscriptionPlanSchema = z.object({
 
 export const subscriptionConfigSchema = z
   .object({
+    version: z.literal(2).default(2),
     title: z.string().trim().min(2).max(80),
     subtitle: z.string().trim().min(2).max(220),
     footer: z.string().trim().max(180),
@@ -68,8 +69,9 @@ export const subscriptionConfigSchema = z
 export type SubscriptionConfig = z.infer<typeof subscriptionConfigSchema>;
 
 export const defaultSubscriptionConfig: SubscriptionConfig = {
+  version: 2,
   title: "Nâng cấp Snapkit Pro",
-  subtitle: "Mở khoá toàn bộ công cụ, dọn thư viện nhanh hơn và sử dụng Snapkit không quảng cáo.",
+  subtitle: "Dọn dẹp không giới hạn, không quảng cáo và lưu media an toàn trên cloud.",
   footer: "Thanh toán được xử lý an toàn qua App Store hoặc Google Play. Bạn có thể huỷ bất kỳ lúc nào.",
   freeStorage: freeStoragePolicy,
   plans: [
@@ -77,17 +79,17 @@ export const defaultSubscriptionConfig: SubscriptionConfig = {
       id: "monthly",
       productId: "snapkit_pro_monthly",
       name: "Pro hàng tháng",
-      badge: "Phổ biến",
+      badge: "Linh hoạt",
       price: 79000,
       currency: "VND",
       priceLabel: "79.000đ",
       periodLabel: "/ tháng",
-      trialDays: 7,
-      ctaLabel: "Dùng thử 7 ngày",
-      description: "Linh hoạt, đầy đủ tính năng Pro và có thể huỷ bất kỳ lúc nào.",
-      features: ["Không quảng cáo", "Quét thư viện lớn", "QR style premium", "Ưu tiên tính năng mới"],
+      trialDays: 0,
+      ctaLabel: "Chọn gói tháng",
+      description: "Đầy đủ tính năng Pro, 10 GB cloud và có thể huỷ bất kỳ lúc nào.",
+      features: ["Không quảng cáo", "Quét thư viện không giới hạn", "10 GB cloud", "QR style premium"],
       benefits: ["Khôi phục giao dịch", "Thanh toán bảo mật qua cửa hàng ứng dụng"],
-      highlighted: true,
+      highlighted: false,
       enabled: true,
       sortOrder: 0,
       storage: proStoragePolicy,
@@ -96,25 +98,47 @@ export const defaultSubscriptionConfig: SubscriptionConfig = {
       id: "yearly",
       productId: "snapkit_pro_yearly",
       name: "Pro hàng năm",
-      badge: "Tiết kiệm",
+      badge: "Tiết kiệm 37%",
       price: 599000,
       currency: "VND",
       priceLabel: "599.000đ",
       periodLabel: "/ năm",
       trialDays: 7,
-      ctaLabel: "Chọn gói năm",
-      description: "Trọn một năm Pro với chi phí tốt hơn so với thanh toán từng tháng.",
-      features: ["Toàn bộ quyền lợi gói tháng", "Tiết kiệm chi phí", "Không quảng cáo", "QR style premium"],
+      ctaLabel: "Dùng thử 7 ngày",
+      description: "Giá tốt nhất, 25 GB cloud và thời gian lưu media dài hơn.",
+      features: ["Không quảng cáo", "Quét thư viện không giới hạn", "25 GB cloud", "Giữ video gốc 90 ngày"],
       benefits: ["Khôi phục giao dịch", "Thanh toán bảo mật qua cửa hàng ứng dụng"],
-      highlighted: false,
+      highlighted: true,
       enabled: true,
       sortOrder: 1,
-      storage: { ...proStoragePolicy, quotaMb: 25_600, originalVideoRetentionDays: 90 },
+      storage: {
+        ...proStoragePolicy,
+        quotaMb: 25_600,
+        previewRetentionDays: 365,
+        originalVideoRetentionDays: 90,
+      },
     },
   ],
 };
 
 export function parseSubscriptionConfig(input: unknown): SubscriptionConfig {
   const parsed = subscriptionConfigSchema.safeParse(input);
-  return parsed.success ? parsed.data : defaultSubscriptionConfig;
+  if (!parsed.success) return defaultSubscriptionConfig;
+  if (hasCurrentVersion(input)) return parsed.data;
+  return {
+    ...parsed.data,
+    version: 2,
+    title: defaultSubscriptionConfig.title,
+    subtitle: defaultSubscriptionConfig.subtitle,
+    footer: defaultSubscriptionConfig.footer,
+    freeStorage: freeStoragePolicy,
+    plans: parsed.data.plans.map((plan) => {
+      const current = defaultSubscriptionConfig.plans.find((candidate) => candidate.id === plan.id);
+      return current ?? plan;
+    }),
+  };
+}
+
+function hasCurrentVersion(input: unknown) {
+  return input !== null && typeof input === "object" && !Array.isArray(input) && "version" in input && input.version === 2;
 }

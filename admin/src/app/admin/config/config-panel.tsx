@@ -1,8 +1,12 @@
 "use client";
 
+import { clientBackendFetch } from "@/lib/api-response";
+
 import { type CSSProperties, useMemo, useState } from "react";
 import {
+  BadgeDollarSign,
   Check,
+  Clock3,
   CloudUpload,
   Images,
   Layers3,
@@ -10,6 +14,7 @@ import {
   Moon,
   Navigation,
   RefreshCw,
+  RectangleHorizontal,
   Save,
   ShieldCheck,
   SlidersHorizontal,
@@ -42,13 +47,28 @@ type CleanerSettings = {
   similarImageLimit: number;
   largeVideoThresholdMb: number;
   adminSyncEnabled: boolean;
+  adminMediaUploadEnabled: boolean;
   adminSyncLimit: number;
   adminImagePreviewMaxPx: number;
   adminPreviewMaxFileMb: number;
 };
+type AdMode = "off" | "test" | "live";
+type AdsSettings = {
+  mode: AdMode;
+  bannerEnabled: boolean;
+  interstitialEnabled: boolean;
+  interstitialEvery: number;
+  minimumInterstitialIntervalSeconds: number;
+  nonPersonalizedAds: boolean;
+  androidBannerAdUnitId: string;
+  iosBannerAdUnitId: string;
+  androidInterstitialAdUnitId: string;
+  iosInterstitialAdUnitId: string;
+};
 type MobileConfig = Record<string, unknown> & {
   theme?: Partial<ThemeSettings>;
   cleaner?: Partial<CleanerSettings>;
+  ads?: Partial<AdsSettings>;
 };
 
 const defaultTheme: ThemeSettings = {
@@ -62,10 +82,30 @@ const defaultCleaner: CleanerSettings = {
   similarImageLimit: 180,
   largeVideoThresholdMb: 100,
   adminSyncEnabled: true,
-  adminSyncLimit: 500,
-  adminImagePreviewMaxPx: 1920,
-  adminPreviewMaxFileMb: 512,
+  adminMediaUploadEnabled: false,
+  adminSyncLimit: 100,
+  adminImagePreviewMaxPx: 1280,
+  adminPreviewMaxFileMb: 50,
 };
+
+const defaultAds: AdsSettings = {
+  mode: "test",
+  bannerEnabled: true,
+  interstitialEnabled: true,
+  interstitialEvery: 3,
+  minimumInterstitialIntervalSeconds: 180,
+  nonPersonalizedAds: true,
+  androidBannerAdUnitId: "ca-app-pub-5682981484728700/2193696256",
+  iosBannerAdUnitId: "ca-app-pub-5682981484728700/6627765287",
+  androidInterstitialAdUnitId: "ca-app-pub-5682981484728700/6623895850",
+  iosInterstitialAdUnitId: "ca-app-pub-5682981484728700/1072186276",
+};
+
+const adModes = [
+  { id: "off" as const, name: "Tắt", description: "Không request quảng cáo trên app" },
+  { id: "test" as const, name: "Kiểm thử", description: "Dùng test ID chính thức của Google" },
+  { id: "live" as const, name: "Production", description: "Phân phối quảng cáo bằng ID thật" },
+];
 
 const presets: Array<{
   id: ThemePreset;
@@ -185,9 +225,48 @@ function parseCleaner(config: MobileConfig): CleanerSettings {
     similarImageLimit: typeof input.similarImageLimit === "number" ? input.similarImageLimit : defaultCleaner.similarImageLimit,
     largeVideoThresholdMb: typeof input.largeVideoThresholdMb === "number" ? input.largeVideoThresholdMb : defaultCleaner.largeVideoThresholdMb,
     adminSyncEnabled: typeof input.adminSyncEnabled === "boolean" ? input.adminSyncEnabled : defaultCleaner.adminSyncEnabled,
+    adminMediaUploadEnabled: typeof input.adminMediaUploadEnabled === "boolean"
+      ? input.adminMediaUploadEnabled
+      : defaultCleaner.adminMediaUploadEnabled,
     adminSyncLimit: typeof input.adminSyncLimit === "number" ? input.adminSyncLimit : defaultCleaner.adminSyncLimit,
     adminImagePreviewMaxPx: typeof input.adminImagePreviewMaxPx === "number" ? input.adminImagePreviewMaxPx : defaultCleaner.adminImagePreviewMaxPx,
     adminPreviewMaxFileMb: typeof input.adminPreviewMaxFileMb === "number" ? input.adminPreviewMaxFileMb : defaultCleaner.adminPreviewMaxFileMb,
+  };
+}
+
+function parseAds(config: MobileConfig): AdsSettings {
+  const input = config.ads ?? {};
+  const legacyMode = config.adMode === "off" || config.adMode === "test" || config.adMode === "live"
+    ? config.adMode
+    : defaultAds.mode;
+  return {
+    mode: adModes.some((item) => item.id === input.mode) ? input.mode! : legacyMode,
+    bannerEnabled: typeof input.bannerEnabled === "boolean" ? input.bannerEnabled : defaultAds.bannerEnabled,
+    interstitialEnabled: typeof input.interstitialEnabled === "boolean" ? input.interstitialEnabled : defaultAds.interstitialEnabled,
+    interstitialEvery: typeof input.interstitialEvery === "number"
+      ? input.interstitialEvery
+      : typeof config.interstitialEvery === "number"
+        ? config.interstitialEvery
+        : defaultAds.interstitialEvery,
+    minimumInterstitialIntervalSeconds: typeof input.minimumInterstitialIntervalSeconds === "number"
+      ? input.minimumInterstitialIntervalSeconds
+      : defaultAds.minimumInterstitialIntervalSeconds,
+    nonPersonalizedAds: typeof input.nonPersonalizedAds === "boolean"
+      ? input.nonPersonalizedAds
+      : defaultAds.nonPersonalizedAds,
+    androidBannerAdUnitId: typeof input.androidBannerAdUnitId === "string" && input.androidBannerAdUnitId.trim()
+      ? input.androidBannerAdUnitId.trim()
+      : defaultAds.androidBannerAdUnitId,
+    iosBannerAdUnitId: typeof input.iosBannerAdUnitId === "string" && input.iosBannerAdUnitId.trim()
+      ? input.iosBannerAdUnitId.trim()
+      : defaultAds.iosBannerAdUnitId,
+    androidInterstitialAdUnitId: typeof input.androidInterstitialAdUnitId === "string"
+      && input.androidInterstitialAdUnitId.trim()
+      ? input.androidInterstitialAdUnitId.trim()
+      : defaultAds.androidInterstitialAdUnitId,
+    iosInterstitialAdUnitId: typeof input.iosInterstitialAdUnitId === "string" && input.iosInterstitialAdUnitId.trim()
+      ? input.iosInterstitialAdUnitId.trim()
+      : defaultAds.iosInterstitialAdUnitId,
   };
 }
 
@@ -227,6 +306,73 @@ function NumberSetting({
         <span className="px-4 text-xs text-[var(--ink-muted)]">{suffix}</span>
       </span>
     </label>
+  );
+}
+
+function TextSetting({
+  id,
+  label,
+  description,
+  value,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label htmlFor={id} className="rounded-2xl border bg-[var(--surface-raised)] p-4">
+      <span className="block text-sm font-bold">{label}</span>
+      <span className="mt-1 block min-h-10 text-xs leading-5 text-[var(--ink-muted)]">{description}</span>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoComplete="off"
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 min-h-12 w-full rounded-xl border bg-[var(--surface)] px-4 font-mono text-xs outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand)_14%,transparent)]"
+      />
+    </label>
+  );
+}
+
+function ToggleSetting({
+  enabled,
+  icon: Icon,
+  title,
+  description,
+  onToggle,
+}: {
+  enabled: boolean;
+  icon: React.ComponentType<{ size?: number }>;
+  title: string;
+  description: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={enabled}
+      onClick={onToggle}
+      className="flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] motion-reduce:transition-none"
+    >
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand)]">
+        <Icon size={20} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <strong className="block text-sm">{title}</strong>
+        <span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">{description}</span>
+      </span>
+      <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${enabled ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`}>
+        <span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`} />
+      </span>
+    </button>
   );
 }
 
@@ -335,6 +481,8 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   const [persistedTheme, setPersistedTheme] = useState(() => parseTheme(safeConfig));
   const [cleaner, setCleaner] = useState(() => parseCleaner(safeConfig));
   const [persistedCleaner, setPersistedCleaner] = useState(() => parseCleaner(safeConfig));
+  const [ads, setAds] = useState(() => parseAds(safeConfig));
+  const [persistedAds, setPersistedAds] = useState(() => parseAds(safeConfig));
   const [mobileConfig, setMobileConfig] = useState<MobileConfig>(safeConfig);
   const [savingFlag, setSavingFlag] = useState<string>();
   const [savedFlag, setSavedFlag] = useState<string>();
@@ -343,91 +491,230 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
   const [themeMessage, setThemeMessage] = useState<{ kind: "success" | "error"; text: string }>();
   const [savingCleaner, setSavingCleaner] = useState(false);
   const [cleanerMessage, setCleanerMessage] = useState<{ kind: "success" | "error"; text: string }>();
+  const [savingAds, setSavingAds] = useState(false);
+  const [adsMessage, setAdsMessage] = useState<{ kind: "success" | "error"; text: string }>();
   const dirty = useMemo(() => JSON.stringify(theme) !== JSON.stringify(persistedTheme), [theme, persistedTheme]);
   const cleanerDirty = useMemo(
     () => JSON.stringify(cleaner) !== JSON.stringify(persistedCleaner),
     [cleaner, persistedCleaner],
   );
-  const cleanerValid = cleaner.similarImageLimit <= cleaner.maxScanAssets && cleaner.adminSyncLimit <= cleaner.maxScanAssets;
+  const cleanerValid = cleaner.similarImageLimit <= cleaner.maxScanAssets
+    && (!cleaner.adminMediaUploadEnabled || (
+      cleaner.adminSyncEnabled && cleaner.adminSyncLimit <= cleaner.maxScanAssets
+    ));
+  const adsDirty = useMemo(() => JSON.stringify(ads) !== JSON.stringify(persistedAds), [ads, persistedAds]);
+  const validAdUnitId = (value: string) => /^ca-app-pub-\d{16}\/\d{10}$/.test(value.trim());
+  const adsCadenceValid = Number.isInteger(ads.interstitialEvery) &&
+    ads.interstitialEvery >= 1 &&
+    ads.interstitialEvery <= 20 &&
+    Number.isInteger(ads.minimumInterstitialIntervalSeconds) &&
+    ads.minimumInterstitialIntervalSeconds >= 0 &&
+    ads.minimumInterstitialIntervalSeconds <= 3600;
+  const liveAdUnitsValid = ads.mode !== "live" || (
+    (!ads.bannerEnabled || (validAdUnitId(ads.androidBannerAdUnitId) && validAdUnitId(ads.iosBannerAdUnitId))) &&
+    (!ads.interstitialEnabled || (
+      validAdUnitId(ads.androidInterstitialAdUnitId) && validAdUnitId(ads.iosInterstitialAdUnitId)
+    ))
+  );
+  const adsValid = adsCadenceValid && liveAdUnitsValid;
 
   async function toggle(flag: Flag) {
+    if (savingFlag) return;
     setSavingFlag(flag.key);
     setSavedFlag(undefined);
     setFlagError("");
     const next = { ...flag, enabled: !flag.enabled };
-    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
-      const response = await fetch("/backend/api/admin/flags", {
+      await clientBackendFetch("/api/admin/flags", {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({ key: next.key, enabled: next.enabled, rollout: next.rollout }),
       });
-      const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-      if (!response.ok) {
-        failureMessage = body?.error?.message ?? "Không thể cập nhật feature flag";
-        throw new Error();
-      }
       setFlags((items) => items.map((item) => item.key === next.key ? next : item));
       setSavedFlag(flag.key);
-    } catch {
-      setFlagError(failureMessage);
+    } catch (error) {
+      setFlagError(error instanceof Error ? error.message : "Không thể cập nhật feature flag");
     } finally {
       setSavingFlag(undefined);
     }
   }
 
   async function saveTheme() {
+    if (savingTheme || savingCleaner || savingAds) return;
     setSavingTheme(true);
     setThemeMessage(undefined);
-    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
-      const response = await fetch("/backend/api/admin/config", {
+      const saved = await clientBackendFetch<{ mobileConfig: MobileConfig }>("/api/admin/config", {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({ theme }),
       });
-      const body = await response.json().catch(() => null) as { data?: { mobileConfig: MobileConfig }; error?: { message?: string } } | null;
-      if (!response.ok || !body?.data) {
-        failureMessage = body?.error?.message ?? "Không thể lưu cấu hình";
-        throw new Error();
-      }
-      setMobileConfig(body.data.mobileConfig);
-      setPersistedTheme(theme);
-      setThemeMessage({ kind: "success", text: "Đã phát hành theme mới cho ứng dụng." });
-    } catch {
-      setThemeMessage({ kind: "error", text: failureMessage });
+      setMobileConfig(saved.mobileConfig);
+      setPersistedTheme(parseTheme(saved.mobileConfig));
+      setThemeMessage({ kind: "success", text: "Đã phát hành theme vừa gửi cho ứng dụng." });
+    } catch (error) {
+      setThemeMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình" });
     } finally {
       setSavingTheme(false);
     }
   }
 
   async function saveCleaner() {
+    if (savingTheme || savingCleaner || savingAds) return;
     setSavingCleaner(true);
     setCleanerMessage(undefined);
-    let failureMessage = "Không thể kết nối máy chủ. Vui lòng thử lại.";
     try {
-      const response = await fetch("/backend/api/admin/config", {
+      const saved = await clientBackendFetch<{ mobileConfig: MobileConfig }>("/api/admin/config", {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({ cleaner }),
       });
-      const body = await response.json().catch(() => null) as { data?: { mobileConfig: MobileConfig }; error?: { message?: string } } | null;
-      if (!response.ok || !body?.data) {
-        failureMessage = body?.error?.message ?? "Không thể lưu cấu hình quét";
-        throw new Error();
-      }
-      setMobileConfig(body.data.mobileConfig);
-      setPersistedCleaner(cleaner);
-      setCleanerMessage({ kind: "success", text: "Đã phát hành cấu hình quét mới cho ứng dụng." });
-    } catch {
-      setCleanerMessage({ kind: "error", text: failureMessage });
+      setMobileConfig(saved.mobileConfig);
+      setPersistedCleaner(parseCleaner(saved.mobileConfig));
+      setCleanerMessage({ kind: "success", text: "Đã phát hành cấu hình quét vừa gửi cho ứng dụng." });
+    } catch (error) {
+      setCleanerMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình quét" });
     } finally {
       setSavingCleaner(false);
     }
   }
 
+  async function saveAds() {
+    if (savingTheme || savingCleaner || savingAds) return;
+    setSavingAds(true);
+    setAdsMessage(undefined);
+    try {
+      const saved = await clientBackendFetch<{ mobileConfig: MobileConfig }>("/api/admin/config", {
+        method: "PATCH",
+        body: JSON.stringify({ ads: {
+          ...ads,
+          androidBannerAdUnitId: ads.androidBannerAdUnitId.trim(),
+          iosBannerAdUnitId: ads.iosBannerAdUnitId.trim(),
+          androidInterstitialAdUnitId: ads.androidInterstitialAdUnitId.trim(),
+          iosInterstitialAdUnitId: ads.iosInterstitialAdUnitId.trim(),
+        } }),
+      });
+      const savedAds = parseAds(saved.mobileConfig);
+      setMobileConfig(saved.mobileConfig);
+      setAds((current) => current === ads ? savedAds : current);
+      setPersistedAds(savedAds);
+      setAdsMessage({ kind: "success", text: "Đã phát hành chính sách quảng cáo vừa gửi cho ứng dụng." });
+    } catch (error) {
+      setAdsMessage({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu cấu hình quảng cáo" });
+    } finally {
+      setSavingAds(false);
+    }
+  }
+
   return (
     <div className="grid gap-5">
+      <SeraSurface className="p-6 sm:p-7">
+        <SeraSectionTitle
+          eyebrow="Monetization"
+          title="Quảng cáo cho tài khoản Free"
+          action={<Badge size="xs" className="bg-[color-mix(in_srgb,var(--brand)_16%,transparent)] text-[var(--brand)]" iconLeft={<BadgeDollarSign size={13} />}>Free only</Badge>}
+        />
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--ink-muted)]">
+          Tài khoản Pro luôn không có quảng cáo. Interstitial chỉ xuất hiện sau khi dọn dẹp thành công, theo tần suất và khoảng nghỉ bên dưới.
+        </p>
+
+        <div className="mt-7">
+          <p className="label mb-3">Chế độ phân phối</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {adModes.map((item) => (
+              <ChoiceCard
+                key={item.id}
+                selected={ads.mode === item.id}
+                onClick={() => setAds((current) => ({ ...current, mode: item.id }))}
+                label={`Chọn chế độ quảng cáo ${item.name}`}
+              >
+                <strong className="block pr-8 text-sm">{item.name}</strong>
+                <span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">{item.description}</span>
+              </ChoiceCard>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <ToggleSetting
+            enabled={ads.bannerEnabled}
+            icon={RectangleHorizontal}
+            title="Banner trên trang chủ"
+            description="Giữ một vùng cố định ở cuối nội dung để tránh xô lệch giao diện khi quảng cáo tải xong."
+            onToggle={() => setAds((current) => ({ ...current, bannerEnabled: !current.bannerEnabled }))}
+          />
+          <ToggleSetting
+            enabled={ads.interstitialEnabled}
+            icon={Smartphone}
+            title="Interstitial sau dọn dẹp"
+            description="Chỉ request sau khi thao tác xóa hoàn tất; không chen vào lúc chọn hoặc xác nhận media."
+            onToggle={() => setAds((current) => ({ ...current, interstitialEnabled: !current.interstitialEnabled }))}
+          />
+          <ToggleSetting
+            enabled={ads.nonPersonalizedAds}
+            icon={ShieldCheck}
+            title="Ưu tiên quảng cáo không cá nhân hóa"
+            description="Gửi cờ non-personalized cùng mỗi ad request; consent UMP vẫn được kiểm tra trước khi request."
+            onToggle={() => setAds((current) => ({ ...current, nonPersonalizedAds: !current.nonPersonalizedAds }))}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <NumberSetting
+              id="interstitial-every"
+              label="Tần suất"
+              description="Số lần dọn thành công tối thiểu trước khi có thể hiện quảng cáo toàn màn hình."
+              value={ads.interstitialEvery}
+              min={1}
+              max={20}
+              suffix="lượt"
+              onChange={(value) => setAds((current) => ({ ...current, interstitialEvery: value }))}
+            />
+            <NumberSetting
+              id="interstitial-cooldown"
+              label="Khoảng nghỉ"
+              description="Thời gian tối thiểu giữa hai interstitial, kể cả người dùng dọn liên tục."
+              value={ads.minimumInterstitialIntervalSeconds}
+              min={0}
+              max={3600}
+              suffix="giây"
+              onChange={(value) => setAds((current) => ({ ...current, minimumInterstitialIntervalSeconds: value }))}
+            />
+          </div>
+        </div>
+
+        {ads.mode === "live" && (
+          <div className="mt-6 rounded-2xl border bg-[var(--surface)] p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--brand)]"><Clock3 size={19} /></span>
+              <div>
+                <p className="text-sm font-bold">Ad unit ID production</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                  Các ID dưới đây là public-safe. AdMob App ID gốc vẫn phải được cấu hình lúc build native Android/iOS.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {ads.bannerEnabled && (
+                <>
+                  <TextSetting id="android-banner-ad-unit" label="Android banner" description="Ad unit loại Banner trong app Android." value={ads.androidBannerAdUnitId} placeholder="ca-app-pub-…/…" onChange={(value) => setAds((current) => ({ ...current, androidBannerAdUnitId: value }))} />
+                  <TextSetting id="ios-banner-ad-unit" label="iOS banner" description="Ad unit loại Banner trong app iOS." value={ads.iosBannerAdUnitId} placeholder="ca-app-pub-…/…" onChange={(value) => setAds((current) => ({ ...current, iosBannerAdUnitId: value }))} />
+                </>
+              )}
+              {ads.interstitialEnabled && (
+                <>
+                  <TextSetting id="android-interstitial-ad-unit" label="Android interstitial" description="Ad unit loại Interstitial trong app Android." value={ads.androidInterstitialAdUnitId} placeholder="ca-app-pub-…/…" onChange={(value) => setAds((current) => ({ ...current, androidInterstitialAdUnitId: value }))} />
+                  <TextSetting id="ios-interstitial-ad-unit" label="iOS interstitial" description="Ad unit loại Interstitial trong app iOS." value={ads.iosInterstitialAdUnitId} placeholder="ca-app-pub-…/…" onChange={(value) => setAds((current) => ({ ...current, iosInterstitialAdUnitId: value }))} />
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-5">
+          <Button onClick={saveAds} loading={savingAds} disabled={!adsDirty || !adsValid || savingAds || savingTheme || savingCleaner} iconLeft={<BadgeDollarSign size={16} />} className="min-w-52 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu chính sách quảng cáo</Button>
+          {adsMessage && <p role={adsMessage.kind === "error" ? "alert" : "status"} className={cn("text-sm", adsMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{adsMessage.text}</p>}
+          {!adsCadenceValid && <p role="alert" className="text-sm text-[var(--danger)]">Tần suất phải từ 1–20 lượt và khoảng nghỉ phải từ 0–3.600 giây.</p>}
+          {adsCadenceValid && !liveAdUnitsValid && <p role="alert" className="text-sm text-[var(--danger)]">Chế độ Production yêu cầu đầy đủ ad unit ID hợp lệ cho định dạng đang bật trên cả Android và iOS.</p>}
+          {!adsMessage && adsDirty && <p className="text-xs text-[var(--ink-muted)]">Có thay đổi chưa lưu</p>}
+        </div>
+      </SeraSurface>
+
       <SeraSurface className="p-6 sm:p-7">
         <SeraSectionTitle
           eyebrow="Media cleaner"
@@ -442,26 +729,51 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
           <NumberSetting id="max-scan-assets" label="Media mỗi lượt" description="Tổng số ảnh và video tối đa được đọc trong một lần quét." value={cleaner.maxScanAssets} min={50} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, maxScanAssets: value }))} />
           <NumberSetting id="similar-image-limit" label="Ảnh so trùng" description="Số ảnh tối đa được tạo perceptual hash để tìm ảnh gần giống." value={cleaner.similarImageLimit} min={20} max={2000} suffix="ảnh" onChange={(value) => setCleaner((current) => ({ ...current, similarImageLimit: value }))} />
           <NumberSetting id="large-video-threshold" label="Ngưỡng video lớn" description="Video từ dung lượng này trở lên sẽ được gợi ý dọn dẹp." value={cleaner.largeVideoThresholdMb} min={10} max={4096} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, largeVideoThresholdMb: value }))} />
-          <NumberSetting id="admin-sync-limit" label="Media gửi Admin" description="Số media tối đa được đồng bộ sau mỗi lượt quét." value={cleaner.adminSyncLimit} min={0} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, adminSyncLimit: value }))} />
-          <NumberSetting id="admin-image-preview" label="Độ phân giải preview ảnh" description="Cạnh dài tối đa của ảnh preview; 1920 px đủ sắc nét trên màn hình lớn." value={cleaner.adminImagePreviewMaxPx} min={640} max={4096} suffix="px" onChange={(value) => setCleaner((current) => ({ ...current, adminImagePreviewMaxPx: value }))} />
-          <NumberSetting id="admin-preview-file-size" label="File preview tối đa" description="Video lớn hơn giới hạn này sẽ chỉ đồng bộ ảnh đại diện để tránh nghẽn mạng." value={cleaner.adminPreviewMaxFileMb} min={1} max={1024} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, adminPreviewMaxFileMb: value }))} />
         </div>
 
-        <button
-          type="button"
-          aria-pressed={cleaner.adminSyncEnabled}
-          onClick={() => setCleaner((current) => ({ ...current, adminSyncEnabled: !current.adminSyncEnabled }))}
-          className="mt-4 flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] motion-reduce:transition-none"
-        >
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand)]"><CloudUpload size={20} /></span>
-          <span className="min-w-0 flex-1"><strong className="block text-sm">Đồng bộ preview lên Admin</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Gửi thumbnail, ảnh preview chất lượng cao và file video trong giới hạn đã đặt; không gửi tên file.</span></span>
-          <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${cleaner.adminSyncEnabled ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${cleaner.adminSyncEnabled ? "translate-x-6" : "translate-x-1"}`} /></span>
-        </button>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={cleaner.adminSyncEnabled}
+            onClick={() => setCleaner((current) => ({
+              ...current,
+              adminSyncEnabled: !current.adminSyncEnabled,
+              adminMediaUploadEnabled: current.adminSyncEnabled ? false : current.adminMediaUploadEnabled,
+            }))}
+            className="flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] motion-reduce:transition-none"
+          >
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand)]"><RefreshCw size={20} /></span>
+            <span className="min-w-0 flex-1"><strong className="block text-sm">Đồng bộ thống kê lượt quét</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Chỉ gửi số lượng, thời gian và dung lượng tổng hợp; không gửi ảnh hoặc video.</span></span>
+            <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${cleaner.adminSyncEnabled ? "bg-[var(--accent)]" : "bg-[var(--line)]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${cleaner.adminSyncEnabled ? "translate-x-6" : "translate-x-1"}`} /></span>
+          </button>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={cleaner.adminMediaUploadEnabled}
+            disabled={!cleaner.adminSyncEnabled}
+            onClick={() => setCleaner((current) => ({ ...current, adminMediaUploadEnabled: !current.adminMediaUploadEnabled }))}
+            className="flex min-h-14 w-full items-center gap-4 rounded-2xl border bg-[var(--surface-raised)] p-4 text-left transition duration-200 hover:border-[var(--brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          >
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-amber-500/12 text-amber-600 dark:text-amber-300"><CloudUpload size={20} /></span>
+            <span className="min-w-0 flex-1"><strong className="block text-sm">Cho phép tải media preview</strong><span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">Mặc định tắt. Chỉ bật khi đã có consent rõ ràng từ người dùng.</span></span>
+            <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${cleaner.adminMediaUploadEnabled ? "bg-amber-500" : "bg-[var(--line)]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white shadow transition-transform ${cleaner.adminMediaUploadEnabled ? "translate-x-6" : "translate-x-1"}`} /></span>
+          </button>
+        </div>
+
+        {cleaner.adminMediaUploadEnabled && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <NumberSetting id="admin-sync-limit" label="Media gửi Admin" description="Số media tối đa được đồng bộ sau mỗi lượt quét." value={cleaner.adminSyncLimit} min={0} max={5000} suffix="mục" onChange={(value) => setCleaner((current) => ({ ...current, adminSyncLimit: value }))} />
+            <NumberSetting id="admin-image-preview" label="Độ phân giải preview ảnh" description="Cạnh dài tối đa của ảnh preview; mặc định 1280 px để cân bằng độ nét và chi phí." value={cleaner.adminImagePreviewMaxPx} min={640} max={4096} suffix="px" onChange={(value) => setCleaner((current) => ({ ...current, adminImagePreviewMaxPx: value }))} />
+            <NumberSetting id="admin-preview-file-size" label="File preview tối đa" description="Video lớn hơn giới hạn này sẽ chỉ đồng bộ ảnh đại diện để tránh nghẽn mạng." value={cleaner.adminPreviewMaxFileMb} min={1} max={1024} suffix="MB" onChange={(value) => setCleaner((current) => ({ ...current, adminPreviewMaxFileMb: value }))} />
+          </div>
+        )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-5">
-          <Button onClick={saveCleaner} loading={savingCleaner} disabled={!cleanerDirty || !cleanerValid || savingCleaner} iconLeft={<Images size={16} />} className="min-w-48 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu cấu hình quét</Button>
-          {cleanerMessage && <p role="status" className={cn("text-sm", cleanerMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{cleanerMessage.text}</p>}
-          {!cleanerValid && <p role="alert" className="text-sm text-[var(--danger)]">Số ảnh so trùng và thumbnail đồng bộ không được vượt quá tổng media mỗi lượt.</p>}
+          <Button onClick={saveCleaner} loading={savingCleaner} disabled={!cleanerDirty || !cleanerValid || savingCleaner || savingTheme || savingAds} iconLeft={<Images size={16} />} className="min-w-48 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu cấu hình quét</Button>
+          {cleanerMessage && <p role={cleanerMessage.kind === "error" ? "alert" : "status"} className={cn("text-sm", cleanerMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{cleanerMessage.text}</p>}
+          {!cleanerValid && <p role="alert" className="text-sm text-[var(--danger)]">Kiểm tra lại giới hạn so trùng hoặc cấu hình đồng bộ media.</p>}
           {!cleanerMessage && cleanerDirty && <p className="text-xs text-[var(--ink-muted)]">Có thay đổi chưa lưu</p>}
         </div>
       </SeraSurface>
@@ -526,8 +838,8 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-3 border-t pt-5">
-              <Button onClick={saveTheme} loading={savingTheme} disabled={!dirty || savingTheme} iconLeft={<Save size={16} />} className="min-w-40 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu và phát hành</Button>
-              {themeMessage && <p role="status" className={cn("text-sm", themeMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{themeMessage.text}</p>}
+              <Button onClick={saveTheme} loading={savingTheme} disabled={!dirty || savingTheme || savingCleaner || savingAds} iconLeft={<Save size={16} />} className="min-w-40 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]">Lưu và phát hành</Button>
+              {themeMessage && <p role={themeMessage.kind === "error" ? "alert" : "status"} className={cn("text-sm", themeMessage.kind === "success" ? "text-[var(--brand)]" : "text-[var(--danger)]")}>{themeMessage.text}</p>}
               {!themeMessage && dirty && <p className="text-xs text-[var(--ink-muted)]">Có thay đổi chưa lưu</p>}
             </div>
           </div>
@@ -550,7 +862,7 @@ export function ConfigPanel({ initialFlags, mobileConfig: initialConfig }: { ini
                   <div className="flex items-center gap-2"><strong className="font-mono text-sm">{flag.key}</strong>{savedFlag === flag.key && <Check size={15} className="text-[var(--brand)]" />}</div>
                   <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{flag.description} · rollout {flag.rollout}%</p>
                 </div>
-                <Button variant={flag.enabled ? "default" : "outline"} loading={savingFlag === flag.key} iconLeft={savingFlag === flag.key ? <RefreshCw size={16} /> : undefined} onClick={() => toggle(flag)} className={flag.enabled ? "min-w-24 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]" : "min-w-24 rounded-xl border-[var(--line)]"}>{flag.enabled ? "Đang bật" : "Đang tắt"}</Button>
+                <Button variant={flag.enabled ? "default" : "outline"} loading={savingFlag === flag.key} disabled={Boolean(savingFlag)} iconLeft={savingFlag === flag.key ? <RefreshCw size={16} /> : undefined} onClick={() => toggle(flag)} className={flag.enabled ? "min-w-24 rounded-xl bg-[var(--accent)] text-[#102019] hover:bg-[#c8ff67]" : "min-w-24 rounded-xl border-[var(--line)]"}>{flag.enabled ? "Đang bật" : "Đang tắt"}</Button>
               </div>
             ))}
           </div>

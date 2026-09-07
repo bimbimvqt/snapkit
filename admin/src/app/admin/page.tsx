@@ -37,7 +37,7 @@ export default async function DashboardPage() {
           size="md"
           className="bg-[color-mix(in_srgb,var(--brand)_12%,transparent)] text-[var(--brand-strong)]"
         >
-          {data.apiVersion === "legacy" ? "API production cần cập nhật" : `Cập nhật ${updatedAt}`}
+          {data.apiVersion === "legacy" ? "Một số thống kê chưa có dữ liệu" : `Cập nhật ${updatedAt}`}
         </Badge>
       </header>
 

@@ -64,6 +64,80 @@ void main() {
     expect(controller.user, isNull);
   });
 
+  test('refreshes the Pro entitlement without dropping the active session', () async {
+    final repository = _FakeAuthRepository(restoredUser: _user);
+    final controller = AuthController(repository);
+    await controller.initialize();
+    repository.restoredUser = const AuthUser(
+      id: 'user-test',
+      email: 'user@example.com',
+      role: 'USER',
+      isPro: true,
+      planId: 'yearly',
+    );
+
+    await controller.refreshSession();
+
+    expect(controller.status, AuthStatus.authenticated);
+    expect(controller.user?.isPro, isTrue);
+    expect(controller.user?.planId, 'yearly');
+  });
+
+  test('clears a session that is no longer valid during entitlement refresh', () async {
+    final repository = _FakeAuthRepository(restoredUser: _user);
+    final controller = AuthController(repository);
+    await controller.initialize();
+    repository.restoredUser = null;
+
+    await controller.refreshSession();
+
+    expect(controller.status, AuthStatus.unauthenticated);
+    expect(controller.user, isNull);
+  });
+
+  test('resets tools on identity changes but keeps them on entitlement refresh', () async {
+    var resets = 0;
+    final repository = _FakeAuthRepository(restoredUser: _user);
+    final controller = AuthController(repository, onSessionChanged: () => resets++);
+    await controller.initialize();
+    expect(resets, 1);
+    await controller.refreshSession();
+    expect(resets, 1);
+    await controller.signOut();
+    expect(resets, 2);
+    await controller.signInWithGoogle();
+    expect(resets, 3);
+  });
+
+  test('late entitlement response cannot restore a signed-out user', () async {
+    final repository = _FakeAuthRepository(restoredUser: _user);
+    final controller = AuthController(repository);
+    await controller.initialize();
+    final pending = Completer<AuthUser?>();
+    repository.restoreCompleter = pending;
+    final refreshing = controller.refreshSession();
+    await controller.signOut();
+    pending.complete(_user);
+    await refreshing;
+    expect(controller.status, AuthStatus.unauthenticated);
+    expect(controller.user, isNull);
+  });
+
+  test('foreground refresh ignores concurrent requests and preserves user on network failure', () async {
+    final repository = _FakeAuthRepository(restoredUser: _user);
+    final controller = AuthController(repository);
+    await controller.initialize();
+    final pending = Completer<AuthUser?>();
+    repository.restoreCompleter = pending;
+    final first = controller.refreshSession();
+    await controller.refreshSession();
+    expect(repository.restoreCalls, 2);
+    pending.completeError(const AuthNetworkFailure());
+    await first;
+    expect(controller.user, _user);
+    expect(controller.status, AuthStatus.authenticated);
+  });
+
   testWidgets('login stays usable on a 375px phone and in landscape with large text', (tester) async {
     final repository = _FakeAuthRepository();
     final controller = AuthController(repository);
@@ -112,14 +186,19 @@ void main() {
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({this.restoredUser, this.signInFailure, this.signInCompleter, this.failSignOut = false});
 
-  final AuthUser? restoredUser;
+  AuthUser? restoredUser;
   AuthFailure? signInFailure;
   final Completer<AuthUser>? signInCompleter;
   final bool failSignOut;
   int signInCalls = 0;
+  int restoreCalls = 0;
+  Completer<AuthUser?>? restoreCompleter;
 
   @override
-  Future<AuthUser?> restoreSession() async => restoredUser;
+  Future<AuthUser?> restoreSession() async {
+    restoreCalls++;
+    return restoreCompleter == null ? restoredUser : restoreCompleter!.future;
+  }
 
   @override
   Future<AuthUser> signInWithGoogle() async {

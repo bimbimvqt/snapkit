@@ -92,9 +92,13 @@ abstract final class SnapkitTheme {
     final onSurface = dark ? palette.darkOnSurface : palette.lightOnSurface;
     final onSurfaceVariant = dark ? palette.darkMuted : palette.lightMuted;
     final outline = dark ? palette.darkOutline : palette.lightOutline;
-    final scheme = ColorScheme.fromSeed(seedColor: palette.brand, brightness: brightness, surface: surface).copyWith(
-      primary: palette.brand,
-      onPrimary: _contrastColor(palette.brand),
+    final generatedScheme = ColorScheme.fromSeed(seedColor: palette.brand, brightness: brightness, surface: surface);
+    // Primary also colors text and focus indicators. Seed-derived tones preserve
+    // each hue while keeping those controls legible on both light and dark surfaces.
+    final primary = preset == SnapkitThemePreset.threadsMono ? onSurface : generatedScheme.primary;
+    final scheme = generatedScheme.copyWith(
+      primary: primary,
+      onPrimary: _contrastColor(primary),
       secondary: palette.accent,
       onSecondary: _contrastColor(palette.accent),
       tertiary: palette.accent,
@@ -150,7 +154,7 @@ abstract final class SnapkitTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: palette.brand, width: 2),
+          borderSide: BorderSide(color: primary, width: 2),
         ),
       ),
       dividerColor: outline,
