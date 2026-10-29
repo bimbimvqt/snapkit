@@ -13,12 +13,17 @@ import { storage, configureStorage, storageStatus, screenshotFolder } from './st
 import { Provisioner } from './provision.js';
 import { demoCatalog, demoDevices } from './demo.js';
 import { run } from './cli.js';
+import { Pairings } from './pairing.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const demo = process.argv.includes('--demo');
 const port = Number(process.env.PORT || 4310);
 const token = randomBytes(32).toString('hex');
 const app = express();
+const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.github.io').origin;
+if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(webOrigin)) throw new Error('Website origin must use HTTPS or loopback HTTP');
+const pairings = new Pairings(webOrigin);
+let lastRemoteActivity = 0;
 const sessions = new Sessions();
 const clients = new Set();
 if (!demo) await configureStorage();
@@ -51,15 +56,35 @@ app.disable('x-powered-by');
 app.use((req, res, next) => {
   // Loopback binding + exact Host/Origin checking protects against DNS rebinding and CSRF.
   if (![`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`].includes(req.headers.host)) return res.status(403).json({ error: 'Local host required' });
-  if (req.headers.origin && ![`http://127.0.0.1:${port}`, `http://localhost:${port}`, `http://[::1]:${port}`].includes(req.headers.origin)) return res.status(403).json({ error: 'Cross-origin requests are blocked' });
+  const origin = req.headers.origin;
+  const local = !origin || [`http://127.0.0.1:${port}`, `http://localhost:${port}`, `http://[::1]:${port}`].includes(origin);
+  if (!local) {
+    if (origin !== webOrigin || !req.path.startsWith('/api/')) return res.status(403).json({ error: 'Cross-origin requests are blocked' });
+    res.setHeader('Access-Control-Allow-Origin', webOrigin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    if (req.path !== '/api/pairing/claim') {
+      const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
+      if (!pairings.allows(bearer, origin)) return res.status(401).json({ error: 'Connect the website using a fresh code from the local Dashboard.' });
+      if (req.path === '/api/pairing/code') return res.status(403).json({ error: 'Generate pairing codes from the local Dashboard only' });
+      req.remoteToken = bearer; lastRemoteActivity = Date.now();
+    }
+  }
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
-  if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
+  if (req.path === '/api/pairing/claim' && origin !== webOrigin) return res.status(403).json({ error: 'Pairing claims must come from the configured website' });
+  if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
   next();
 });
 app.use(express.json({ limit: '16kb' }));
-app.get('/api/state', async (_req, res) => res.json({ storage: await storageStatus(), screenshotDirectory: settings.workspace ? screenshotFolder(settings.workspace) : storage.screenshots, jobs: provisioner.jobs, ...snapshot, settings: demo ? { workspace: '/Users/developer/Projects/flutter_app', targetId: settings.targetId || 'demo-ios-1' } : settings, sessions: demo ? demoSessions : sessions.list(), logs: sessions.logs, demo, token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
+app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
+app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
+app.get('/api/state', async (req, res) => res.json({ storage: await storageStatus(), screenshotDirectory: settings.workspace ? screenshotFolder(settings.workspace) : storage.screenshots, jobs: provisioner.jobs, ...snapshot, settings: demo ? { workspace: '/Users/developer/Projects/flutter_app', targetId: settings.targetId || 'demo-ios-1' } : settings, sessions: demo ? demoSessions : sessions.list(), logs: sessions.logs, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (_req, res) => {
@@ -181,6 +206,6 @@ const server = app.listen(port, '127.0.0.1', () => {
   if (!demo) scan().catch(e => console.error(e.message));
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
-const poll = setInterval(() => { if (clients.size && !demo) scan().catch(e => console.error(e.message)); }, 30000);
+const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
 function stop() { clearInterval(poll); sessions.close(); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);

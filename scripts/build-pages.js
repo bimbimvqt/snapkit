@@ -20,5 +20,10 @@ const html = (await readFile(path.join(root, 'public/index.html'), 'utf8'))
   .replaceAll('href="/', 'href="./').replaceAll('src="/', 'src="./')
   .replace('<script src="./app.js"', '<script src="./preview-data.js" defer></script><script src="./app.js"');
 await writeFile(path.join(out, 'preview/index.html'), html);
+await mkdir(path.join(out, 'control/vendor'), { recursive: true });
+await cp(path.join(root, 'public'), path.join(out, 'control'), { recursive: true });
+await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.js'), path.join(out, 'control/vendor/lucide.js'));
+await writeFile(path.join(out, 'control/controller-config.js'), 'window.SNAPKIT_CONTROLLER = true;\n');
+await writeFile(path.join(out, 'control/index.html'), html.replace('preview-data.js', 'controller-config.js'));
 await writeFile(path.join(out, '.nojekyll'), '');
-console.log('Built GitHub Pages website and read-only dashboard preview in dist/.');
+console.log('Built website, preview and paired local controller in dist/.');

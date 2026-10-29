@@ -24,3 +24,32 @@ test('landing and preview fit a phone screen', async ({ page }) => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });
+test('hosted controller pairs across origins, runs commands and stops access after revocation', async ({ page }) => {
+  const base = 'http://127.0.0.1:14323';
+  const local = await fetch(base + '/api/state').then(r => r.json());
+  const localPost = route => fetch(base + route, { method: 'POST', headers: { 'X-Snapkit-Token': local.token, 'Content-Type': 'application/json' }, body: '{}' });
+  const pair = await localPost('/api/pairing/code').then(r => r.json());
+  await page.goto('control/');
+  await expect(page.locator('#devices-grid')).toContainText('Connect your local device lab');
+  await expect(page.locator('.device-card')).toHaveCount(0);
+  await page.locator('#connection-button').click();
+  await page.locator('#agent-url').fill(base);
+  await page.locator('#agent-code').fill(pair.code);
+  await page.locator('#pairing-submit').click();
+  await expect(page.locator('.device-card')).toHaveCount(6);
+  await page.locator('[data-device="demo-ios-1"] [data-action="run"]').click();
+  await page.getByRole('button', { name: /Running sessions/ }).click();
+  await expect(page.locator('.session-row')).toContainText('running');
+  await page.getByRole('button', { name: 'Hot reload', exact: true }).click();
+  await expect(page.locator('.toast').last()).toContainText('reload completed');
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('.device-card')).toHaveCount(6);
+  await localPost('/api/pairing/revoke');
+  await expect(page.locator('.device-card')).toHaveCount(0, { timeout: 10000 });
+  await expect(page.locator('#server-status')).toHaveText('Local server not connected');
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('#connection-button').click();
+  expect(await page.locator('#pairing-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});

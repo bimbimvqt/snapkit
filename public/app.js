@@ -7,6 +7,14 @@ let state = { devices: [], sessions: [], settings: {}, logs: [], warnings: [] };
 let filter = 'all', page = 'devices', search = '', onlyOnline = false, toolDevice = null;
 let screenshots = [], selectedScreenshots = new Set();
 let refreshing = false;
+let connection = null, remotePoll = null, remotePolling = false;
+let remoteOffline = false;
+const screenshotBlobs = new Set();
+function agentURL(value) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Use a loopback server URL such as http://127.0.0.1:4310');
+  return url.origin;
+}
 const groupLabel = { ios: 'iOS SIMULATOR', android: 'ANDROID EMULATOR', physical: 'PHYSICAL DEVICE' };
 const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
 
@@ -19,8 +27,12 @@ async function api(url, data) {
     if (url === '/api/screenshots') return [];
     throw new Error('This action requires the local Snapkit server.');
   }
-  const response = await fetch(url, data === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Snapkit-Token': state.token }, body: JSON.stringify(data) });
+  if (window.SNAPKIT_CONTROLLER && !connection) throw new Error('Connect your local Snapkit server first.');
+  const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
+  if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
+  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
+  if (connection && response.status === 401) forgetConnection();
   if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
   return payload;
 }
@@ -82,6 +94,7 @@ function render() {
   $('#reload-all').disabled = !running.some(s => s.status === 'running');
   renderSessions(); renderWarnings(); renderProvisionJobs();
   $('#screenshot-location').textContent = state.screenshotDirectory || 'SnapkitData/screenshots'; icons();
+  if (window.SNAPKIT_CONTROLLER) renderConnection();
 }
 function renderWarnings() {
   $('#warnings').classList.toggle('hidden', !state.warnings.length);
@@ -97,10 +110,13 @@ async function refresh(button = $('#refresh-button')) {
   refreshing = false; $('#refresh-button svg')?.classList.remove('spin'); render();
 }
 async function loadState() {
+  const previous = JSON.stringify([state.devices, state.sessions, state.settings, state.jobs, state.warnings, state.scanning]);
   const result = await api('/api/state');
   const mergedLogs = [...state.logs, ...result.logs];
   const uniqueLogs = [...new Map(mergedLogs.map(log => [`${log.time}:${log.deviceId}:${log.message}`, log])).values()].sort((a, b) => a.time.localeCompare(b.time)).slice(-300);
-  state = { ...state, ...result, logs: uniqueLogs }; render(); renderLogs();
+  state = { ...state, ...result, logs: uniqueLogs };
+  if (!window.SNAPKIT_CONTROLLER || previous !== JSON.stringify([state.devices, state.sessions, state.settings, state.jobs, state.warnings, state.scanning])) render();
+  renderLogs();
 }
 function showWorkspace() { $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || ''); $('#workspace-error').textContent = ''; $('#workspace-dialog').showModal(); }
 async function changePage(next) {
@@ -114,6 +130,13 @@ async function changePage(next) {
 async function loadScreenshots() {
   try {
     screenshots = await api('/api/screenshots');
+    for (const blob of screenshotBlobs) URL.revokeObjectURL(blob); screenshotBlobs.clear();
+    if (connection) screenshots = await Promise.all(screenshots.map(async screenshot => {
+      if (!screenshot.url.startsWith('/api/screenshots/')) throw new Error('Invalid screenshot URL');
+      const response = await fetch(connection.base + screenshot.url, { headers: { Authorization: `Bearer ${connection.token}` }, credentials: 'omit' });
+      if (!response.ok) throw new Error('Screenshot unavailable. Reconnect the local server if your pairing expired.');
+      const url = URL.createObjectURL(await response.blob()); screenshotBlobs.add(url); return { ...screenshot, url };
+    }));
     $('#screenshot-grid').innerHTML = screenshots.length ? screenshots.map(s => `<article class="screenshot-card"><a href="${escape(s.url)}" target="_blank" rel="noopener" aria-label="Open ${escape(s.filename)}"><img src="${escape(s.url)}" alt="${escape(s.filename)}" loading="lazy"></a><label><input type="checkbox" data-screenshot="${escape(s.filename)}" ${selectedScreenshots.has(s.filename) ? 'checked' : ''}>${escape(s.filename)}</label></article>`).join('') : empty('Every pixel, captured', state.demo ? 'Screenshots become available when connected to real devices. Demo mode does not generate captures.' : 'Use the camera button on an online device. Captures are saved on SSD, grouped by Flutter workspace.', 'camera');
     icons();
   } catch (e) { toast(e.message, true); }
@@ -224,9 +247,11 @@ document.addEventListener('keydown', e => {
 });
 async function init() {
   icons();
+  if (window.SNAPKIT_CONTROLLER) { await initController(); return; }
   try {
     await loadState();
     if (window.SNAPKIT_PREVIEW) {
+      $('#connection-button').textContent = 'Control real devices';
       $('#server-status').textContent = 'Static preview · sample data';
       $('#mode-badge').textContent = 'READ-ONLY PREVIEW';
       $('#demo-notice span').textContent = 'Read-only preview · Sample devices. Start Snapkit locally to control real devices.';
@@ -252,7 +277,101 @@ async function init() {
     if (state.scanning) setTimeout(() => loadState().catch(() => {}), 5000);
   } catch (e) { toast(`Cannot connect to local server: ${e.message}`, true); $('#server-status').textContent = 'Local server unavailable'; }
 }
-init();
+queueMicrotask(init);
+
+function renderConnection() {
+  $('#connection-button').textContent = connection ? 'Connection settings' : 'Connect local server';
+  $('#demo-notice').classList.remove('hidden');
+  $('#demo-notice span').textContent = !connection ? 'Connect Snapkit running on this computer to control real devices. No sample devices are loaded.' : remoteOffline ? 'Cannot reach the local server. Keep npm start running and check browser local network permission.' : state.demo ? 'Connected to a local DEMO backend. Actions are simulated.' : 'Connected to your local Snapkit server. Device commands run on this computer.';
+  $('#mode-badge').textContent = connection ? remoteOffline ? 'AGENT OFFLINE' : state.demo ? 'LOCAL DEMO BACKEND' : 'CONNECTED TO LOCAL AGENT' : 'NOT CONNECTED';
+  $('#server-status').textContent = connection ? remoteOffline ? 'Local server unavailable' : `Connected · ${connection.base}` : 'Local server not connected';
+  if (!connection) $('#devices-grid').innerHTML = empty('Connect your local device lab', 'Start Snapkit with npm start, then click Connect local server and enter a code from your local Dashboard.', 'link');
+}
+function forgetConnection() {
+  clearInterval(remotePoll); remotePoll = null; connection = null; remoteOffline = false;
+  sessionStorage.removeItem('snapkit-connection');
+  for (const blob of screenshotBlobs) URL.revokeObjectURL(blob); screenshotBlobs.clear();
+  screenshots = []; selectedScreenshots.clear();
+  state = { devices: [], sessions: [], settings: {}, logs: [], warnings: [], jobs: [] };
+  render(); renderLogs(); $('#screenshot-grid').innerHTML = '';
+}
+function startRemotePolling() {
+  clearInterval(remotePoll);
+  remotePoll = setInterval(async () => {
+    if (remotePolling || !connection) return;
+    remotePolling = true;
+    const previousJobs = state.jobs || [];
+    try {
+      await loadState(); remoteOffline = false; renderConnection();
+      const finished = (state.jobs || []).filter(j => j.status !== 'running' && previousJobs.some(old => old.id === j.id && old.status === 'running'));
+      if (finished.length && $('#create-dialog').open) await loadCreationCatalog();
+    } catch { remoteOffline = true; renderConnection(); }
+    finally { remotePolling = false; }
+  }, 2000);
+}
+async function connectController(base, code) {
+  base = agentURL(base);
+  let response;
+  try { response = await fetch(base + '/api/pairing/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit', body: JSON.stringify({ code: code.trim() }) }); }
+  catch { throw new Error('Cannot reach Snapkit. Run npm start, open the local Dashboard, and allow local network access for this website when your browser asks.'); }
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Pairing failed');
+  connection = { base, token: result.token, expiresAt: result.expiresAt }; remoteOffline = false;
+  sessionStorage.setItem('snapkit-connection', JSON.stringify(connection));
+  await loadState(); startRemotePolling(); renderConnection();
+  if ($('#pairing-dialog').open) $('#pairing-dialog').close();
+}
+async function initController() {
+  render(); renderLogs();
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  if (fragment.has('pair')) {
+    history.replaceState(null, '', location.pathname + location.search);
+    $('#agent-url').value = fragment.get('agent') || 'http://127.0.0.1:4310'; $('#agent-code').value = fragment.get('pair');
+    try { await connectController($('#agent-url').value, $('#agent-code').value); }
+    catch (error) { showPairing(); $('#pairing-error').textContent = error.message; }
+    return;
+  }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('snapkit-connection'));
+    if (saved && saved.expiresAt > Date.now() && typeof saved.token === 'string') {
+      connection = { ...saved, base: agentURL(saved.base) };
+      await loadState(); startRemotePolling(); renderConnection();
+    }
+  } catch { forgetConnection(); }
+}
+async function showPairing() {
+  $('#pairing-error').textContent = '';
+  $('#local-pairing').classList.toggle('hidden', !!window.SNAPKIT_CONTROLLER);
+  $('#pairing-form').classList.toggle('hidden', !window.SNAPKIT_CONTROLLER);
+  if (!$('#pairing-dialog').open) $('#pairing-dialog').showModal();
+  if (window.SNAPKIT_CONTROLLER) { if (connection) $('#agent-url').value = connection.base; return; }
+  try {
+    if (!state.token) await loadState();
+    const result = await api('/api/pairing/code', {});
+    $('#pairing-code').textContent = result.code;
+    $('#pairing-link').href = result.webUrl + '#pair=' + encodeURIComponent(result.code) + '&agent=' + encodeURIComponent(location.origin);
+  } catch (error) { $('#pairing-error').textContent = error.message; }
+}
+$('#connection-button').addEventListener('click', () => {
+  if (window.SNAPKIT_PREVIEW) { location.href = '../control/'; return; }
+  showPairing();
+});
+$('#pairing-form').addEventListener('submit', e => {
+  e.preventDefault(); $('#pairing-error').textContent = '';
+  busy($('#pairing-submit'), async () => {
+    try { await connectController($('#agent-url').value, $('#agent-code').value); }
+    catch (error) { $('#pairing-error').textContent = error.message; }
+  });
+});
+$('#disconnect-agent').addEventListener('click', async () => {
+  try { if (connection) await api('/api/pairing/revoke', {}); }
+  catch { /* The local browser disconnects even if the agent is offline. */ }
+  finally { forgetConnection(); $('#agent-code').value = ''; $('#pairing-dialog').close(); }
+});
+$('#revoke-connections').addEventListener('click', e => busy(e.currentTarget, async () => {
+  const result = await api('/api/pairing/revoke', {});
+  $('#pairing-code').textContent = 'Connections revoked'; $('#pairing-link').removeAttribute('href'); toast(result.message);
+}));
 
 // Workspace selection uses the host's native picker; no project files are uploaded.
 $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, async () => {

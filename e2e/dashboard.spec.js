@@ -107,3 +107,11 @@ test('missing iOS runtime opens recovery tools, filters Apple versions and block
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.locator('#create-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
+test('local Dashboard explicitly generates a website pairing link and revokes it', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#connection-button').click();
+  await expect(page.locator('#pairing-code')).toHaveText(/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
+  await expect(page.locator('#pairing-link')).toHaveAttribute('href', /^https:\/\/bimbimvqt\.github\.io\/snapkit\/control\/#pair=/);
+  await page.getByRole('button', { name: 'Revoke all website connections' }).click();
+  await expect(page.locator('#pairing-code')).toHaveText('Connections revoked');
+});

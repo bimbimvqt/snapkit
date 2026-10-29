@@ -43,3 +43,22 @@ test('folder picker and provisioning APIs support demo creation and reject incom
   const current = await fetch(`${base}/api/state`).then(r => r.json());
   assert.ok(current.devices.some(d => d.name === 'Test iPhone'));
 });
+test('website API requires pairing for reads and commands, hides local token, and supports revocation', async () => {
+  const origin = 'https://bimbimvqt.github.io';
+  const request = (route, options = {}) => fetch(base + route, { ...options, headers: { Origin: origin, ...options.headers } });
+  assert.equal((await request('/api/state')).status, 401);
+  assert.equal((await request('/api/screenshots/test.png')).status, 401);
+  const preflight = await request('/api/state', { method: 'OPTIONS', headers: { 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'Authorization', 'Access-Control-Request-Private-Network': 'true' } });
+  assert.equal(preflight.status, 204); assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), origin);
+  assert.equal(preflight.headers.get('Access-Control-Allow-Private-Network'), 'true');
+  const pair = await post('/api/pairing/code', {}).then(r => r.json());
+  const claimed = await request('/api/pairing/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pair.code }) }).then(r => r.json());
+  const headers = { Authorization: `Bearer ${claimed.token}` };
+  const remote = await request('/api/state', { headers }).then(r => r.json());
+  assert.equal(Object.hasOwn(remote, 'token'), false); assert.ok(remote.devices.length);
+  assert.equal((await request('/api/scan', { method: 'POST', headers })).status, 200);
+  assert.equal((await request('/api/pairing/code', { method: 'POST', headers })).status, 403);
+  assert.equal((await fetch(base + '/api/state', { headers: { ...headers, Origin: 'https://other.example' } })).status, 403);
+  await post('/api/pairing/revoke', {});
+  assert.equal((await request('/api/state', { headers })).status, 401);
+});

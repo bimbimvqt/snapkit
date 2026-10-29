@@ -6,7 +6,22 @@ Dashboard chạy local để quản lý iOS Simulator, Android Emulator và thi�
 
 Website: **https://bimbimvqt.github.io/snapkit/** · [Xem trước Dashboard](https://bimbimvqt.github.io/snapkit/preview/)
 
-GitHub Pages phục vụ trang hướng dẫn và Dashboard xem trước với dữ liệu mẫu. Bản xem trước không gửi request tới backend local và không thực thi thao tác thiết bị. Điều khiển thiết bị thật cần chạy server local theo hướng dẫn dưới đây.
+[Dashboard điều khiển qua website](https://bimbimvqt.github.io/snapkit/control/) kết nối trực tiếp với backend Snapkit trên cùng máy sau khi ghép đôi. [Bản preview](https://bimbimvqt.github.io/snapkit/preview/) vẫn chỉ dùng dữ liệu mẫu.
+
+### Điều khiển từ domain GitHub
+
+1. Chạy `npm ci` rồi `npm start` trên máy có Flutter/Xcode/Android SDK.
+2. Mở `http://127.0.0.1:4310/`, bấm **Connect website** để tạo mã.
+3. Bấm **Open website & connect**: website tự dùng mã trong fragment để ghép đôi rồi xóa fragment khỏi thanh địa chỉ. Hoặc vào `/control/`, bấm **Connect local server**, nhập địa chỉ loopback và mã.
+4. Cho phép **Local network access** nếu trình duyệt hỏi. Sau khi ghép đôi, chọn folder, thiết bị và thao tác như Dashboard local. Backend cần tiếp tục chạy.
+
+Mã dùng một lần, hết hạn sau 5 phút; tối đa 10 lần nhập sai. Kết nối hết hạn sau 8 giờ hoặc khi backend khởi động lại. **Revoke all website connections** ở Dashboard local thu hồi mọi kết nối. **Disconnect** trên website chỉ thu hồi phiên hiện tại; app Flutter đang chạy không bị dừng.
+
+Backend chỉ lắng nghe `127.0.0.1`, không mở cổng ra Internet. CORS chỉ cho phép origin `https://bimbimvqt.github.io`; mọi API đọc và ghi từ website đều cần bearer token sau khi ghép đôi. Token điều khiển local không được trả về cho website. Token website nằm trong sessionStorage của tab, không đặt trong query URL. Ảnh chụp được tải bằng request có xác thực; trạng thái/log cập nhật mỗi 2 giây, quét thiết bị mỗi 30 giây khi có kết nối. GitHub phục vụ giao diện, không trung chuyển dữ liệu thiết bị.
+
+Nếu đổi domain, đặt `SNAPKIT_WEB_ORIGIN` thành origin HTTPS chính xác trước khi chạy backend. HTTP chỉ được chấp nhận cho loopback để kiểm thử. Không dùng wildcard. Nếu trình duyệt chặn truy cập localhost, cho phép quyền mạng cục bộ cho website hoặc dùng Dashboard local; không cần tắt bảo mật trình duyệt.
+
+API ghép đôi: `POST /api/pairing/code` (chỉ local, cần token local), `POST /api/pairing/claim` (chỉ origin website đã cấu hình), `POST /api/pairing/revoke`.
 
 Yêu cầu Node.js 20+ (khuyến nghị 22 LTS), npm, Flutter SDK và toolchain của nền tảng.
 
@@ -247,7 +262,7 @@ Danh mục là các ứng viên để tải, không bảo đảm mọi runtime �
 
 DMG tải bằng Snapkit nằm trên SSD trong `SnapkitData/downloads/iOS`. Runtime sau import vẫn ở nơi Apple quản lý; dữ liệu simulator đang chạy dùng đường dẫn hiện trong Add device. Trên máy này dữ liệu iOS dùng ổ trong sau khi phục hồi lỗi System Policy. Không có cam kết mọi thành phần iOS đều chạy hoàn toàn từ SSD.
 
-API mới: `GET /api/provision/ios/runtimes` và `POST /api/provision/ios/xcode`; `POST /api/provision/ios/download` nhận thêm `model` để kiểm tra tương thích. Bản GitHub Pages chỉ xem được các lựa chọn mẫu, không mở Xcode hay tải runtime thật.
+API mới: `GET /api/provision/ios/runtimes` và `POST /api/provision/ios/xcode`; `POST /api/provision/ios/download` nhận thêm `model` để kiểm tra tương thích. Bản `/preview/` chỉ xem lựa chọn mẫu. Bản `/control/` sau khi ghép đôi có thể mở Xcode và tải/import runtime bằng backend local.
 
 ### macOS chặn CoreSimulator truy cập SSD
 
