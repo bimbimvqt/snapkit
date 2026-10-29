@@ -39,6 +39,21 @@ test('folder picker and provisioning APIs support demo creation and reject incom
   assert.equal(created.job.status, 'completed');
   const current = await fetch(`${base}/api/state`).then(r => r.json());
   assert.ok(current.devices.some(d => d.name === 'Test iPhone'));
+  const id = created.job.result.id;
+  const endpoint = `/api/devices/${encodeURIComponent(id)}/delete`;
+  assert.equal((await post(endpoint, {})).status, 400);
+  assert.equal((await post(endpoint, { confirm: 'wrong-device' })).status, 400);
+  assert.equal((await post(endpoint, { confirm: id }, 'invalid-token')).status, 403);
+  assert.equal((await post('/api/devices/demo-physical-1/delete', { confirm: 'demo-physical-1' })).status, 400);
+  await post(`/api/devices/${id}/boot`, {});
+  await post('/api/targets', { ids: [id] });
+  const deleted = await post(endpoint, { confirm: id }).then(r => r.json());
+  assert.deepEqual(deleted.settings.targetIds, []);
+  assert.match(deleted.message, /runtimes were kept/);
+  const afterDelete = await fetch(`${base}/api/state`).then(r => r.json());
+  assert.ok(!afterDelete.devices.some(d => d.id === id));
+  assert.ok(afterDelete.devices.some(d => d.group === 'physical'));
+  assert.equal((await post(endpoint, { confirm: id })).status, 400);
 });
 test('website API requires pairing for reads and commands, hides local token, and supports revocation', async () => {
   const origin = 'https://bimbimvqt.github.io';

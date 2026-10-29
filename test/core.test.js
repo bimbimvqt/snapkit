@@ -6,6 +6,45 @@ import path from 'node:path';
 import { mergeDevices, parseIni } from '../server/discovery.js';
 import { parseJsonOutput } from '../server/cli.js';
 import { writeTargets, validateWorkspace, validateBuild, workspaceProfiles } from '../server/workspace.js';
+import { deleteDevice } from '../server/devices.js';
+
+test('device deletion uses native CLI, stops the specific emulator, and never erases physical devices or shared runtimes', async () => {
+  const id = '00000000-0000-0000-0000-000000000001';
+  const ios = { id, name: 'Disposable simulator', platform: 'ios', group: 'ios' };
+  const calls = [];
+  const execute = async (tool, args) => {
+    calls.push([tool, args]);
+    if (args.includes('--json')) return JSON.stringify({ devices: { runtime: [{ udid: id, state: 'Booted' }] } });
+    return '';
+  };
+  await deleteDevice(ios, { execute });
+  assert.deepEqual(calls.slice(1), [['xcrun', ['simctl', 'shutdown', id]], ['xcrun', ['simctl', 'delete', id]]]);
+  calls.length = 0;
+  await assert.rejects(deleteDevice({ ...ios, group: 'physical' }, { execute }), /Physical devices/);
+  await assert.rejects(deleteDevice({ ...ios, id: '--all' }, { execute }), /Only registered/);
+  assert.equal(calls.length, 0);
+
+  let stopped = false;
+  const android = { id: 'avd:My_AVD', name: 'My AVD', avd: 'My_AVD', platform: 'android', group: 'android', state: 'offline' };
+  await deleteDevice(android, { sleep: async () => {}, execute: async (tool, args) => {
+    calls.push([tool, args]);
+    if (args[0] === 'devices') return `List of devices attached\nemulator-5554\tdevice\n${stopped ? '' : 'emulator-5556\tdevice\n'}physical\tdevice\n`;
+    if (args.at(-1) === 'name') return args[1] === 'emulator-5554' ? 'Other_AVD\nOK' : 'My_AVD\nOK';
+    if (args.at(-1) === 'kill') stopped = true;
+    return '';
+  } });
+  assert.ok(calls.some(([tool, args]) => tool === 'adb' && args.join(' ') === '-s emulator-5556 emu kill'));
+  assert.ok(!calls.some(([, args]) => args.join(' ') === '-s emulator-5554 emu kill'));
+  assert.deepEqual(calls.at(-1), ['avdmanager', ['delete', 'avd', '-n', 'My_AVD']]);
+  calls.length = 0;
+  await assert.rejects(deleteDevice(android, { sleep: async () => {}, execute: async (tool, args) => {
+    calls.push([tool, args]);
+    if (args[0] === 'devices') return 'emulator-5556\tdevice\n';
+    if (args.at(-1) === 'name') return 'My_AVD\nOK';
+    return '';
+  } }), /still running/);
+  assert.ok(!calls.some(([tool]) => tool === 'avdmanager'));
+});
 
 test('discovery merges AVD identity and keeps physical devices separate', () => {
   const result = mergeDevices([

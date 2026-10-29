@@ -49,7 +49,7 @@ function deviceCard(d) {
   const tablet = /ipad|tablet/i.test(d.name);
   const spec = (i, value, label) => `<span class="spec" title="${escape(label)}">${icon(i)}${escape(value || '—')}</span>`;
   return `<article class="device-card ${d.group} ${online ? 'online' : 'offline'} ${active ? 'target' : ''} ${tablet ? 'tablet' : ''}" data-device="${escape(d.id)}">
-    <div class="card-top"><span class="platform-label">${icon(groupIcon[d.group])}${groupLabel[d.group]}</span><div class="card-badges">${active ? `<span class="target-badge">${icon('crosshair')}IDE</span>` : ''}<span class="status-badge ${online ? 'online' : ''}"><span class="dot ${online ? 'green' : ''}"></span>${online ? 'Online' : 'Offline'}</span></div></div>
+    <div class="card-top"><span class="platform-label">${icon(groupIcon[d.group])}${groupLabel[d.group]}</span><div class="card-badges">${active ? `<span class="target-badge">${icon('crosshair')}IDE</span>` : ''}<span class="status-badge ${online ? 'online' : ''}"><span class="dot ${online ? 'green' : ''}"></span>${online ? 'Online' : 'Offline'}</span>${d.group === 'ios' || (d.group === 'android' && d.avd) ? `<button class="icon-button delete-device" data-action="delete" aria-label="Delete ${escape(d.name)}" title="Delete device and its data">${icon('trash-2')}</button>` : ''}</div></div>
     <div class="device-stage" aria-hidden="true"><div class="stage-grid"></div><div class="device-model"><div class="phone-screen">${online ? `<div class="wallpaper"></div><span class="screen-clock">9:41</span><span class="screen-date">Thursday, October 29</span><span class="screen-label">READY FOR IDE</span>` : `<span class="offline-symbol">${icon('power')}</span>`}</div></div></div>
     <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p><div class="device-specs">${spec('memory-stick', d.ram, 'Device RAM; — means unavailable')}${spec('cpu', d.cpu, 'Logical CPU cores; — means unavailable')}${spec('scan', d.resolution?.replaceAll(' ', ''), 'Display resolution; — means unavailable')}</div></div>
     <div class="card-actions"><button class="button" data-action="boot" ${online || d.group === 'physical' ? 'disabled' : ''}>${icon(online ? 'circle-check' : 'power')}${online ? 'Device started' : d.group === 'physical' ? 'Turn on manually' : 'Start device'}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="Select ${escape(d.name)} for IDE debug" ${active ? 'checked' : ''} ${targetSaving || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? 'Selected for IDE' : 'Select for IDE'}</label></div>
@@ -153,9 +153,44 @@ $('#refresh-button').addEventListener('click', () => refresh());
 $('#devices-grid').addEventListener('click', e => {
   if (e.target.closest('#empty-refresh')) return refresh();
   if (e.target.closest('#empty-help')) return $('#guide-dialog').showModal();
+  const remove = e.target.closest('button[data-action="delete"]');
+  if (remove && !remove.disabled) {
+    const id = remove.closest('[data-device]').dataset.device;
+    const d = state.devices.find(item => item.id === id);
+    if (!d) return;
+    $('#delete-device-form').dataset.device = id;
+    $('#delete-device-name').textContent = d.name;
+    $('#delete-device-note').textContent = `${d.state === 'online' ? 'This device will be stopped. Any running app/debug session on it will disconnect. ' : ''}All installed apps, settings, snapshots and local device data will be permanently removed. This cannot be undone. Shared OS runtimes and your project files will be kept.${state.settings.targetIds.includes(id) ? ' It will also be removed from the IDE selection.' : ''}`;
+    $('#delete-device-error').textContent = '';
+    $('#delete-device-dialog').showModal();
+    return;
+  }
   const b = e.target.closest('button[data-action="boot"]'); if (!b || b.disabled) return;
   const id = b.closest('[data-device]').dataset.device;
   busy(b, async () => { const result = await api(`/api/devices/${encodeURIComponent(id)}/boot`, {}); toast(result.message); await loadState(); });
+});
+let deletingDevice = false;
+$('#delete-device-dialog').addEventListener('cancel', event => { if (deletingDevice) event.preventDefault(); });
+$('#delete-device-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (deletingDevice) return;
+  deletingDevice = true;
+  const id = event.currentTarget.dataset.device;
+  const dialog = $('#delete-device-dialog');
+  dialog.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  $('#delete-device-submit').setAttribute('aria-busy', 'true');
+  $('#delete-device-error').textContent = '';
+  try {
+    const result = await api(`/api/devices/${encodeURIComponent(id)}/delete`, { confirm: id });
+    dialog.close(); toast(result.message);
+    if (result.warning) toast(result.warning, true);
+    await loadState();
+  } catch (error) { $('#delete-device-error').textContent = error.message; }
+  finally {
+    deletingDevice = false;
+    dialog.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    $('#delete-device-submit').removeAttribute('aria-busy');
+  }
 });
 $('#devices-grid').addEventListener('change', async e => {
   const box = e.target.closest('[data-action="select"]'); if (!box || targetSaving) return;

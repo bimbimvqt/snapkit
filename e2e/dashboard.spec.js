@@ -62,7 +62,20 @@ test('workspace folder chooser fills path; model selector enforces iOS runtime c
   await expect(page.locator('#create-runtime')).toHaveValue('demo:ios26');
   await page.locator('#create-name').fill('My iPhone Test');
   await page.getByRole('button', { name: 'Create device', exact: true }).click();
-  await expect(page.locator('.device-card').filter({ hasText: 'My iPhone Test' })).toBeVisible();
+  const created = page.locator('.device-card').filter({ hasText: 'My iPhone Test' });
+  await expect(created).toBeVisible();
+  await expect(page.locator('[data-device="demo-physical-1"] [data-action="delete"]')).toHaveCount(0);
+  await created.getByRole('button', { name: 'Delete My iPhone Test', exact: true }).click();
+  await expect(page.locator('#delete-device-name')).toHaveText('My iPhone Test');
+  await expect(page.locator('#delete-device-note')).toContainText('cannot be undone');
+  await page.locator('#delete-device-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(created).toBeVisible();
+  await created.getByRole('button', { name: 'Delete My iPhone Test', exact: true }).click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.locator('#delete-device-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.locator('#delete-device-submit').click();
+  await expect(page.locator('#delete-device-dialog')).not.toBeVisible();
+  await expect(created).toHaveCount(0);
 });
 
 test('Android image must be installed before creating a device and modal fits mobile', async ({ page }) => {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discovery.js';
-import { bootDevice } from './devices.js';
+import { bootDevice, deleteDevice } from './devices.js';
 import { validateWorkspace, writeTargets, workspaceProfiles, validateBuild } from './workspace.js';
 import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus } from './storage.js';
@@ -159,7 +159,7 @@ app.post('/api/targets', async (req, res) => {
 });
 app.post('/api/devices/:id/boot', async (req, res) => {
   const d = device(req.params.id);
-  if (locks.has(d.id)) return res.status(409).json({ error: 'This device is already starting' });
+  if (locks.has(d.id)) return res.status(409).json({ error: 'Another operation is running for this device' });
   locks.add(d.id);
   try {
     if (demo) {
@@ -169,6 +169,33 @@ app.post('/api/devices/:id/boot', async (req, res) => {
     res.json(await bootDevice(d));
     scan().catch(e => console.error(e.message));
   } finally { locks.delete(d.id); }
+});
+app.post('/api/devices/:id/delete', async (req, res) => {
+  const d = device(req.params.id);
+  if (d.group === 'physical') throw new Error('Physical devices cannot be deleted or erased from Snapkit');
+  if (req.body.confirm !== d.id) throw new Error('Confirm the exact device before deleting its data');
+  if (locks.has(d.id) || savingIDE) return res.status(409).json({ error: 'Another device or IDE configuration operation is running' });
+  locks.add(d.id); savingIDE = true;
+  try {
+    const result = demo ? { message: `Demo: ${d.name} and its data were deleted. Shared OS runtimes were kept.` } : await deleteDevice(d);
+    if (scanning) await scanning;
+    snapshot.devices = snapshot.devices.filter(item => item.id !== d.id);
+    const selected = settings.targetIds.includes(d.id);
+    settings.targetIds = settings.targetIds.filter(id => id !== d.id);
+    // The device is already deleted. Report any settings failure separately so
+    // the user is never told a destructive operation failed when it succeeded.
+    let warning;
+    try {
+      await persist();
+      if (!demo && selected && settings.workspace) {
+        const workspace = await validateWorkspace(settings.workspace);
+        await writeTargets(workspace, snapshot.devices.filter(item => settings.targetIds.includes(item.id)), settings);
+      }
+    } catch (e) { warning = `Device deleted, but IDE settings could not be updated: ${e.message}`; }
+    emit('devices', snapshot); emit('settings', settings);
+    res.json({ ...result, settings, warning });
+    if (!demo) scan().catch(e => console.error(e.message));
+  } finally { locks.delete(d.id); savingIDE = false; }
 });
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream'); res.setHeader('Cache-Control', 'no-cache'); res.setHeader('Connection', 'keep-alive'); res.flushHeaders();
