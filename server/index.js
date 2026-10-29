@@ -6,7 +6,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discovery.js';
 import { deviceAction } from './devices.js';
-import { validateWorkspace, writeLaunch } from './workspace.js';
+import { validateWorkspace, writeLaunch, workspaceProfiles, validateBuild } from './workspace.js';
 import { Sessions } from './sessions.js';
 import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus, screenshotFolder } from './storage.js';
@@ -128,10 +128,16 @@ app.post('/api/provision/ios/import', async (req, res) => {
   if (demo) return res.json({ job: { id: 'demo-import', title: 'Demo runtime import simulated', status: 'completed', logs: [] } });
   res.status(202).json({ job: await provisioner.importIOS(req.body.file) });
 });
+app.get('/api/workspace/profiles', async (req, res) => {
+  if (demo) return res.json({ profiles: [], flavors: [] });
+  res.json(await workspaceProfiles(await validateWorkspace(req.query.path || requireWorkspace())));
+});
 app.post('/api/workspace', async (req, res) => {
   if (!demo) {
     const workspace = await validateWorkspace(req.body.path);
+    const build = await validateBuild(workspace, req.body);
     if (workspace !== settings.workspace) settings.targetId = null;
+    Object.assign(settings, build);
     settings.workspace = workspace;
   }
   await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo workspace selected' : 'Flutter workspace selected' });
@@ -139,7 +145,7 @@ app.post('/api/workspace', async (req, res) => {
 app.post('/api/target', async (req, res) => {
   const d = device(req.body.id);
   let launchFile = null;
-  if (!demo) { const workspace = requireWorkspace(); if (!d.flutterId) throw new Error('Boot the device and refresh before selecting a VS Code target'); launchFile = await writeLaunch(workspace, d); }
+  if (!demo) { const workspace = requireWorkspace(); if (!d.flutterId) throw new Error('Boot the device and refresh before selecting a VS Code target'); launchFile = await writeLaunch(workspace, d, await validateBuild(workspace, settings)); }
   settings.targetId = d.id; await persist(); emit('settings', settings);
   res.json({ settings, launchFile, message: demo ? 'Demo target selected' : 'Target saved to .vscode/launch.json' });
 });
@@ -170,7 +176,7 @@ app.post('/api/sessions', async (req, res) => {
     emit('sessions', demoSessions); sessions.log(d.id, 'Demo Flutter session started'); return res.json({ sessions: demoSessions });
   }
   const workspace = await validateWorkspace(requireWorkspace());
-  res.json({ sessions: sessions.start(d, workspace) });
+  res.json({ sessions: sessions.start(d, workspace, await validateBuild(workspace, settings)) });
 });
 app.post('/api/sessions/reload-all', async (_req, res) => {
   const results = demo ? demoSessions.filter(s => s.status === 'running').map(s => ({ deviceId: s.deviceId, ok: true })) : await sessions.reloadAll();

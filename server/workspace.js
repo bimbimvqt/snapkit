@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readFile, mkdir, writeFile, realpath, rename } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, realpath, rename, readdir, stat } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 
@@ -10,7 +10,43 @@ export async function validateWorkspace(input) {
   if (!/^\s*flutter\s*:/m.test(yaml)) throw new Error('This folder must contain a Flutter pubspec.yaml');
   return root;
 }
-export async function writeLaunch(root, device) {
+export async function workspaceProfiles(root) {
+  const raw = await readFile(path.join(root, '.vscode/launch.json'), 'utf8').catch(() => '');
+  const config = parse(raw, [], { allowTrailingComma: true });
+  const profiles = [];
+  for (const entry of Array.isArray(config?.configurations) ? config.configurations : []) {
+    if (entry?.type !== 'dart' || entry.request !== 'launch' || entry.name === 'Snapkit: Active Device' || (entry.flutterMode && entry.flutterMode !== 'debug')) continue;
+    const args = [...(Array.isArray(entry.toolArgs) ? entry.toolArgs : []), ...(Array.isArray(entry.args) ? entry.args : [])];
+    const flag = name => {
+      const index = args.indexOf(name);
+      return index >= 0 ? args[index + 1] : args.find(a => typeof a === 'string' && a.startsWith(name + '='))?.slice(name.length + 1);
+    };
+    const expand = value => typeof value === 'string' ? value.replaceAll('${workspaceFolder}', root) : '';
+    profiles.push({ name: String(entry.name || 'Debug'), flavor: flag('--flavor') || '', target: expand(entry.program) || 'lib/main.dart', defineFile: expand(flag('--dart-define-from-file')) });
+  }
+  const schemes = await readdir(path.join(root, 'ios/Runner.xcodeproj/xcshareddata/xcschemes')).catch(() => []);
+  const flavors = [...new Set([...profiles.map(p => p.flavor), ...schemes.filter(s => s.endsWith('.xcscheme') && s !== 'Runner.xcscheme').map(s => s.slice(0, -9))].filter(Boolean))];
+  return { profiles, flavors };
+}
+export async function validateBuild(root, input = {}) {
+  root = await realpath(root);
+  const text = key => { const value = input[key] ?? ''; if (typeof value !== 'string' || value.length > 4096) throw new Error(`Invalid ${key}`); return value.trim(); };
+  const flavor = text('flavor');
+  if (flavor && !/^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,127}$/.test(flavor)) throw new Error('Invalid flavor name');
+  const target = text('target') || 'lib/main.dart';
+  const targetPath = await realpath(path.resolve(root, target)).catch(() => '');
+  const relative = path.relative(root, targetPath);
+  if (!targetPath || relative.startsWith('..' + path.sep) || relative === '..' || path.isAbsolute(relative) || !targetPath.endsWith('.dart') || !(await stat(targetPath)).isFile()) throw new Error('Dart entrypoint must be an existing .dart file inside the workspace');
+  const defineFile = text('defineFile');
+  if (defineFile && !(await stat(path.resolve(root, defineFile)).catch(() => null))?.isFile()) throw new Error('Dart defines file does not exist');
+  const { flavors } = await workspaceProfiles(root);
+  if (flavors.length && !flavor) throw new Error(`Choose a flavor in Workspace settings: ${flavors.join(', ')}`);
+  return { flavor, target, defineFile };
+}
+export function flutterBuildArgs(options = {}) {
+  return [...(options.flavor ? ['--flavor', options.flavor] : []), ...(options.target ? ['--target', options.target] : []), ...(options.defineFile ? ['--dart-define-from-file', options.defineFile] : [])];
+}
+export async function writeLaunch(root, device, options = {}) {
   const folder = path.join(root, '.vscode');
   await mkdir(folder, { recursive: true });
   const file = path.join(folder, 'launch.json');
@@ -21,6 +57,9 @@ export async function writeLaunch(root, device) {
   if (errors.length || !config || typeof config !== 'object' || Array.isArray(config)) throw new Error('launch.json is invalid. The existing file has been preserved.');
   if (config.configurations !== undefined && !Array.isArray(config.configurations)) throw new Error('launch.json configurations must be an array');
   const entry = { name: 'Snapkit: Active Device', type: 'dart', request: 'launch', deviceId: device.flutterId || device.id, cwd: root };
+  if (options.target) entry.program = options.target;
+  const toolArgs = flutterBuildArgs({ ...options, target: undefined });
+  if (toolArgs.length) entry.toolArgs = toolArgs;
   let output;
   if (!raw) output = JSON.stringify({ ...config, configurations: [entry] }, null, 2) + '\n';
   else {

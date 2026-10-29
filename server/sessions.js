@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { launch } from './cli.js';
+import { flutterBuildArgs } from './workspace.js';
 
 export class Sessions extends EventEmitter {
   constructor(spawn = launch) { super(); this.spawn = spawn; this.items = new Map(); this.sequence = 0; this.pending = new Map(); this.logs = []; }
@@ -8,11 +9,12 @@ export class Sessions extends EventEmitter {
     this.logs.push(entry); if (this.logs.length > 300) this.logs.shift(); this.emit('log', entry);
   }
   list() { return [...this.items.values()].map(({ child, buffer, ...rest }) => rest); }
-  start(device, workspace) {
+  start(device, workspace, options = {}) {
     const old = this.items.get(device.id);
     if (old && !['stopped', 'error'].includes(old.status)) throw new Error('A Flutter session already exists for this device');
-    const child = this.spawn('flutter', ['run', '--machine', '-d', device.flutterId || device.id], { cwd: workspace, stdio: ['pipe', 'pipe', 'pipe'] });
-    const session = { deviceId: device.id, name: device.name, status: 'starting', appId: null, startedAt: new Date().toISOString(), child, buffer: '' };
+    const args = ['run', '--machine', '-d', device.flutterId || device.id, ...flutterBuildArgs(options)];
+    const child = this.spawn('flutter', args, { cwd: workspace, stdio: ['pipe', 'pipe', 'pipe'] });
+    const session = { deviceId: device.id, name: device.name, status: 'starting', flavor: options.flavor || '', target: options.target || 'lib/main.dart', appId: null, startedAt: new Date().toISOString(), child, buffer: '' };
     this.items.set(device.id, session);
     const update = () => this.emit('sessions', this.list());
     child.stdout.on('data', b => {
@@ -48,7 +50,7 @@ export class Sessions extends EventEmitter {
       for (const [id, p] of this.pending) if (p.deviceId === device.id) { clearTimeout(p.timer); p.reject(new Error('Flutter process exited')); this.pending.delete(id); }
       update();
     });
-    this.log(device.id, `flutter run --machine -d ${device.flutterId || device.id}`); update();
+    this.log(device.id, `flutter ${args.join(' ')}`); update();
     return this.list();
   }
   request(deviceId, method, params = {}) {

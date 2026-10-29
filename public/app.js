@@ -118,7 +118,43 @@ async function loadState() {
   if (!window.SNAPKIT_CONTROLLER || previous !== JSON.stringify([state.devices, state.sessions, state.settings, state.jobs, state.warnings, state.scanning])) render();
   renderLogs();
 }
-function showWorkspace() { $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || ''); $('#workspace-error').textContent = ''; $('#workspace-dialog').showModal(); }
+let workspaceProfiles = [];
+let workspaceProfileRequest = 0;
+let workspaceProfilePath = '';
+async function loadWorkspaceProfiles() {
+  const request = ++workspaceProfileRequest;
+  const path = $('#workspace-path').value.trim();
+  workspaceProfilePath = path;
+  workspaceProfiles = [];
+  $('#workspace-profile').innerHTML = '<option value="">Custom configuration</option>';
+  $('#workspace-flavors').innerHTML = '';
+  if (!path || window.SNAPKIT_PREVIEW) return;
+  try {
+    const result = await api('/api/workspace/profiles?path=' + encodeURIComponent(path));
+    if (request !== workspaceProfileRequest) return;
+    workspaceProfiles = result.profiles;
+    $('#workspace-profile').innerHTML += workspaceProfiles.map((p, i) => `<option value="${i}">${escape(p.name)}</option>`).join('');
+    $('#workspace-flavors').innerHTML = result.flavors.map(f => `<option value="${escape(f)}"></option>`).join('');
+  } catch (error) { if (request === workspaceProfileRequest) $('#workspace-error').textContent = error.message; }
+}
+function showWorkspace() {
+  $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || '');
+  $('#workspace-flavor').value = state.settings.flavor || '';
+  $('#workspace-target').value = state.settings.target || 'lib/main.dart';
+  $('#workspace-defines').value = state.settings.defineFile || '';
+  $('#workspace-error').textContent = ''; $('#workspace-dialog').showModal(); loadWorkspaceProfiles();
+}
+$('#workspace-path').addEventListener('change', () => {
+  if ($('#workspace-path').value.trim() === workspaceProfilePath) return;
+  $('#workspace-error').textContent = '';
+  $('#workspace-flavor').value = ''; $('#workspace-target').value = 'lib/main.dart'; $('#workspace-defines').value = '';
+  loadWorkspaceProfiles();
+});
+$('#workspace-profile').addEventListener('change', e => {
+  const profile = workspaceProfiles[e.target.value];
+  if (!profile) return;
+  $('#workspace-flavor').value = profile.flavor; $('#workspace-target').value = profile.target; $('#workspace-defines').value = profile.defineFile;
+});
 async function changePage(next) {
   page = next;
   const labels = { devices: ['Device manager', 'Your devices, in sync. A better way to build for every screen.'], sessions: ['Running sessions', 'Keep every build in view. Control your Flutter sessions from here.'], screenshots: ['Screenshots', 'Capture the details. Compare your UI across every screen.'] };
@@ -190,6 +226,10 @@ $('#devices-grid').addEventListener('click', e => {
     if (action === 'target') { if (!state.settings.workspace) { showWorkspace(); return; } await target(d); }
     else if (action === 'run') {
       if (!state.settings.workspace) { showWorkspace(); return; }
+      if (!state.demo && !window.SNAPKIT_PREVIEW && !state.settings.flavor) {
+        const config = await api('/api/workspace/profiles');
+        if (config.flavors.length) { showWorkspace(); toast('Choose a flavor or import a VS Code debug profile before running.'); return; }
+      }
       const result = await api('/api/sessions', { id: d.id }); state.sessions = result.sessions; render(); toast(`Flutter session starting on ${d.name}`);
     } else await runAction(d, action);
   });
@@ -219,7 +259,7 @@ $('#tools-content').addEventListener('click', e => {
 $('#workspace-form').addEventListener('submit', e => {
   e.preventDefault(); const button = e.submitter;
   busy(button, async () => {
-    try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
+    try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
     catch (error) { $('#workspace-error').textContent = error.message; }
   });
 });
@@ -379,7 +419,7 @@ $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, asyn
   $('#workspace-error').textContent = '';
   try {
     const result = await api('/api/folders/pick', {});
-    if (result.path) { $('#workspace-path').value = result.path; $('#workspace-path').focus(); }
+    if (result.path) { $('#workspace-path').value = result.path; $('#workspace-path').focus(); $('#workspace-path').dispatchEvent(new Event('change')); }
   } catch (error) { $('#workspace-error').textContent = error.message; }
 }));
 

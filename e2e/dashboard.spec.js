@@ -115,3 +115,25 @@ test('local Dashboard explicitly generates a website pairing link and revokes it
   await page.getByRole('button', { name: 'Revoke all website connections' }).click();
   await expect(page.locator('#pairing-code')).toHaveText('Connections revoked');
 });
+
+test('workspace imports a debug profile and submits flavor, entrypoint and defines file together', async ({ page }) => {
+  await page.route('**/api/workspace/profiles?*', route => route.fulfill({ json: { flavors: ['dev', 'prod'], profiles: [{ name: 'Merchant dev', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' }] } }));
+  let saved;
+  await page.route('**/api/workspace', route => {
+    saved = route.request().postDataJSON();
+    return route.fulfill({ json: { settings: saved, message: 'Configuration saved' } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Workspace settings' }).click();
+  await page.locator('#workspace-path').fill('/Projects/merchant');
+  await page.locator('#workspace-path').dispatchEvent('change');
+  await page.locator('#workspace-profile').selectOption({ label: 'Merchant dev' });
+  await expect(page.locator('#workspace-flavor')).toHaveValue('dev');
+  await expect(page.locator('#workspace-target')).toHaveValue('lib/main_dev.dart');
+  await expect(page.locator('#workspace-defines')).toHaveValue('../dashboard/dev.json');
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.locator('#workspace-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Save workspace' }).click();
+  await expect(page.locator('#workspace-dialog')).not.toBeVisible();
+  expect(saved).toEqual({ path: '/Projects/merchant', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' });
+});

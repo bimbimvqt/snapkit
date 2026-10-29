@@ -82,3 +82,39 @@ test('multicast reports each device failure without losing successful results', 
   manager.action = async id => { if (id === 'two') throw new Error('compile failed'); };
   assert.deepEqual(await manager.reloadAll(), [{ deviceId: 'one', ok: true }, { deviceId: 'two', ok: false, error: 'compile failed' }]);
 });
+
+test('workspace profiles retain dev entrypoint and defines path; Flutter and VS Code use the same flavor', async () => {
+  const { workspaceProfiles, validateBuild } = await import('../server/workspace.js');
+  const root = await mkdtemp(path.join(os.tmpdir(), 'snapkit-flavors-'));
+  try {
+    await mkdir(path.join(root, 'lib'));
+    await mkdir(path.join(root, '.vscode'));
+    await writeFile(path.join(root, 'lib/main_dev.dart'), 'void main() {}');
+    await writeFile(path.join(root, 'defines.json'), '{}');
+    await writeFile(path.join(root, '.vscode/launch.json'), JSON.stringify({ configurations: [
+      { name: 'Development', type: 'dart', request: 'launch', program: 'lib/main_dev.dart', args: ['--flavor', 'dev', '--dart-define-from-file=${workspaceFolder}/defines.json'] },
+      { name: 'Profile', type: 'dart', request: 'launch', flutterMode: 'profile', args: ['--flavor', 'prod'] }
+    ] }));
+    const catalog = await workspaceProfiles(root);
+    assert.deepEqual(catalog.flavors, ['dev']);
+    assert.equal(catalog.profiles.length, 1);
+    assert.equal(catalog.profiles[0].defineFile, path.join(root, 'defines.json'));
+    await assert.rejects(validateBuild(root, { target: 'lib/main_dev.dart' }), /Choose a flavor/);
+    await assert.rejects(validateBuild(root, { flavor: '--release', target: 'lib/main_dev.dart' }), /flavor name/);
+    await assert.rejects(validateBuild(root, { flavor: 'dev', target: '../outside.dart' }), /entrypoint/);
+    await assert.rejects(validateBuild(root, { flavor: 'dev', target: 'lib/main_dev.dart', defineFile: 'missing.json' }), /defines file/);
+    const options = await validateBuild(root, catalog.profiles[0]);
+    let command;
+    const child = fakeProcess();
+    const manager = new Sessions((name, args, spawnOptions) => { command = { name, args, spawnOptions }; return child; });
+    manager.start({ id: 'sim', name: 'iPhone' }, root, options);
+    assert.deepEqual(command.args, ['run', '--machine', '-d', 'sim', '--flavor', 'dev', '--target', 'lib/main_dev.dart', '--dart-define-from-file', path.join(root, 'defines.json')]);
+    assert.equal(command.spawnOptions.cwd, root);
+    await writeLaunch(root, { id: 'sim' }, options);
+    const launch = JSON.parse(await readFile(path.join(root, '.vscode/launch.json'), 'utf8'));
+    assert.equal(launch.configurations[0].program, 'lib/main_dev.dart');
+    assert.deepEqual(launch.configurations[0].toolArgs, ['--flavor', 'dev', '--dart-define-from-file', path.join(root, 'defines.json')]);
+    assert.equal(launch.configurations[1].name, 'Development');
+    child.kill();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

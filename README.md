@@ -34,6 +34,8 @@ npm start
 
 Mở **http://127.0.0.1:4310**. Vào **Workspace settings → Choose folder**, chọn dự án Flutter có `pubspec.yaml`, rồi **Refresh devices**.
 
+Dự án có flavor: vào **Workspace settings → Import VS Code debug profile**, chọn cấu hình debug có sẵn, hoặc nhập **Flavor**, **Dart entrypoint** và đường dẫn **Dart defines file**. Ví dụ `dev` + `lib/main_dev.dart`. Snapkit lưu cấu hình theo workspace hiện tại và dùng cùng lựa chọn cho **Run app** và **Snapkit: Active Device**. Không đọc hoặc đưa nội dung file defines lên website. Khi đổi folder, chọn lại cấu hình trước khi lưu.
+
 Xem giao diện với dữ liệu mẫu:
 
 ```sh
