@@ -239,6 +239,16 @@ Không tháo SSD khi đang sử dụng máy ảo. Script dành cho macOS; trên 
 
 API bổ sung: `POST /api/folders/pick`, `GET /api/provision/catalog` (thêm `?remote=1` để đọc catalog Android online), `POST /api/provision/create`, `POST /api/provision/android/install`, `POST /api/provision/ios/download`, `POST /api/provision/ios/import`. `/api/state` có `storage`, `screenshotDirectory`, `jobs`; SSE có event `jobs`. Catalog và job logs hiện tại không chứng minh một runtime tải được từ server Apple/Google; lỗi mạng, license hoặc runtime không được hỗ trợ sẽ hiện trong job.
 
+### Khi model thiếu iOS runtime
+
+Add device tự mở phần tải runtime nếu model chưa có phiên bản iOS tương thích đã cài. **Load Apple iOS versions** đọc danh mục từ Apple, lọc theo khoảng iOS của model cùng các yêu cầu CPU/macOS/Xcode được Apple công bố. Chọn phiên bản trong danh sách hoặc nhập tay trong khoảng hợp lệ, rồi **Download to SSD**. Sau khi tải xong, chọn DMG → **Import runtime** → **Refresh installed versions** → **Create device**. Nút **Open Xcode** mở Xcode; vào **Xcode → Settings → Components** (Platforms trên Xcode cũ) để cài theo giao diện của Apple.
+
+Danh mục là các ứng viên để tải, không bảo đảm mọi runtime đều cài được: Xcode kiểm tra cuối cùng, một số bản cần Apple account hoặc phiên bản Xcode/macOS khác. API kiểm tra model và khoảng phiên bản trước khi bắt đầu tải. Model legacy như iPhone 5 bị chặn tải nhầm runtime hiện đại; iOS 6–10/32-bit không được toolchain hiện tại hỗ trợ. Có nút chọn lại model được hỗ trợ.
+
+DMG tải bằng Snapkit nằm trên SSD trong `SnapkitData/downloads/iOS`. Runtime sau import vẫn ở nơi Apple quản lý; dữ liệu simulator đang chạy dùng đường dẫn hiện trong Add device. Trên máy này dữ liệu iOS dùng ổ trong sau khi phục hồi lỗi System Policy. Không có cam kết mọi thành phần iOS đều chạy hoàn toàn từ SSD.
+
+API mới: `GET /api/provision/ios/runtimes` và `POST /api/provision/ios/xcode`; `POST /api/provision/ios/download` nhận thêm `model` để kiểm tra tương thích. Bản GitHub Pages chỉ xem được các lựa chọn mẫu, không mở Xcode hay tải runtime thật.
+
 ### macOS chặn CoreSimulator truy cập SSD
 
 Nếu CoreSimulator báo `Operation not permitted`, `Device was allocated but was stuck in creation state`, hoặc không liệt kê được thiết bị dù dữ liệu có trên SSD, hãy kiểm tra CoreSimulator.log. macOS có thể chặn service nền truy cập ổ ngoài dù terminal đọc/ghi được. Chmod/chown không giải quyết chặn System Policy này.

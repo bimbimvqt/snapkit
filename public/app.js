@@ -15,6 +15,7 @@ async function api(url, data) {
     if (data !== undefined) throw new Error('Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.');
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
+    if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
     if (url === '/api/screenshots') return [];
     throw new Error('This action requires the local Snapkit server.');
   }
@@ -263,6 +264,35 @@ $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, asyn
 }));
 
 let creationCatalog = null, creationPlatform = 'ios', creationNameEdited = false, catalogLoading = false;
+let iosDownloadCatalog = null, iosDownloadModelId = null;
+const iosVersionCode = value => /^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(value || '') ? value.split('.').reduce((n, part, i) => n + Number(part) * [65536, 256, 1][i], 0) : null;
+function iosDownloadError() {
+  const model = selectedCreationModel(), code = iosVersionCode($('#ios-download-version').value.trim());
+  if (!model || model.unsupported) return 'This model cannot be enabled by downloading an iOS runtime in this Xcode.';
+  if (code === null) return 'Choose an Apple-listed version, or enter an iOS version manually.';
+  if (code < (model.minRuntimeVersion ?? 0) || code > (model.maxRuntimeVersion ?? 4294967295)) return 'This iOS version is outside the model’s supported range.';
+  return '';
+}
+function renderIOSDownloads() {
+  if (creationPlatform !== 'ios') return;
+  const model = selectedCreationModel();
+  const changed = iosDownloadModelId !== model?.id; iosDownloadModelId = model?.id;
+  const blocked = !model || model.unsupported;
+  $('#ios-model-help').textContent = blocked ? (model?.reason || 'Choose a device model first.') :
+    `${model.name}${model.minVersion ? ` needs iOS ${model.minVersion}${model.maxVersion ? `–${model.maxVersion}` : ' or later'}` : ' uses runtimes supported by Xcode'}. ${model.runtimeIds.length ? 'Install another version below if needed.' : 'No compatible runtime is installed. Load Apple versions below or open Xcode → Settings → Components.'}`;
+  $('#load-ios-versions').disabled = blocked;
+  $('#use-supported-ios').classList.toggle('hidden', !blocked);
+  const choices = (iosDownloadCatalog || []).filter(r => !blocked && iosVersionCode(r.version) >= (model.minRuntimeVersion ?? 0) && iosVersionCode(r.version) <= (model.maxRuntimeVersion ?? 4294967295));
+  const previous = $('#ios-download-choice').value;
+  $('#ios-download-choice').innerHTML = choices.length ? choices.map(r => `<option value="${escape(r.version)}">${escape(r.name)}${r.bytes ? ` · ${(r.bytes / 1073741824).toFixed(1)} GB` : ''}${r.authentication ? ' · Apple account may be required' : ''}</option>`).join('') : `<option value="">${blocked ? 'Unsupported model in this Xcode' : iosDownloadCatalog ? 'No Apple-listed version matches this model and host' : 'Load Apple iOS versions first'}</option>`;
+  $('#ios-download-choice').disabled = !choices.length;
+  if (!changed && choices.some(r => r.version === previous)) $('#ios-download-choice').value = previous;
+  if (changed || !$('#ios-download-version').value) $('#ios-download-version').value = choices[0]?.version || '';
+  $('#ios-download-version').disabled = blocked;
+  $('#ios-download-path').textContent = state.storage?.downloads || 'configured SSD downloads directory';
+  if (model && !model.runtimeIds.length) $('#runtime-downloads').open = true;
+  $('#ios-download-validation').textContent = iosDownloadError();
+}
 function renderProvisionJobs() {
   const openJobs = new Set($$('#provision-jobs details[open]').map(d => d.closest('[data-job]').dataset.job));
   const jobs = (state.jobs || []).slice(-3).reverse();
@@ -291,7 +321,7 @@ function updateCreateAvailability() {
   const supported = !!model && !!runtime && (creationPlatform === 'ios' ? model.runtimeIds.includes(runtime.id) && runtime.available : model.imageIds.includes(runtime.id) && runtime.installed);
   $('#create-device-submit').disabled = !supported || jobRunning || catalogLoading || (creationPlatform === 'ios' && !state.demo && (!state.storage?.iosReady || state.iosAccess?.blocked));
   $('#install-android-image').disabled = !runtime || runtime.installed || jobRunning;
-  $('#download-ios-runtime').disabled = jobRunning;
+  $('#download-ios-runtime').disabled = jobRunning || (creationPlatform === 'ios' && !!iosDownloadError());
   $('#import-ios-runtime').disabled = jobRunning || !$('#ios-runtime-file').value;
 }
 function updateCreationName() {
@@ -320,6 +350,7 @@ function renderCompatibility() {
   if (creationPlatform === 'ios' && !state.demo && state.iosAccess?.blocked) { note.textContent = state.iosAccess.reason; unavailable = true; }
   note.classList.toggle('unavailable', unavailable);
   $('#install-android-image').classList.toggle('hidden', creationPlatform !== 'android' || !runtime || runtime.installed);
+  renderIOSDownloads();
   updateCreateAvailability();
 }
 function renderCreationModels(keepModel = '', keepRuntime = '') {
@@ -384,8 +415,28 @@ $('#install-android-image').addEventListener('click', async e => {
   }); updateCreateAvailability();
 });
 $('#download-ios-runtime').addEventListener('click', async e => {
-  await busy(e.currentTarget, async () => { const result = await api('/api/provision/ios/download', { version: $('#ios-download-version').value.trim() }); trackProvisionJob(result.job); });
+  await busy(e.currentTarget, async () => {
+    const error = iosDownloadError(); if (error) throw new Error(error);
+    const result = await api('/api/provision/ios/download', { version: $('#ios-download-version').value.trim(), model: $('#create-model').value }); trackProvisionJob(result.job);
+    if (result.job.status === 'completed') await loadCreationCatalog();
+  });
   updateCreateAvailability();
+});
+$('#load-ios-versions').addEventListener('click', e => busy(e.currentTarget, async () => {
+  try {
+    const result = await api('/api/provision/ios/runtimes'); iosDownloadCatalog = result.runtimes;
+    renderIOSDownloads(); updateCreateAvailability();
+  } catch (error) { $('#ios-model-help').textContent = `${error.message}. You can open Xcode Components or enter a version manually.`; throw error; }
+}));
+$('#ios-download-choice').addEventListener('change', () => {
+  $('#ios-download-version').value = $('#ios-download-choice').value;
+  $('#ios-download-validation').textContent = iosDownloadError(); updateCreateAvailability();
+});
+$('#ios-download-version').addEventListener('input', () => { $('#ios-download-validation').textContent = iosDownloadError(); updateCreateAvailability(); });
+$('#open-xcode').addEventListener('click', e => busy(e.currentTarget, async () => { const result = await api('/api/provision/ios/xcode', {}); toast(result.message); }));
+$('#use-supported-ios').addEventListener('click', () => {
+  const model = creationCatalog.ios.models.find(m => !m.unsupported && m.runtimeIds.length);
+  if (model) { $('#create-model').value = model.id; renderCreationRuntimes(); }
 });
 $('#import-ios-runtime').addEventListener('click', async e => {
   await busy(e.currentTarget, async () => { const result = await api('/api/provision/ios/import', { file: $('#ios-runtime-file').value }); trackProvisionJob(result.job); });

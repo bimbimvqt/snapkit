@@ -12,6 +12,7 @@ import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus, screenshotFolder } from './storage.js';
 import { Provisioner } from './provision.js';
 import { demoCatalog, demoDevices } from './demo.js';
+import { run } from './cli.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const demo = process.argv.includes('--demo');
@@ -86,9 +87,17 @@ app.post('/api/provision/android/install', async (req, res) => {
   if (demo) { const image = demoCatalog.android.images.find(i => i.id === req.body.image); if (!image) throw new Error('Image not found'); image.installed = true; return res.json({ job: { id: 'demo-install', title: 'Demo image installed', status: 'completed', logs: [] } }); }
   res.status(202).json({ job: await provisioner.installAndroid(req.body.image) });
 });
-app.post('/api/provision/ios/download', (req, res) => {
+app.get('/api/provision/ios/runtimes', async (_req, res) => res.json(demo ? { runtimes: demoCatalog.ios.downloadable } : await provisioner.iosDownloads()));
+app.post('/api/provision/ios/xcode', async (_req, res) => {
+  if (demo) return res.json({ message: 'Demo: open Xcode → Settings → Components to install simulator runtimes.' });
+  if (process.platform !== 'darwin') throw new Error('Xcode requires macOS');
+  await run('open', ['-a', 'Xcode']);
+  res.json({ message: 'Xcode opened. Choose Xcode → Settings → Components (Platforms in older Xcode), then install the required iOS runtime. Refresh installed versions afterwards.' });
+});
+app.post('/api/provision/ios/download', async (req, res) => {
+  if (demo && demoCatalog.ios.models.find(m => m.id === req.body.model)?.unsupported) throw new Error('This legacy model cannot be supported by downloading a runtime in this Xcode.');
   if (demo) return res.json({ job: { id: 'demo-download', title: 'Demo runtime download simulated', status: 'completed', logs: [] } });
-  res.status(202).json({ job: provisioner.downloadIOS(req.body.version) });
+  res.status(202).json({ job: await provisioner.downloadIOSForModel(req.body.version, req.body.model) });
 });
 app.post('/api/provision/ios/import', async (req, res) => {
   if (demo) return res.json({ job: { id: 'demo-import', title: 'Demo runtime import simulated', status: 'completed', logs: [] } });

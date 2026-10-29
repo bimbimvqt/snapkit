@@ -85,3 +85,25 @@ test('Android image must be installed before creating a device and modal fits mo
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.locator('#create-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
+test('missing iOS runtime opens recovery tools, filters Apple versions and blocks legacy downloads', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add device', exact: true }).click();
+  await page.locator('#create-model').selectOption('demo:iphone8');
+  await expect(page.locator('#runtime-downloads')).toHaveAttribute('open', '');
+  await expect(page.locator('#ios-model-help')).toContainText('11.0.0–16.9.0');
+  await page.getByRole('button', { name: 'Load Apple iOS versions' }).click();
+  await expect(page.locator('#ios-download-choice option')).toHaveCount(1);
+  await expect(page.locator('#ios-download-version')).toHaveValue('16.4');
+  await expect(page.locator('#download-ios-runtime')).toBeEnabled();
+  await page.locator('#ios-download-version').fill('18.5');
+  await expect(page.locator('#download-ios-runtime')).toBeDisabled();
+  await page.getByRole('button', { name: 'Open Xcode', exact: true }).click();
+  await expect(page.locator('.toast').last()).toContainText('Components');
+  await page.locator('#create-model').selectOption('legacy:iphone-5');
+  await expect(page.locator('#download-ios-runtime')).toBeDisabled();
+  await expect(page.locator('#load-ios-versions')).toBeDisabled();
+  await page.getByRole('button', { name: 'Choose a supported model' }).click();
+  await expect(page.locator('#create-model')).toHaveValue('demo:iphone16');
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.locator('#create-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});

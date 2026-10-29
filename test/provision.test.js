@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { iosCompatible, parseAndroidImages, parseAndroidProfiles, Provisioner } from '../server/provision.js';
+import { iosCompatible, parseIOSDownloads, parseAndroidImages, parseAndroidProfiles, Provisioner } from '../server/provision.js';
 import { chooseFolder } from '../server/folders.js';
 import { screenshotFolder, storage, iosAccessStatus, selectIOSDeviceRoot } from '../server/storage.js';
 
@@ -56,6 +56,31 @@ id: 1 or "tv"
  Tag: android-tv
 ---------`);
   assert.deepEqual(profiles, [{ id: 'pixel_9', name: 'Pixel 9', tag: null }]);
+});
+test('Apple iOS runtime candidates exclude beta, wrong CPU, and incompatible host/Xcode versions', () => {
+  const base = { platform: 'com.apple.platform.iphoneos', identifier: 'ios16', name: 'iOS 16.4 Simulator Runtime', simulatorVersion: { version: '16.4' } };
+  const items = [base,
+    { ...base, name: 'iOS 16.4 Beta' },
+    { ...base, architectures: ['x86_64'] },
+    { ...base, hostRequirements: { maxXcodeVersion: '15.9' } },
+    { ...base, hostRequirements: { minHostVersion: '27.0' } },
+    { ...base, platform: 'com.apple.platform.appletvos' }
+  ];
+  const parsed = parseIOSDownloads({ downloadables: items }, { arch: 'arm64', xcodeVersion: '26.3', hostVersion: '26.3.1' });
+  assert.equal(parsed.length, 1); assert.equal(parsed[0].version, '16.4');
+});
+test('model downloads reject legacy devices and out-of-range versions before starting a download', async () => {
+  const manager = new Provisioner({ platform: 'darwin' });
+  manager.catalog = async () => ({ ios: { models: [
+    { id: 'old', unsupported: true, reason: '32-bit tooling unsupported' },
+    { id: 'phone8', name: 'iPhone 8', minRuntimeVersion: 11 * 65536, maxRuntimeVersion: 16 * 65536 + 9 * 256 }
+  ] } });
+  const calls = []; manager.downloadIOS = version => { calls.push(version); return { version }; };
+  await assert.rejects(manager.downloadIOSForModel('10.3', 'old'), /32-bit/);
+  await assert.rejects(manager.downloadIOSForModel('18.5', 'phone8'), /outside/);
+  await assert.rejects(manager.downloadIOSForModel('16.4; bad', 'phone8'), /valid iOS/);
+  assert.deepEqual(calls, []);
+  await manager.downloadIOSForModel('16.4', 'phone8'); assert.deepEqual(calls, ['16.4']);
 });
 function completed(manager, job) {
   if (job.status !== 'running') return Promise.resolve(job);

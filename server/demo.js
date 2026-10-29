@@ -11,11 +11,13 @@ export const demoCatalog = {
   platform: 'darwin', arch: 'arm64', warnings: [], downloads: [],
   ios: {
     models: [
-      { id: 'demo:iphone16', name: 'iPhone 16 Pro', runtimeIds: ['demo:ios18'], reason: 'No compatible runtime installed' },
-      { id: 'demo:iphone17', name: 'iPhone 17 Pro', runtimeIds: ['demo:ios26'], reason: 'No compatible runtime installed' },
+      { id: 'demo:iphone16', name: 'iPhone 16 Pro', minRuntimeVersion: 1179648, maxRuntimeVersion: 4294967295, minVersion: '18.0.0', runtimeIds: ['demo:ios18'], reason: 'No compatible runtime installed' },
+      { id: 'demo:iphone17', name: 'iPhone 17 Pro', minRuntimeVersion: 1703936, maxRuntimeVersion: 4294967295, minVersion: '26.0.0', runtimeIds: ['demo:ios26'], reason: 'No compatible runtime installed' },
+      { id: 'demo:iphone8', name: 'iPhone 8', runtimeIds: [], minRuntimeVersion: 720896, maxRuntimeVersion: 1050880, minVersion: '11.0.0', maxVersion: '16.9.0', reason: 'No compatible runtime installed. Load Apple iOS versions or open Xcode Components.' },
       { id: 'legacy:iphone-5', name: 'iPhone 5 (legacy, 32-bit)', runtimeIds: [], unsupported: true, reason: 'iPhone 5 requires legacy iOS 6–10 / 32-bit tooling. This Xcode and current Flutter do not support it.' }
     ],
-    runtimes: [{ id: 'demo:ios18', name: 'iOS 18.2', version: '18.2', available: true }, { id: 'demo:ios26', name: 'iOS 26.1', version: '26.1', available: true }]
+    runtimes: [{ id: 'demo:ios18', name: 'iOS 18.2', version: '18.2', available: true }, { id: 'demo:ios26', name: 'iOS 26.1', version: '26.1', available: true }],
+    downloadable: [{ id: 'demo:download16', name: 'iOS 16.4 Simulator Runtime', version: '16.4', bytes: 6182486138 }, { id: 'demo:download18', name: 'iOS 18.5 Simulator Runtime', version: '18.5', bytes: 8858598681 }]
   },
   android: {
     models: [{ id: 'pixel_9', name: 'Pixel 9', imageIds: ['system-images;android-35;google_apis;arm64-v8a', 'system-images;android-34;google_apis;arm64-v8a'] }],

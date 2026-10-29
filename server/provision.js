@@ -14,6 +14,22 @@ export function iosCompatible(model, runtime, arch = process.arch) {
   if (runtime.supportedDeviceTypes?.length && !runtime.supportedDeviceTypes.some(d => d.identifier === model.identifier)) return false;
   return true;
 }
+export function parseIOSDownloads(index, { arch, xcodeVersion, hostVersion }) {
+  const cpu = arch === 'x64' ? 'x86_64' : arch;
+  return (index.downloadables || []).filter(item => {
+    if (item.platform !== 'com.apple.platform.iphoneos' || !/^\d+\.\d+(\.\d+)?$/.test(item.simulatorVersion?.version || '')) return false;
+    if (/beta|release candidate|\bRC\b|seed/i.test(item.name || '')) return false;
+    if (item.architectures?.length && !item.architectures.includes(cpu)) return false;
+    const requirements = item.hostRequirements || {};
+    for (const [value, min, max] of [[xcodeVersion, requirements.minXcodeVersion, requirements.maxXcodeVersion], [hostVersion, requirements.minHostVersion, requirements.maxHostVersion]]) {
+      if (min && versionCode(value) < versionCode(min)) return false;
+      if (max && versionCode(value) > versionCode(max)) return false;
+    }
+    return true;
+  }).map(item => ({ id: item.identifier, name: item.name, version: item.simulatorVersion.version, build: item.simulatorVersion.buildUpdate,
+    bytes: item.fileSize || null, authentication: item.authentication === 'virtual' }))
+    .sort((a, b) => versionCode(b.version) - versionCode(a.version));
+}
 export function parseAndroidProfiles(raw) {
   return raw.split(/(?=^id:\s*\d+)/m).flatMap(block => {
     const id = /^id:\s*\d+\s+or\s+"([^"]+)"/m.exec(block)?.[1];
@@ -63,6 +79,8 @@ export class Provisioner extends EventEmitter {
     for (const image of images) merged.set(image.id, image);
     const iosRuntimes = runtimes.filter(r => r.platform === 'iOS' || r.identifier?.includes('SimRuntime.iOS-'));
     const models = types.filter(d => ['iPhone', 'iPad'].includes(d.productFamily)).map(d => ({ id: d.identifier, name: d.name,
+      minRuntimeVersion: d.minRuntimeVersion ?? 0, maxRuntimeVersion: d.maxRuntimeVersion ?? 4294967295,
+      minVersion: d.minRuntimeVersionString, maxVersion: d.maxRuntimeVersion < 4294967295 ? d.maxRuntimeVersionString : null,
       runtimeIds: iosRuntimes.filter(r => iosCompatible(d, r, this.arch)).map(r => r.identifier),
       reason: 'No installed runtime supports this model and host architecture.' }));
     if (this.platform === 'darwin' && !models.some(d => d.name === 'iPhone 5')) models.push({ id: 'legacy:iphone-5', name: 'iPhone 5 (legacy, 32-bit)', runtimeIds: [], unsupported: true,
@@ -70,6 +88,33 @@ export class Provisioner extends EventEmitter {
     const downloads = (await readdir(this.paths.downloads, { recursive: true }).catch(() => [])).filter(f => f.toLowerCase().endsWith('.dmg'));
     return { ios: { models, runtimes: iosRuntimes.map(r => ({ id: r.identifier, name: r.name, version: r.version, available: r.isAvailable, error: r.availabilityError })) },
       android: { models: profiles.map(p => ({ ...p, imageIds: [...merged.values()].filter(i => androidCompatible(p, i)).map(i => i.id) })), images: [...merged.values()] }, downloads, warnings, platform: this.platform, arch: this.arch };
+  }
+  async iosDownloads() {
+    if (this.platform !== 'darwin') throw new Error('Xcode runtime downloads require macOS');
+    if (this.iosDownloadCache && Date.now() - this.iosDownloadCache.time < 600000) return this.iosDownloadCache.value;
+    const [response, xcode, host] = await Promise.all([
+      fetch('https://devimages-cdn.apple.com/downloads/xcode/simulators/index2.dvtdownloadableindex', { signal: AbortSignal.timeout(25000) }),
+      this.execute('xcodebuild', ['-version']), this.execute('sw_vers', ['-productVersion'])
+    ]);
+    if (!response.ok) throw new Error(`Apple runtime catalog returned HTTP ${response.status}`);
+    const xml = await response.text();
+    if (Buffer.byteLength(xml) > 8 * 1024 * 1024) throw new Error('Apple runtime catalog exceeds size limit');
+    const index = JSON.parse(await this.execute('plutil', ['-convert', 'json', '-o', '-', '--', '-'], { input: xml }));
+    const xcodeVersion = /Xcode\s+(\d+(?:\.\d+)*)/.exec(xcode)?.[1];
+    if (!xcodeVersion) throw new Error('Could not determine the selected Xcode version');
+    const value = { runtimes: parseIOSDownloads(index, { arch: this.arch, xcodeVersion, hostVersion: host.trim() }),
+      xcodeVersion, hostVersion: host.trim(), note: 'Apple catalog candidates. Xcode validates availability, licensing and compatibility during download/import.' };
+    this.iosDownloadCache = { time: Date.now(), value }; return value;
+  }
+  async downloadIOSForModel(version, modelId) {
+    if (modelId) {
+      const catalog = await this.catalog();
+      const model = catalog.ios.models.find(m => m.id === modelId);
+      if (!model || model.unsupported) throw new Error(model?.reason || 'This model is not supported by the selected Xcode');
+      if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version || '')) throw new Error('Enter a valid iOS version');
+      if (versionCode(version) < model.minRuntimeVersion || versionCode(version) > model.maxRuntimeVersion) throw new Error(`iOS ${version} is outside the runtime range for ${model.name}`);
+    }
+    return this.downloadIOS(version);
   }
   async saveJobs() {
     try { await writeFile(path.join(this.paths.state, 'provision-jobs.json'), JSON.stringify(this.jobs, null, 2)); } catch { /* Event stream remains usable if persisting fails. */ }

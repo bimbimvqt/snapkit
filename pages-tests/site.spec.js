@@ -13,6 +13,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await expect(page.locator('.toast')).toContainText('Preview only');
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
   await expect(page.locator('#create-model')).toContainText('iPhone 5');
+  await expect(page.locator('#create-storage-label')).toHaveText('iOS DATA ON INTERNAL DISK');
   expect(errors).toEqual([]); expect(apiRequests).toEqual([]);
 });
 test('landing and preview fit a phone screen', async ({ page }) => {

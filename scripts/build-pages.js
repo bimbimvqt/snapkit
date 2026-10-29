@@ -12,7 +12,7 @@ await cp(path.join(root, 'public'), path.join(out, 'preview'), { recursive: true
 await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.js'), path.join(out, 'preview/vendor/lucide.js'));
 const snapshot = {
   state: { demo: true, devices: demoDevices, sessions: [], logs: [], warnings: [], jobs: [], settings: { workspace: '/Projects/flutter_app', targetId: 'demo-ios-1' },
-    storage: { iosDevices: '/Library/Developer/CoreSimulator/Devices', avd: '/SSD/SnapkitData/Android/avd', iosReady: true }, screenshotDirectory: '/SSD/SnapkitData/screenshots', host: 'Preview', platform: 'darwin', scannedAt: '2026-01-01T00:00:00.000Z' },
+    storage: { iosDevices: '/Users/developer/Library/Developer/CoreSimulator/Devices', iosOnSSD: false, avd: '/SSD/SnapkitData/Android/avd', downloads: '/SSD/SnapkitData/downloads/iOS', iosReady: true }, screenshotDirectory: '/SSD/SnapkitData/screenshots', host: 'Preview', platform: 'darwin', scannedAt: '2026-01-01T00:00:00.000Z' },
   catalog: demoCatalog
 };
 await writeFile(path.join(out, 'preview/preview-data.js'), `window.SNAPKIT_PREVIEW = ${JSON.stringify(snapshot)};\n`);
