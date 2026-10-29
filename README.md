@@ -4,9 +4,9 @@ Dashboard chạy local để quản lý iOS Simulator, Android Emulator và thi�
 
 ## Chạy nhanh
 
-Website: **https://bimbimvqt.github.io/snapkit/** · [Xem trước Dashboard](https://bimbimvqt.github.io/snapkit/preview/)
+Website: **https://bimbimvqt.github.io/snapkit/** · [Mở Dashboard](https://bimbimvqt.github.io/snapkit/preview/)
 
-[Dashboard điều khiển qua website](https://bimbimvqt.github.io/snapkit/control/) kết nối trực tiếp với backend Snapkit trên cùng máy sau khi ghép đôi. [Bản preview](https://bimbimvqt.github.io/snapkit/preview/) vẫn chỉ dùng dữ liệu mẫu.
+[Dashboard điều khiển qua website](https://bimbimvqt.github.io/snapkit/control/) kết nối trực tiếp với backend Snapkit trên cùng máy sau khi ghép đôi. Link cũ `/preview/` cũng là Dashboard điều khiển thật, dùng chung phiên ghép đôi với `/control/`. Dữ liệu mẫu chỉ nằm ở `/demo/`.
 
 ### Điều khiển từ domain GitHub
 
@@ -262,7 +262,7 @@ Danh mục là các ứng viên để tải, không bảo đảm mọi runtime �
 
 DMG tải bằng Snapkit nằm trên SSD trong `SnapkitData/downloads/iOS`. Runtime sau import vẫn ở nơi Apple quản lý; dữ liệu simulator đang chạy dùng đường dẫn hiện trong Add device. Trên máy này dữ liệu iOS dùng ổ trong sau khi phục hồi lỗi System Policy. Không có cam kết mọi thành phần iOS đều chạy hoàn toàn từ SSD.
 
-API mới: `GET /api/provision/ios/runtimes` và `POST /api/provision/ios/xcode`; `POST /api/provision/ios/download` nhận thêm `model` để kiểm tra tương thích. Bản `/preview/` chỉ xem lựa chọn mẫu. Bản `/control/` sau khi ghép đôi có thể mở Xcode và tải/import runtime bằng backend local.
+API mới: `GET /api/provision/ios/runtimes` và `POST /api/provision/ios/xcode`; `POST /api/provision/ios/download` nhận thêm `model` để kiểm tra tương thích. Bản `/demo/` chỉ xem lựa chọn mẫu. Bản `/control/` sau khi ghép đôi có thể mở Xcode và tải/import runtime bằng backend local.
 
 ### macOS chặn CoreSimulator truy cập SSD
 

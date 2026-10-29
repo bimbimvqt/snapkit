@@ -6,7 +6,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Mở Dashboard local' })).toHaveAttribute('href', 'http://127.0.0.1:4310/');
-  await page.getByRole('link', { name: 'Khám phá Dashboard' }).click();
+  await page.goto('demo/');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
   await expect(page.locator('.device-card')).toHaveCount(6);
   await page.locator('[data-device="demo-ios-1"] [data-action="run"]').click();
@@ -18,7 +18,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
 });
 test('landing and preview fit a phone screen', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  for (const url of ['./', 'preview/']) {
+  for (const url of ['./', 'demo/', 'preview/']) {
     await page.goto(url);
     await expect(page.locator('h1')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -29,10 +29,10 @@ test('hosted controller pairs across origins, runs commands and stops access aft
   const local = await fetch(base + '/api/state').then(r => r.json());
   const localPost = route => fetch(base + route, { method: 'POST', headers: { 'X-Snapkit-Token': local.token, 'Content-Type': 'application/json' }, body: '{}' });
   const pair = await localPost('/api/pairing/code').then(r => r.json());
-  await page.goto('control/');
+  await page.goto('preview/');
   await expect(page.locator('#devices-grid')).toContainText('Connect your local device lab');
   await expect(page.locator('.device-card')).toHaveCount(0);
-  await page.locator('#connection-button').click();
+  await expect(page.locator('#pairing-dialog')).toBeVisible();
   await page.locator('#agent-url').fill(base);
   await page.locator('#agent-code').fill(pair.code);
   await page.locator('#pairing-submit').click();

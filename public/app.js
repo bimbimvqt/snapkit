@@ -338,6 +338,7 @@ async function initController() {
       await loadState(); startRemotePolling(); renderConnection();
     }
   } catch { forgetConnection(); }
+  if (!connection) await showPairing();
 }
 async function showPairing() {
   $('#pairing-error').textContent = '';
