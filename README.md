@@ -29,6 +29,17 @@ Cài extensions **Dart** và **Flutter** trong Antigravity. Cấu hình dùng ch
 
 Lựa chọn có hiệu lực ở lần Debug kế tiếp, không tự thêm/bớt thiết bị trong phiên IDE đang chạy. Thiết bị bật mới cần được tick để tham gia. Không tick thiết bị đã tắt/ngắt kết nối. iPhone thật cần trust, Developer Mode và signing đúng trong Xcode. Chạy Android + iOS hoặc hai Simulator tránh yêu cầu signing của iPhone thật.
 
+### Đồng bộ nút Restart của IDE
+
+Cài extension local **Snapkit Debug Sync** để nút Restart màu xanh trên thanh Debug gửi Hot Restart tới tất cả phiên Flutter đang chạy. Không giới hạn số thiết bị; chỉ đồng bộ phiên Flutter đã khởi động xong, không tác động phiên Dart thường. Hot Restart khởi tạo lại trạng thái ứng dụng; Hot Reload vẫn dùng lệnh Flutter hoặc lưu file theo cấu hình IDE.
+
+```sh
+python3 scripts/package-ide-extension.py
+antigravity-ide --install-extension ./snapkit-debug-sync.vsix
+```
+
+Hoặc dùng **Extensions: Install from VSIX…** trong IDE. Tải lại cửa sổ bằng **Developer: Reload Window**, rồi chạy lại `Snapkit: Selected Devices`. Xem kết quả ở **Output → Snapkit Debug Sync**. Có thể tắt bằng setting `snapkit.syncFlutterRestart: false` hoặc gỡ extension. Trên Windows dùng Python 3 (`py` nếu không có `python3`) và CLI của IDE tương ứng.
+
 ## Dùng trên domain GitHub
 
 GitHub Pages chỉ phục vụ giao diện; agent local phải tiếp tục chạy trên cùng máy:

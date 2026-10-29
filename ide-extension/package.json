@@ -1,0 +1,23 @@
+{
+  "name": "snapkit-debug-sync",
+  "displayName": "Snapkit Debug Sync",
+  "description": "Restart all running Flutter debug sessions with the IDE Restart button.",
+  "version": "1.0.0",
+  "publisher": "snapkit-local",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Debuggers"],
+  "activationEvents": ["onDebug", "onStartupFinished"],
+  "main": "./extension.cjs",
+  "contributes": {
+    "configuration": {
+      "title": "Snapkit",
+      "properties": {
+        "snapkit.syncFlutterRestart": {
+          "type": "boolean",
+          "default": true,
+          "description": "The IDE Restart button also hot restarts other running Flutter debug sessions."
+        }
+      }
+    }
+  }
+}

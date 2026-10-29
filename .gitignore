@@ -6,3 +6,4 @@ playwright-report/
 test-results/
 dist/
 .DS_Store
+*.vsix
