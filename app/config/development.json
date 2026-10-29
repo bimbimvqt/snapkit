@@ -1,6 +1,0 @@
-{
-  "APP_ENV": "development",
-  "API_BASE_URL": "http://localhost:3001",
-  "GOOGLE_SERVER_CLIENT_ID": "657923282345-dbrjtqdr5aicnhlscjlfmlt31d004oro.apps.googleusercontent.com",
-  "GOOGLE_IOS_CLIENT_ID": "657923282345-8cf9gakhsove0gan5nnor5bovoeae9fa.apps.googleusercontent.com"
-}

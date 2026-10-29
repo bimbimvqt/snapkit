@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101214">
+  <meta name="description" content="Snapkit — Trung tâm điều khiển thiết bị cho Flutter. Quản lý Simulator, Emulator và workflow debug ngay trên máy của bạn.">
+  <title>Snapkit · Your local device lab</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <nav class="nav wrap" aria-label="Điều hướng chính"><a class="brand" href="./"><span class="brand-icon">⌘</span>snapkit<span class="tag">FOR FLUTTER</span></a><div class="nav-links"><a href="#setup">Cài đặt</a><a href="https://github.com/bimbimvqt/snapkit">GitHub ↗</a></div></nav>
+  <main>
+    <section class="hero wrap">
+      <div class="eyebrow"><span class="dot"></span> YOUR LOCAL DEVICE LAB</div>
+      <h1>Mọi thiết bị.<br><span>Một nơi điều khiển.</span></h1>
+      <p class="intro">Từ khởi động Simulator đến Hot Reload All.<br>Đưa workflow Flutter về một Dashboard ngay trên máy bạn.</p>
+      <div class="actions"><a class="button primary" href="#setup">Cài Snapkit <span aria-hidden="true">↗</span></a><a class="button" href="preview/">Khám phá Dashboard <span aria-hidden="true">→</span></a></div>
+      <p class="caption">macOS & Windows · Node.js 20+ · Không cần tài khoản</p>
+    </section>
+    <section class="showcase wrap" aria-label="Bản xem trước Dashboard">
+      <div class="window-top"><div class="window-dots" aria-hidden="true"><b></b><b></b><b></b></div><span>snapkit / device control center</span><span class="preview-label">SAMPLE DATA</span></div>
+      <div class="preview-heading"><div><p class="eyebrow">WORKSPACE / FLUTTER APP</p><h2>Device manager<span>.</span></h2></div><a href="preview/" class="preview-link">Mở bản xem trước ↗</a></div>
+      <div class="mini-stats"><div><span>Available devices</span><strong>06</strong></div><div><span>Online now</span><strong class="green">03</strong></div><div><span>One workflow</span><strong>Flutter</strong></div></div>
+      <div class="device-grid">
+        <article class="device"><div class="device-top"><span>iOS SIMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>iPhone 16 Pro</h3><p>iOS 18.2 · Simulator</p><div class="device-foot"><span>Run app</span><span class="green">◎ Active target</span></div></article>
+        <article class="device android"><div class="device-top"><span>ANDROID EMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>Pixel 9 Pro</h3><p>Android 15 · API 35</p><div class="device-foot"><span>Run app</span><span>◎ Set target</span></div></article>
+        <article class="device tablet"><div class="device-top"><span>iOS SIMULATOR</span><span class="offline">Offline</span></div><div class="phone-scene"><div class="phone"><span class="power">⏻</span></div></div><h3>iPad Air 13-inch</h3><p>iPadOS 18.2 · Simulator</p><div class="device-foot"><span>Start device</span><span>◎ Set target</span></div></article>
+      </div>
+      <div class="preview-footer"><span><span class="dot"></span> Bản minh họa · không kết nối thiết bị thật</span><a href="preview/">Thử lọc thiết bị & chọn phiên bản OS →</a></div>
+    </section>
+    <section class="features wrap" aria-label="Tính năng"><article><span class="number">01 / DEVICE LAB</span><h2>Chọn máy.<br>Đúng phiên bản.</h2><p>Quét thiết bị thật, Simulator và Emulator. Thêm model với phiên bản OS tương thích theo toolchain đã cài.</p></article><article><span class="number">02 / FLUTTER FLOW</span><h2>Ít chuyển cửa sổ.<br>Nhiều thời gian build.</h2><p>Chọn folder dự án, đặt target cho VS Code, chạy app và Hot Reload trên nhiều phiên Flutter.</p></article><article><span class="number">03 / EVERY PIXEL</span><h2>Nhìn cùng một UI.<br>Trên nhiều màn hình.</h2><p>Chụp và so sánh ảnh, đổi dark mode, locale và cấu hình hiển thị theo khả năng của từng nền tảng.</p></article></section>
+    <section id="setup" class="setup wrap"><div><div class="eyebrow">GET STARTED</div><h2>Device lab của bạn,<br>chạy trên máy bạn.</h2><p>Website này là trang hướng dẫn và bản xem trước. Để điều khiển thiết bị thật, khởi động backend local với Flutter SDK và Android SDK hoặc Xcode.</p><a class="text-link" href="https://github.com/bimbimvqt/snapkit#readme">Đọc hướng dẫn đầy đủ ↗</a></div><div class="terminal"><div class="terminal-top"><span>TERMINAL · macOS / Windows</span><button id="copy-install" type="button">Sao chép</button></div><pre><code id="install-command">git clone https://github.com/bimbimvqt/snapkit.git
+cd snapkit
+npm ci
+npm start</code></pre><div class="terminal-bottom"><span class="dot"></span> Server local: 127.0.0.1:4310</div><a class="button primary open-local" href="http://127.0.0.1:4310/">Mở Dashboard local <span aria-hidden="true">↗</span></a><p class="terminal-hint">Chạy các lệnh trên trước khi mở Dashboard.</p><p id="copy-status" role="status"></p></div></section>
+    <section class="notes wrap"><h2>Chạy local, hiểu rõ giới hạn.</h2><div><p><strong>iOS cần macOS + Xcode.</strong> Model và runtime phải tương thích; iPhone 5 không chạy trên Xcode/Flutter hiện tại.</p><p><strong>SSD theo khả năng hệ thống.</strong> Android và dữ liệu Snapkit có thể ở SSD. Nếu macOS chặn CoreSimulator trên ổ ngoài, giữ dữ liệu iOS ở vị trí mặc định trên ổ trong.</p><p><strong>GitHub Pages phục vụ website tĩnh.</strong> Website không thực thi lệnh shell và không truy cập file hay thiết bị trên máy bạn.</p></div></section>
+  </main>
+  <footer class="wrap"><a class="brand" href="./">snapkit<span class="tag">DEVICE CONTROL CENTER</span></a><a href="https://github.com/bimbimvqt/snapkit">Source on GitHub ↗</a></footer>
+</body>
+</html>

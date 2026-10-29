@@ -1,9 +1,0 @@
-[
-  {
-    "AllowedOrigins": ["https://snapkit.45-119-214-94.sslip.io"],
-    "AllowedMethods": ["GET", "HEAD", "PUT"],
-    "AllowedHeaders": ["Content-Type", "Content-Length", "Range"],
-    "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]

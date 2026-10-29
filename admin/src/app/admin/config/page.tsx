@@ -1,3 +1,0 @@
-import { backendFetch, type AdminConfig } from "@/lib/backend";
-import { ConfigPanel } from "./config-panel";
-export default async function ConfigPage() { const data = await backendFetch<AdminConfig>("/api/admin/config"); return <div className="grid gap-7"><header><p className="label">Remote control</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Cấu hình ứng dụng</h1><p className="mt-2 text-sm text-[var(--ink-muted)]">Bật/tắt tính năng mà không cần phát hành lại app. Mọi thay đổi đều được audit.</p></header><ConfigPanel initialFlags={data.flags} mobileConfig={data.mobileConfig} /></div>; }

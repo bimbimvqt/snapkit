@@ -1,5 +1,0 @@
-#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
-#include? "GoogleSignIn.xcconfig"
-ADMOB_IOS_APP_ID=ca-app-pub-5682981484728700~7415223020
-#include? "AdMob.xcconfig"
-#include "Generated.xcconfig"
