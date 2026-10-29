@@ -92,7 +92,7 @@ function render() {
   $('#devices-grid').innerHTML = shown.length ? shown.map(deviceCard).join('') : empty(refreshing || state.scanning ? 'Discovering your devices…' : devices.length ? 'No matching devices' : 'Your device lab starts here', refreshing || state.scanning ? 'Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.' : devices.length ? 'Try a different search or turn off the online filter.' : 'Connect a device, create an Android AVD, or install an iOS Simulator in Xcode. Then refresh to bring it into your workspace.', 'monitor-smartphone', !devices.length && !refreshing && !state.scanning ? '<button class="button" id="empty-refresh">Refresh devices</button><button class="button" id="empty-help">Setup guide</button>' : '');
   $('#scan-time').textContent = state.scannedAt ? `Last synced ${new Date(state.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Auto-refresh every 30s` : 'Waiting for first scan';
   $('#reload-all').disabled = !running.some(s => s.status === 'running');
-  renderSessions(); renderWarnings(); renderProvisionJobs();
+  renderSessions(); renderDevTools(); renderWarnings(); renderProvisionJobs();
   $('#screenshot-location').textContent = state.screenshotDirectory || 'SnapkitData/screenshots'; icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
 }
@@ -101,8 +101,46 @@ function renderWarnings() {
   $('#warnings').innerHTML = state.warnings.length ? `<details><summary>${state.warnings.length} toolchain ${state.warnings.length === 1 ? 'notice' : 'notices'} — view details</summary>${state.warnings.map(w => `<p>${escape(w)}</p>`).join('')}</details>` : '';
 }
 function renderSessions() {
-  $('#session-list').innerHTML = state.sessions.length ? state.sessions.map(s => `<article class="session-row" data-session="${escape(s.deviceId)}">${icon('terminal')}<div class="session-info"><strong>${escape(s.name)}</strong><small>${escape(s.deviceId)}</small></div><span class="status-badge ${s.status === 'running' ? 'online' : ''}"><span class="dot ${s.status === 'running' ? 'green' : ''}"></span>${escape(s.status)}</span><div class="session-actions"><button class="button" data-session-action="reload" ${s.status !== 'running' ? 'disabled' : ''}>${icon('zap')}Hot reload</button><button class="button" data-session-action="restart" ${s.status !== 'running' ? 'disabled' : ''}>${icon('rotate-cw')}Restart</button><button class="button danger" data-session-action="stop" ${!['starting', 'running'].includes(s.status) ? 'disabled' : ''}>${icon('square')}Stop</button></div></article>`).join('') : empty('Room for your next build', 'Start an app from a device card. Live sessions, hot reload, and restarts will appear here.', 'terminal');
+  $('#session-list').innerHTML = state.sessions.length ? state.sessions.map(s => `<article class="session-row" data-session="${escape(s.deviceId)}">${icon('terminal')}<div class="session-info"><strong>${escape(s.name)}</strong><small>${escape(s.deviceId)}</small></div><span class="status-badge ${s.status === 'running' ? 'online' : ''}"><span class="dot ${s.status === 'running' ? 'green' : ''}"></span>${escape(s.status)}</span><div class="session-actions"><button class="button" data-devtools="inspector" ${!s.devtoolsReady ? 'disabled title="Wait for a debug session and VM Service to be ready"' : ''}>${icon('bug')}DevTools</button><button class="button" data-session-action="reload" ${s.status !== 'running' ? 'disabled' : ''}>${icon('zap')}Hot reload</button><button class="button" data-session-action="restart" ${s.status !== 'running' ? 'disabled' : ''}>${icon('rotate-cw')}Restart</button><button class="button danger" data-session-action="stop" ${!['starting', 'running'].includes(s.status) ? 'disabled' : ''}>${icon('square')}Stop</button></div></article>`).join('') : empty('Room for your next build', 'Start an app from a device card. Live sessions, hot reload, and restarts will appear here.', 'terminal');
 }
+const devtoolsScreens = [
+  ['inspector', 'scan-eye', 'Flutter Inspector', 'Explore widgets and inspect layout.'],
+  ['performance', 'gauge', 'Performance', 'Find slow frames and expensive work.'],
+  ['memory', 'memory-stick', 'Memory', 'Track allocations and memory use.'],
+  ['network', 'network', 'Network', 'Inspect HTTP requests and responses.'],
+  ['debugger', 'bug', 'Debugger', 'Set breakpoints and inspect variables.'],
+  ['logging', 'scroll-text', 'Logging', 'Read application and framework events.']
+];
+function renderDevTools() {
+  const sessions = state.sessions.filter(s => ['starting', 'running'].includes(s.status));
+  $('#devtools-list').innerHTML = sessions.length ? sessions.map(s => `<article class="devtools-card" data-session="${escape(s.deviceId)}"><div class="devtools-card-heading"><div><h3>${escape(s.name)}</h3><p>${escape(s.flavor || 'Default flavor')} · ${escape(s.target || 'lib/main.dart')}</p></div><span class="status-badge ${s.devtoolsReady ? 'online' : ''}">${s.devtoolsReady ? 'Ready' : state.demo ? 'Demo · unavailable' : 'Waiting for VM Service'}</span></div><div class="devtools-grid">${devtoolsScreens.map(([screen, glyph, title, detail]) => `<button class="devtools-tool" data-devtools="${screen}" ${s.devtoolsReady ? '' : 'disabled'}>${icon(glyph)}<strong>${title}</strong><span>${detail}</span>${icon('arrow-up-right')}</button>`).join('')}</div><p class="devtools-note">${state.demo ? 'Connect a real local agent and run an app to use DevTools.' : s.devtoolsReady ? 'Opens the local Dart DevTools server connected to this session.' : 'Tools become available after Flutter starts its debug connection. Use Run app to create a Dashboard-managed session.'}</p></article>`).join('') : empty('A closer look at your Flutter app', 'Run an app from Device manager. DevTools will appear for each debug session when its VM Service is ready.', 'bug');
+}
+async function openDevTools(button) {
+  if (button.disabled) return;
+  // Open synchronously during the click so browsers do not block the async result.
+  const tab = window.open('about:blank', '_blank');
+  if (tab) {
+    tab.opener = null;
+    tab.document.title = 'Starting Flutter DevTools';
+    const referrer = tab.document.createElement('meta'); referrer.name = 'referrer'; referrer.content = 'no-referrer'; tab.document.head.append(referrer);
+    tab.document.body.textContent = 'Starting Flutter DevTools…';
+  }
+  await busy(button, async () => {
+    try {
+      const id = button.closest('[data-session]').dataset.session;
+      const result = await api(`/api/sessions/${encodeURIComponent(id)}/devtools`, { screen: button.dataset.devtools });
+      const url = new URL(result.url);
+      if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.username || url.password || !url.port) throw new Error('DevTools returned an invalid local address');
+      if (tab && !tab.closed) tab.location.replace(url.href);
+      else { $('#devtools-open').href = url.href; $('#devtools-dialog').showModal(); }
+    } catch (error) { if (tab && !tab.closed) tab.close(); throw error; }
+  });
+}
+for (const container of ['#session-list', '#devtools-list']) $(container).addEventListener('click', e => {
+  const button = e.target.closest('[data-devtools]');
+  if (button) openDevTools(button);
+});
+$('#devtools-dialog').addEventListener('close', () => $('#devtools-open').removeAttribute('href'));
 async function refresh(button = $('#refresh-button')) {
   if (refreshing) return;
   refreshing = true; $('#refresh-button svg')?.classList.add('spin');
@@ -157,10 +195,10 @@ $('#workspace-profile').addEventListener('change', e => {
 });
 async function changePage(next) {
   page = next;
-  const labels = { devices: ['Device manager', 'Your devices, in sync. A better way to build for every screen.'], sessions: ['Running sessions', 'Keep every build in view. Control your Flutter sessions from here.'], screenshots: ['Screenshots', 'Capture the details. Compare your UI across every screen.'] };
+  const labels = { devices: ['Device manager', 'Your devices, in sync. A better way to build for every screen.'], sessions: ['Running sessions', 'Keep every build in view. Control your Flutter sessions from here.'], devtools: ['Flutter DevTools', 'Inspect, profile, and debug. A closer look at every running app.'], screenshots: ['Screenshots', 'Capture the details. Compare your UI across every screen.'] };
   $('#page-title').innerHTML = `${labels[page][0]}<span>.</span>`; $('#page-description').textContent = labels[page][1]; $('#breadcrumb-page').textContent = labels[page][0];
   $$('[data-page]').forEach(button => button.classList.toggle('active', button.dataset.page === page));
-  ['devices', 'sessions', 'screenshots'].forEach(p => $(`#${p}-page`).classList.toggle('hidden', page !== p));
+  ['devices', 'sessions', 'devtools', 'screenshots'].forEach(p => $(`#${p}-page`).classList.toggle('hidden', page !== p));
   if (page === 'screenshots') await loadScreenshots(); icons();
 }
 async function loadScreenshots() {
@@ -269,7 +307,30 @@ $$('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('di
 $('#theme-toggle').addEventListener('click', () => { document.documentElement.classList.toggle('light'); localStorage.setItem('snapkit-theme', document.documentElement.classList.contains('light') ? 'light' : 'dark'); });
 if (localStorage.getItem('snapkit-theme') === 'light') document.documentElement.classList.add('light');
 $('#clear-logs').addEventListener('click', () => { state.logs = []; renderLogs(); });
-$('#collapse-console').addEventListener('click', e => { const collapsed = $('#console-output').classList.toggle('hidden'); $('.console-prompt').classList.toggle('hidden', collapsed); e.currentTarget.setAttribute('aria-expanded', String(!collapsed)); });
+function collapseConsole(collapsed) {
+  $('#console-output').classList.toggle('hidden', collapsed); $('.console-prompt').classList.toggle('hidden', collapsed);
+  $('#collapse-console').setAttribute('aria-expanded', String(!collapsed));
+  $('#collapse-console').setAttribute('aria-label', collapsed ? 'Show console' : 'Collapse console');
+  $('#collapse-console').innerHTML = icon(collapsed ? 'chevron-up' : 'chevron-down'); icons();
+}
+$('#collapse-console').addEventListener('click', () => collapseConsole(!$('#console-output').classList.contains('hidden')));
+$('#expand-console').addEventListener('click', () => {
+  const dialog = $('#console-dialog');
+  if (dialog.open) { dialog.close(); return; }
+  collapseConsole(false);
+  dialog.append($('.console-panel')); dialog.showModal();
+  $('#collapse-console').disabled = true;
+  $('#expand-console').setAttribute('aria-expanded', 'true');
+  $('#expand-console').setAttribute('aria-label', 'Restore console'); $('#expand-console').title = 'Restore console (Esc)';
+  $('#expand-console').innerHTML = icon('minimize-2'); icons();
+});
+$('#console-dialog').addEventListener('close', () => {
+  $('#console-dock').append($('.console-panel'));
+  $('#collapse-console').disabled = false;
+  $('#expand-console').setAttribute('aria-expanded', 'false');
+  $('#expand-console').setAttribute('aria-label', 'Expand console'); $('#expand-console').title = 'Expand console';
+  $('#expand-console').innerHTML = icon('maximize-2'); icons(); $('#expand-console').focus();
+});
 $('#screenshot-grid').addEventListener('change', e => {
   const box = e.target.closest('[data-screenshot]'); if (!box) return;
   if (box.checked && selectedScreenshots.size >= 2) { box.checked = false; toast('Choose two screenshots to compare'); return; }

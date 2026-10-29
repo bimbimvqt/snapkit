@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { launch } from './cli.js';
 import { flutterBuildArgs } from './workspace.js';
+import { loopbackURL } from './devtools.js';
 
 export class Sessions extends EventEmitter {
   constructor(spawn = launch) { super(); this.spawn = spawn; this.items = new Map(); this.sequence = 0; this.pending = new Map(); this.logs = []; }
@@ -8,7 +9,12 @@ export class Sessions extends EventEmitter {
     const entry = { time: new Date().toISOString(), deviceId, message: String(message).slice(0, 6000), level };
     this.logs.push(entry); if (this.logs.length > 300) this.logs.shift(); this.emit('log', entry);
   }
-  list() { return [...this.items.values()].map(({ child, buffer, ...rest }) => rest); }
+  list() { return [...this.items.values()].map(({ child, buffer, vmServiceUri, ...rest }) => ({ ...rest, devtoolsReady: rest.status === 'running' && !!vmServiceUri })); }
+  vmService(id) {
+    const session = this.items.get(id);
+    if (session?.status !== 'running' || !session.vmServiceUri) throw new Error('Wait for a Dashboard-managed debug session and its VM Service to be ready');
+    return session.vmServiceUri;
+  }
   start(device, workspace, options = {}) {
     const old = this.items.get(device.id);
     if (old && !['stopped', 'error'].includes(old.status)) throw new Error('A Flutter session already exists for this device');
@@ -33,6 +39,9 @@ export class Sessions extends EventEmitter {
           }
           const p = event.params || {};
           if (event.event === 'app.start') session.appId = p.appId;
+          if (event.event === 'app.debugPort' && (!p.appId || p.appId === session.appId)) {
+            session.vmServiceUri = loopbackURL(p.wsUri, ['ws:', 'http:'])?.href || null;
+          }
           if (event.event === 'app.started') session.status = 'running';
           if (event.event === 'app.stop') session.status = 'stopped';
           if (event.event === 'app.log') this.log(device.id, p.log, p.error ? 'error' : 'info');

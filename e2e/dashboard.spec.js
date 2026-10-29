@@ -137,3 +137,56 @@ test('workspace imports a debug profile and submits flavor, entrypoint and defin
   await expect(page.locator('#workspace-dialog')).not.toBeVisible();
   expect(saved).toEqual({ path: '/Projects/merchant', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' });
 });
+
+test('console expands without losing logs, Escape restores it, and inline logs can be resized', async ({ page }) => {
+  await page.goto('/');
+  const logs = page.locator('#console-output');
+  await expect(logs.locator('.log-line').first()).toBeVisible();
+  const original = await logs.textContent();
+  await page.getByRole('button', { name: 'Collapse console', exact: true }).click();
+  await expect(logs).not.toBeVisible();
+  await page.getByRole('button', { name: 'Expand console', exact: true }).click();
+  await expect(page.locator('#console-dialog')).toBeVisible();
+  await expect(logs).toBeVisible();
+  expect(await logs.textContent()).toBe(original);
+  expect(await logs.evaluate(el => el.clientHeight)).toBeGreaterThan(500);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#console-dialog')).not.toBeVisible();
+  await expect(page.locator('#console-dock #console-output')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Expand console', exact: true })).toBeFocused();
+  expect(await logs.evaluate(el => getComputedStyle(el).resize)).toBe('vertical');
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole('button', { name: 'Expand console', exact: true }).click();
+  expect(await page.locator('#console-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Restore console', exact: true }).click();
+  await expect(page.locator('#console-dialog')).not.toBeVisible();
+});
+
+test('DevTools waits for debug connections and falls back to an explicit link if popups are blocked', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Flutter DevTools', exact: true }).click();
+  await expect(page.locator('#devtools-list')).toContainText('Run an app');
+  await page.getByRole('button', { name: /Device manager/ }).click();
+  await page.locator('[data-device="demo-ios-1"] [data-action="run"]').click();
+  await page.getByRole('button', { name: 'Flutter DevTools', exact: true }).click();
+  await expect(page.locator('#devtools-list [data-devtools]')).toHaveCount(6);
+  await expect(page.locator('#devtools-list [data-devtools="inspector"]')).toBeDisabled();
+  await page.route('**/api/state', async route => {
+    const response = await route.fetch(); const state = await response.json();
+    state.sessions.forEach(s => { s.devtoolsReady = true; });
+    await route.fulfill({ json: state });
+  });
+  await page.route('**/api/sessions/*/devtools', async route => {
+    expect(route.request().postDataJSON()).toEqual({ screen: 'network' });
+    await route.fulfill({ json: { url: 'http://127.0.0.1:9100/?uri=ws%3A%2F%2F127.0.0.1%3A1234%2Ftest%2Fws&page=network' } });
+  });
+  await page.addInitScript(() => { window.open = () => null; });
+  await page.reload();
+  await page.getByRole('button', { name: 'Flutter DevTools', exact: true }).click();
+  await page.locator('#devtools-list [data-devtools="network"]').click();
+  await expect(page.locator('#devtools-dialog')).toBeVisible();
+  await expect(page.locator('#devtools-open')).toHaveAttribute('href', /page=network/);
+  await page.locator('#devtools-dialog .close-dialog').click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

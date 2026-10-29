@@ -36,6 +36,10 @@ Mở **http://127.0.0.1:4310**. Vào **Workspace settings → Choose folder**, c
 
 Dự án có flavor: vào **Workspace settings → Import VS Code debug profile**, chọn cấu hình debug có sẵn, hoặc nhập **Flavor**, **Dart entrypoint** và đường dẫn **Dart defines file**. Ví dụ `dev` + `lib/main_dev.dart`. Snapkit lưu cấu hình theo workspace hiện tại và dùng cùng lựa chọn cho **Run app** và **Snapkit: Active Device**. Không đọc hoặc đưa nội dung file defines lên website. Khi đổi folder, chọn lại cấu hình trước khi lưu.
 
+**Activity console:** kéo góc dưới bên phải vùng log để đổi chiều cao, hoặc bấm biểu tượng phóng lớn để mở rộng. Bấm **Restore console** hoặc **Esc** để quay về; log tiếp tục cập nhật trong lúc mở rộng.
+
+**Flutter DevTools:** vào mục **Flutter DevTools** hoặc bấm **DevTools** trong Running sessions. Khi phiên debug và VM Service sẵn sàng, có thể mở Inspector, Performance, Memory, Network, Debugger và Logging trong tab riêng. Backend tự chạy `dart devtools` từ SDK trên máy, chỉ lắng nghe loopback. Cần cho phép popup hoặc dùng nút **Open Flutter DevTools** khi trình duyệt chặn popup. Các phiên chạy ngoài Dashboard và dữ liệu demo không có kết nối DevTools. Số liệu Performance khi chạy debug chỉ mang tính tham khảo; cần profile mode trên thiết bị thật khi đo hiệu năng phát hành.
+
 Xem giao diện với dữ liệu mẫu:
 
 ```sh

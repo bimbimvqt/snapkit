@@ -14,6 +14,7 @@ import { Provisioner } from './provision.js';
 import { demoCatalog, demoDevices } from './demo.js';
 import { run } from './cli.js';
 import { Pairings } from './pairing.js';
+import { DevTools } from './devtools.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const demo = process.argv.includes('--demo');
@@ -25,6 +26,7 @@ if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d
 const pairings = new Pairings(webOrigin);
 let lastRemoteActivity = 0;
 const sessions = new Sessions();
+const devtools = new DevTools();
 const clients = new Set();
 if (!demo) await configureStorage();
 const provisioner = new Provisioner();
@@ -182,6 +184,13 @@ app.post('/api/sessions/reload-all', async (_req, res) => {
   const results = demo ? demoSessions.filter(s => s.status === 'running').map(s => ({ deviceId: s.deviceId, ok: true })) : await sessions.reloadAll();
   res.json({ results, message: `${results.filter(r => r.ok).length}/${results.length} sessions reloaded` });
 });
+app.post('/api/sessions/:id/devtools', async (req, res) => {
+  if (demo) throw new Error('DevTools requires a real Flutter debug session. Demo mode does not start DevTools.');
+  const service = sessions.vmService(req.params.id);
+  const url = await devtools.open(service, req.body.screen || 'inspector');
+  if (sessions.vmService(req.params.id) !== service) throw new Error('Session changed. Open DevTools again.');
+  res.json({ url });
+});
 app.post('/api/sessions/:id/:action', async (req, res) => {
   if (!['reload', 'restart', 'stop'].includes(req.params.action)) throw new Error('Unknown session action');
   if (demo) { const s = demoSessions.find(s => s.deviceId === req.params.id && s.status === 'running'); if (!s) throw new Error('Start a demo session first'); if (req.params.action === 'stop') s.status = 'stopped'; emit('sessions', demoSessions); }
@@ -213,5 +222,5 @@ const server = app.listen(port, '127.0.0.1', () => {
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-function stop() { clearInterval(poll); sessions.close(); for (const res of clients) res.end(); server.close(); }
+function stop() { clearInterval(poll); sessions.close(); devtools.close(); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
