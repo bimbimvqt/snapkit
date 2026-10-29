@@ -16,7 +16,7 @@ test('API rejects missing mutation token and hostile origins', async () => {
   assert.equal((await fetch(`${base}/api/state`, { headers: { Origin: 'https://untrusted.example' } })).status, 403);
 });
 test('demo API performs target selection and manages Flutter sessions', async () => {
-  assert.equal(state.demo, true); assert.equal(state.devices.length, 6);
+  assert.equal(state.demo, true); assert.equal(state.platform, 'darwin'); assert.equal(state.devices.length, 6);
   const target = await post('/api/target', { id: 'demo-android-1' }).then(r => r.json());
   assert.equal(target.settings.targetId, 'demo-android-1');
   const started = await post('/api/sessions', { id: 'demo-android-1' }).then(r => r.json());

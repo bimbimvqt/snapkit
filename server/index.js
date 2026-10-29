@@ -58,7 +58,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '16kb' }));
-app.get('/api/state', async (_req, res) => res.json({ storage: await storageStatus(), screenshotDirectory: settings.workspace ? screenshotFolder(settings.workspace) : storage.screenshots, jobs: provisioner.jobs, ...snapshot, settings: demo ? { workspace: '/Users/developer/Projects/flutter_app', targetId: settings.targetId || 'demo-ios-1' } : settings, sessions: demo ? demoSessions : sessions.list(), logs: sessions.logs, demo, token, host: os.hostname(), platform: process.platform, scanning: !!scanning }));
+app.get('/api/state', async (_req, res) => res.json({ storage: await storageStatus(), screenshotDirectory: settings.workspace ? screenshotFolder(settings.workspace) : storage.screenshots, jobs: provisioner.jobs, ...snapshot, settings: demo ? { workspace: '/Users/developer/Projects/flutter_app', targetId: settings.targetId || 'demo-ios-1' } : settings, sessions: demo ? demoSessions : sessions.list(), logs: sessions.logs, demo, token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (_req, res) => {
