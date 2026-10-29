@@ -15,21 +15,18 @@ test('API rejects missing mutation token and hostile origins', async () => {
   assert.equal((await post('/api/scan', {}, 'bad-token')).status, 403);
   assert.equal((await fetch(`${base}/api/state`, { headers: { Origin: 'https://untrusted.example' } })).status, 403);
 });
-test('demo API performs target selection and manages Flutter sessions', async () => {
-  assert.equal(state.demo, true); assert.equal(state.platform, 'darwin'); assert.equal(state.devices.length, 6);
-  const target = await post('/api/target', { id: 'demo-android-1' }).then(r => r.json());
-  assert.equal(target.settings.targetId, 'demo-android-1');
-  const started = await post('/api/sessions', { id: 'demo-android-1' }).then(r => r.json());
-  assert.equal(started.sessions[0].status, 'running');
-  const reload = await post('/api/sessions/reload-all', {}).then(r => r.json());
-  assert.equal(reload.results[0].ok, true);
-  assert.equal((await post('/api/sessions/demo-android-1/stop', {})).status, 200);
-  assert.equal((await post('/api/devices/missing/boot', {})).status, 400);
-});
-test('demo screenshots remain empty and never fabricate captures', async () => {
-  const result = await post('/api/devices/demo-ios-1/screenshot', {}).then(r => r.json());
-  assert.equal(result.filename, undefined);
-  assert.deepEqual(await fetch(`${base}/api/screenshots`).then(r => r.json()), []);
+test('device manager boots devices and selects one or more IDE targets without any app-run API', async () => {
+  assert.equal((await post('/api/targets', { ids: ['demo-ios-2'] })).status, 400);
+  assert.equal((await post('/api/devices/demo-ios-2/boot', {})).status, 200);
+  let result = await post('/api/targets', { ids: ['demo-ios-1', 'demo-ios-2'] }).then(r => r.json());
+  assert.deepEqual(result.settings.targetIds, ['demo-ios-1', 'demo-ios-2']);
+  result = await post('/api/targets', { ids: ['demo-ios-1'] }).then(r => r.json());
+  assert.deepEqual(result.settings.targetIds, ['demo-ios-1']);
+  assert.equal((await post('/api/targets', { ids: ['demo-ios-1', 'demo-ios-1'] })).status, 400);
+  assert.equal((await post('/api/targets', { ids: [] })).status, 200);
+  for (const route of ['/api/sessions', '/api/sessions/reload-all', '/api/sessions/demo-ios-1/devtools', '/api/devices/demo-ios-1/shutdown', '/api/devices/demo-ios-1/screenshot', '/api/target']) assert.equal((await post(route, {})).status, 404);
+  const current = await fetch(base + '/api/state').then(r => r.json());
+  assert.equal('sessions' in current, false); assert.equal('logs' in current, false);
 });
 test('folder picker and provisioning APIs support demo creation and reject incompatible legacy model', async () => {
   const picked = await post('/api/folders/pick', {}).then(r => r.json());

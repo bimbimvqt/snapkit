@@ -9,7 +9,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await page.goto('demo/');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
   await expect(page.locator('.device-card')).toHaveCount(6);
-  await page.locator('[data-device="demo-ios-1"] [data-action="run"]').click();
+  await page.locator('[data-device="demo-ios-3"] [data-action="boot"]').click();
   await expect(page.locator('.toast')).toContainText('Preview only');
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
   await expect(page.locator('#create-model')).toContainText('iPhone 5');
@@ -37,12 +37,11 @@ test('hosted controller pairs across origins, runs commands and stops access aft
   await page.locator('#agent-code').fill(pair.code);
   await page.locator('#pairing-submit').click();
   await expect(page.locator('.device-card')).toHaveCount(6);
-  await page.locator('[data-device="demo-ios-1"] [data-action="run"]').click();
-  await page.getByRole('button', { name: /Running sessions/ }).click();
-  await expect(page.locator('.session-row')).toContainText('running');
-  await page.getByRole('button', { name: 'Hot reload', exact: true }).click();
-  await expect(page.locator('.toast').last()).toContainText('reload completed');
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  const target = page.getByRole('checkbox', { name: 'Select iPhone 16 Pro for IDE debug', exact: true });
+  await target.check(); await expect(page.locator('#stat-selected')).toHaveText('1');
+  await page.getByRole('checkbox', { name: 'Select Pixel 9 Pro for IDE debug', exact: true }).check();
+  await expect(page.locator('#stat-selected')).toHaveText('2');
+  await expect(page.locator('#console-output, #devtools-page')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('.device-card')).toHaveCount(6);
   await localPost('/api/pairing/revoke');

@@ -15,7 +15,7 @@ export async function workspaceProfiles(root) {
   const config = parse(raw, [], { allowTrailingComma: true });
   const profiles = [];
   for (const entry of Array.isArray(config?.configurations) ? config.configurations : []) {
-    if (entry?.type !== 'dart' || entry.request !== 'launch' || entry.name === 'Snapkit: Active Device' || (entry.flutterMode && entry.flutterMode !== 'debug')) continue;
+    if (entry?.type !== 'dart' || entry.request !== 'launch' || (entry.name === 'Snapkit: Active Device' || entry.name?.startsWith('Snapkit: Device · ')) || (entry.flutterMode && entry.flutterMode !== 'debug')) continue;
     const args = [...(Array.isArray(entry.toolArgs) ? entry.toolArgs : []), ...(Array.isArray(entry.args) ? entry.args : [])];
     const flag = name => {
       const index = args.indexOf(name);
@@ -46,7 +46,9 @@ export async function validateBuild(root, input = {}) {
 export function flutterBuildArgs(options = {}) {
   return [...(options.flavor ? ['--flavor', options.flavor] : []), ...(options.target ? ['--target', options.target] : []), ...(options.defineFile ? ['--dart-define-from-file', options.defineFile] : [])];
 }
-export async function writeLaunch(root, device, options = {}) {
+export const compoundName = 'Snapkit: Selected Devices';
+const managed = name => name === 'Snapkit: Active Device' || name?.startsWith('Snapkit: Device · ');
+export async function writeTargets(root, devices, options = {}) {
   const folder = path.join(root, '.vscode');
   await mkdir(folder, { recursive: true });
   const file = path.join(folder, 'launch.json');
@@ -55,25 +57,21 @@ export async function writeLaunch(root, device, options = {}) {
   const errors = [];
   const config = raw ? parse(raw, errors, { allowTrailingComma: true }) : { version: '0.2.0', configurations: [] };
   if (errors.length || !config || typeof config !== 'object' || Array.isArray(config)) throw new Error('launch.json is invalid. The existing file has been preserved.');
-  if (config.configurations !== undefined && !Array.isArray(config.configurations)) throw new Error('launch.json configurations must be an array');
-  const entry = { name: 'Snapkit: Active Device', type: 'dart', request: 'launch', deviceId: device.flutterId || device.id, cwd: root };
-  if (options.target) entry.program = options.target;
-  const toolArgs = flutterBuildArgs({ ...options, target: undefined });
-  if (toolArgs.length) entry.toolArgs = toolArgs;
-  let output;
-  if (!raw) output = JSON.stringify({ ...config, configurations: [entry] }, null, 2) + '\n';
-  else {
-    const format = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: raw.includes('\r\n') ? '\r\n' : '\n' } };
-    const list = config.configurations || [];
-    const index = list.findIndex(c => c?.name === entry.name);
-    output = raw;
-    if (!config.configurations) output = applyEdits(output, modify(output, ['configurations'], [entry], format));
-    else if (index >= 0) output = applyEdits(output, modify(output, ['configurations', index], entry, format));
-    else output = applyEdits(output, modify(output, ['configurations', 0], entry, { ...format, isArrayInsertion: true }));
-    await writeFile(`${file}.snapkit.bak`, raw);
-  }
+  for (const key of ['configurations', 'compounds']) if (config[key] !== undefined && !Array.isArray(config[key])) throw new Error(`launch.json ${key} must be an array`);
+  const entries = devices.map(device => ({ name: `Snapkit: Device · ${device.name} [${device.id}]`, type: 'dart', request: 'launch', flutterMode: 'debug', deviceId: device.flutterId || device.id, cwd: root, program: options.target || 'lib/main.dart', toolArgs: flutterBuildArgs({ ...options, target: undefined }) }));
+  const format = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: raw?.includes('\r\n') ? '\r\n' : '\n' } };
+  let output = raw || JSON.stringify(config, null, 2) + '\n';
+  // Remove only our generated entries; JSONC edits retain unrelated profiles and comments.
+  const list = config.configurations || [];
+  for (let i = list.length - 1; i >= 0; i--) if (managed(list[i]?.name)) output = applyEdits(output, modify(output, ['configurations', i], undefined, format));
+  if (!config.configurations) output = applyEdits(output, modify(output, ['configurations'], [], format));
+  for (let i = entries.length - 1; i >= 0; i--) output = applyEdits(output, modify(output, ['configurations', 0], entries[i], { ...format, isArrayInsertion: true }));
+  const compounds = config.compounds || [];
+  for (let i = compounds.length - 1; i >= 0; i--) if (compounds[i]?.name === compoundName) output = applyEdits(output, modify(output, ['compounds', i], undefined, format));
+  if (!config.compounds) output = applyEdits(output, modify(output, ['compounds'], [], format));
+  if (entries.length) output = applyEdits(output, modify(output, ['compounds', 0], { name: compoundName, configurations: entries.map(e => e.name), stopAll: true }, { ...format, isArrayInsertion: true }));
+  if (raw) await writeFile(`${file}.snapkit.bak`, raw);
   const temporary = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temporary, output);
-  await rename(temporary, file);
+  await writeFile(temporary, output); await rename(temporary, file);
   return file;
 }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101214">
-  <meta name="description" content="Snapkit — Trung tâm điều khiển thiết bị cho Flutter. Quản lý Simulator, Emulator và workflow debug ngay trên máy của bạn.">
+  <meta name="description" content="Snapkit — Trung tâm điều khiển thiết bị cho Flutter. Tạo, bật và chọn Simulator, Emulator cho IDE của bạn.">
   <title>Snapkit · Your local device lab</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css">
   <script src="site.js" defer></script>
@@ -14,7 +14,7 @@
     <section class="hero wrap">
       <div class="eyebrow"><span class="dot"></span> YOUR LOCAL DEVICE LAB</div>
       <h1>Mọi thiết bị.<br><span>Một nơi điều khiển.</span></h1>
-      <p class="intro">Từ khởi động Simulator đến Hot Reload All.<br>Đưa workflow Flutter về một Dashboard ngay trên máy bạn.</p>
+      <p class="intro">Tạo và bật thiết bị trong Dashboard.<br>Chọn một hoặc nhiều thiết bị, rồi Debug từ IDE của bạn.</p>
       <div class="actions"><a class="button primary" href="control/">Mở Dashboard <span aria-hidden="true">↗</span></a><a class="button" href="control/">Kết nối thiết bị <span aria-hidden="true">→</span></a></div>
       <p class="caption">macOS & Windows · Node.js 20+ · Không cần tài khoản</p>
     </section>
@@ -23,13 +23,13 @@
       <div class="preview-heading"><div><p class="eyebrow">WORKSPACE / FLUTTER APP</p><h2>Device manager<span>.</span></h2></div><a href="control/" class="preview-link">Mở Dashboard điều khiển ↗</a></div>
       <div class="mini-stats"><div><span>Available devices</span><strong>06</strong></div><div><span>Online now</span><strong class="green">03</strong></div><div><span>One workflow</span><strong>Flutter</strong></div></div>
       <div class="device-grid">
-        <article class="device"><div class="device-top"><span>iOS SIMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>iPhone 16 Pro</h3><p>iOS 18.2 · Simulator</p><div class="device-foot"><span>Run app</span><span class="green">◎ Active target</span></div></article>
-        <article class="device android"><div class="device-top"><span>ANDROID EMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>Pixel 9 Pro</h3><p>Android 15 · API 35</p><div class="device-foot"><span>Run app</span><span>◎ Set target</span></div></article>
+        <article class="device"><div class="device-top"><span>iOS SIMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>iPhone 16 Pro</h3><p>iOS 18.2 · Simulator</p><div class="device-foot"><span>Device started</span><span class="green">☑ Select for IDE</span></div></article>
+        <article class="device android"><div class="device-top"><span>ANDROID EMULATOR</span><span class="online"><i></i>Online</span></div><div class="phone-scene"><div class="phone"><div class="island"></div><span>9:41</span><small>READY TO BUILD</small></div></div><h3>Pixel 9 Pro</h3><p>Android 15 · API 35</p><div class="device-foot"><span>Device started</span><span>☑ Select for IDE</span></div></article>
         <article class="device tablet"><div class="device-top"><span>iOS SIMULATOR</span><span class="offline">Offline</span></div><div class="phone-scene"><div class="phone"><span class="power">⏻</span></div></div><h3>iPad Air 13-inch</h3><p>iPadOS 18.2 · Simulator</p><div class="device-foot"><span>Start device</span><span>◎ Set target</span></div></article>
       </div>
       <div class="preview-footer"><span><span class="dot"></span> Bản minh họa · không kết nối thiết bị thật</span><a href="control/">Kết nối thiết bị thật →</a></div>
     </section>
-    <section class="features wrap" aria-label="Tính năng"><article><span class="number">01 / DEVICE LAB</span><h2>Chọn máy.<br>Đúng phiên bản.</h2><p>Quét thiết bị thật, Simulator và Emulator. Thêm model với phiên bản OS tương thích theo toolchain đã cài.</p></article><article><span class="number">02 / FLUTTER FLOW</span><h2>Ít chuyển cửa sổ.<br>Nhiều thời gian build.</h2><p>Chọn folder dự án, đặt target cho VS Code, chạy app và Hot Reload trên nhiều phiên Flutter.</p></article><article><span class="number">03 / EVERY PIXEL</span><h2>Nhìn cùng một UI.<br>Trên nhiều màn hình.</h2><p>Chụp và so sánh ảnh, đổi dark mode, locale và cấu hình hiển thị theo khả năng của từng nền tảng.</p></article></section>
+    <section class="features wrap" aria-label="Tính năng"><article><span class="number">01 / DEVICE LAB</span><h2>Chọn máy.<br>Đúng phiên bản.</h2><p>Quét thiết bị thật, Simulator và Emulator. Thêm model với phiên bản OS tương thích theo toolchain đã cài.</p></article><article><span class="number">02 / START DEVICES</span><h2>Ít chuyển cửa sổ.<br>Nhiều thời gian build.</h2><p>Bật các thiết bị bạn cần. Flutter và IDE tự phát hiện thiết bị đang online.</p></article><article><span class="number">03 / DEBUG IN YOUR IDE</span><h2>Một lần Debug.<br>Nhiều thiết bị.</h2><p>Tick một hoặc nhiều thiết bị trên Dashboard. Chọn Snapkit: Selected Devices và bấm F5 trong Antigravity; IDE quản lý các phiên debug.</p></article></section>
     <section id="setup" class="setup wrap"><div><div class="eyebrow">GET STARTED</div><h2>Device lab của bạn,<br>chạy trên máy bạn.</h2><p>Điều khiển thiết bị ngay từ website sau khi ghép đôi với Snapkit local. Khởi động backend với Flutter SDK và Android SDK hoặc Xcode, rồi bấm Connect website trong Dashboard local.</p><a class="text-link" href="https://github.com/bimbimvqt/snapkit#readme">Đọc hướng dẫn đầy đủ ↗</a></div><div class="terminal"><div class="terminal-top"><span>TERMINAL · macOS / Windows</span><button id="copy-install" type="button">Sao chép</button></div><pre><code id="install-command">git clone https://github.com/bimbimvqt/snapkit.git
 cd snapkit
 npm ci

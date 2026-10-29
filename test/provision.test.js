@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { iosCompatible, parseIOSDownloads, parseAndroidImages, parseAndroidProfiles, Provisioner } from '../server/provision.js';
 import { chooseFolder } from '../server/folders.js';
-import { screenshotFolder, storage, iosAccessStatus, selectIOSDeviceRoot } from '../server/storage.js';
+import { iosAccessStatus, selectIOSDeviceRoot } from '../server/storage.js';
 
 test('iOS recovery respects a native device set and preserves SSD selection for symlinked storage', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'snapkit-recovery-'));
@@ -120,11 +120,6 @@ test('jobs surface failures, serialize installations, and reject runtime path es
   await symlink(outside, path.join(paths.downloads, 'linked.dmg'));
   await assert.rejects(manager.importIOS('linked.dmg'), /inside the SSD/);
 }));
-test('screenshots are namespaced by canonical workspace and stay in configured SSD root', () => {
-  const a = screenshotFolder('/projects/a/app'), b = screenshotFolder('/projects/b/app');
-  assert.notEqual(a, b); assert.ok(a.startsWith(storage.screenshots + path.sep));
-});
-
 test('iOS storage warns when SSD device data cannot be enumerated by CoreSimulator', async () => fixture(async paths => {
   const id = 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE';
   await mkdir(path.join(paths.iosDevices, id));

@@ -2,7 +2,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { existsSync, lstatSync } from 'node:fs';
 import { mkdir, realpath, lstat, readdir } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { run, parseJsonOutput } from './cli.js';
 const project = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -17,18 +16,14 @@ export function selectIOSDeviceRoot(defaultRoot, ssdRoot, platform = process.pla
 }
 export const storage = {
   root: dataRoot, avd: path.join(dataRoot, 'Android/avd'), iosDevices: selectIOSDeviceRoot(defaultIOSDevices, path.join(dataRoot, 'iOS/Devices')),
-  downloads: path.join(dataRoot, 'downloads/iOS'), screenshots: path.join(dataRoot, 'screenshots'),
+  downloads: path.join(dataRoot, 'downloads/iOS'),
   temp: path.join(dataRoot, 'tmp'), state: path.join(dataRoot, 'state'),
   sdk: process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME || (existsSync('/Volumes/SanDiskSSDData/Android/sdk') ? '/Volumes/SanDiskSSDData/Android/sdk' : path.join(dataRoot, 'Android/sdk'))
 };
-export function screenshotFolder(workspace) {
-  const id = createHash('sha256').update(path.resolve(workspace)).digest('hex').slice(0, 12);
-  return path.join(storage.screenshots, `${path.basename(workspace).replace(/[^a-zA-Z0-9_-]/g, '-')}-${id}`);
-}
 export async function configureStorage() {
   // Fail closed if an external volume was unplugged; never create a fake mount directory.
   if (dataRoot.startsWith('/Volumes/')) await realpath(path.join('/Volumes', dataRoot.split('/')[2]));
-  for (const key of ['avd', 'iosDevices', 'downloads', 'screenshots', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
+  for (const key of ['avd', 'iosDevices', 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
   process.env.ANDROID_AVD_HOME = storage.avd;
   process.env.ANDROID_HOME = storage.sdk;
   process.env.ANDROID_SDK_ROOT = storage.sdk;
@@ -40,7 +35,7 @@ export async function storageStatus() {
   return { ...storage, iosReady: process.platform === 'darwin' && resolved === await realpath(storage.iosDevices).catch(() => null),
     iosDefaultDevices: defaultDevices, iosActualDevices: resolved,
     iosSystemRuntimes: '/Library/Developer/CoreSimulator', iosOnSSD: storage.iosDevices !== defaultIOSDevices,
-    note: `Android devices, downloads, screenshots and Snapkit state use the data root. iOS device data: ${storage.iosDevices}. Installed iOS runtime images remain managed by Xcode in /Library/Developer/CoreSimulator.` };
+    note: `Android devices, downloads and Snapkit state use the data root. iOS device data: ${storage.iosDevices}. Installed iOS runtime images remain managed by Xcode in /Library/Developer/CoreSimulator.` };
 }
 export async function requireIOSStorage() {
   const info = await storageStatus();

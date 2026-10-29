@@ -1,20 +1,18 @@
 import express from 'express';
 import { randomBytes } from 'node:crypto';
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discovery.js';
-import { deviceAction } from './devices.js';
-import { validateWorkspace, writeLaunch, workspaceProfiles, validateBuild } from './workspace.js';
-import { Sessions } from './sessions.js';
+import { bootDevice } from './devices.js';
+import { validateWorkspace, writeTargets, workspaceProfiles, validateBuild } from './workspace.js';
 import { chooseFolder } from './folders.js';
-import { storage, configureStorage, storageStatus, screenshotFolder } from './storage.js';
+import { storage, configureStorage, storageStatus } from './storage.js';
 import { Provisioner } from './provision.js';
 import { demoCatalog, demoDevices } from './demo.js';
 import { run } from './cli.js';
 import { Pairings } from './pairing.js';
-import { DevTools } from './devtools.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const demo = process.argv.includes('--demo');
@@ -25,27 +23,24 @@ const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.g
 if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(webOrigin)) throw new Error('Website origin must use HTTPS or loopback HTTP');
 const pairings = new Pairings(webOrigin);
 let lastRemoteActivity = 0;
-const sessions = new Sessions();
-const devtools = new DevTools();
 const clients = new Set();
 if (!demo) await configureStorage();
 const provisioner = new Provisioner();
 if (!demo) await provisioner.restore();
 const store = storage.state;
-let settings = { workspace: process.env.FLUTTER_WORKSPACE || '', targetId: null };
+let settings = { workspace: process.env.FLUTTER_WORKSPACE || '', targetIds: [] };
 try { settings = { ...settings, ...JSON.parse(await readFile(path.join(store, 'settings.json'), 'utf8')) }; } catch {
   try { settings = { ...settings, ...JSON.parse(await readFile(path.join(root, '.snapkit/settings.json'), 'utf8')) }; } catch {}
 }
-if (demo) settings = { workspace: '/Users/developer/Projects/flutter_app', targetId: 'demo-ios-1' };
+if (demo) settings = { workspace: '/Users/developer/Projects/flutter_app', targetIds: [] };
+delete settings.targetId;
+if (!Array.isArray(settings.targetIds)) settings.targetIds = [];
 let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: [], scannedAt: null };
 let scanning = null;
 const locks = new Set();
-const demoSessions = [];
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
-sessions.on('log', entry => emit('log', entry));
-sessions.on('sessions', list => emit('sessions', list));
 provisioner.on('jobs', jobs => emit('jobs', jobs));
-provisioner.on('completed', job => { sessions.log('snapkit', `${job.title} completed`); scan().catch(e => sessions.log('snapkit', e.message, 'error')); });
+provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
 async function persist() { if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); } }
 async function scan() {
   if (demo) { snapshot.scannedAt = new Date().toISOString(); return snapshot; }
@@ -86,7 +81,7 @@ app.use(express.json({ limit: '16kb' }));
 app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
-app.get('/api/state', async (req, res) => res.json({ storage: await storageStatus(), screenshotDirectory: settings.workspace ? screenshotFolder(settings.workspace) : storage.screenshots, jobs: provisioner.jobs, ...snapshot, settings: demo ? { workspace: '/Users/developer/Projects/flutter_app', targetId: settings.targetId || 'demo-ios-1' } : settings, sessions: demo ? demoSessions : sessions.list(), logs: sessions.logs, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/state', async (req, res) => res.json({ storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (_req, res) => {
@@ -134,78 +129,46 @@ app.get('/api/workspace/profiles', async (req, res) => {
   if (demo) return res.json({ profiles: [], flavors: [] });
   res.json(await workspaceProfiles(await validateWorkspace(req.query.path || requireWorkspace())));
 });
+let savingIDE = false;
+function targetDevices(ids) {
+  if (!Array.isArray(ids) || ids.length > 20 || ids.some(id => typeof id !== 'string') || new Set(ids).size !== ids.length) throw new Error('Select a list of unique device IDs');
+  return ids.map(id => { const d = device(id); if (d.state !== 'online' || !d.flutterId) throw new Error(`${d.name} is unavailable. Start it and refresh, or uncheck it before saving.`); return d; });
+}
 app.post('/api/workspace', async (req, res) => {
-  if (!demo) {
-    const workspace = await validateWorkspace(req.body.path);
-    const build = await validateBuild(workspace, req.body);
-    if (workspace !== settings.workspace) settings.targetId = null;
-    Object.assign(settings, build);
-    settings.workspace = workspace;
-  }
-  await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo workspace selected' : 'Flutter workspace selected' });
+  if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
+  savingIDE = true;
+  try {
+    const workspace = demo ? req.body.path || settings.workspace : await validateWorkspace(req.body.path);
+    const build = demo ? {} : await validateBuild(workspace, req.body);
+    const targetIds = workspace === settings.workspace ? settings.targetIds : [];
+    if (!demo && targetIds.length) await writeTargets(workspace, targetDevices(targetIds), build);
+    settings = { ...settings, ...build, workspace, targetIds };
+    await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo IDE setup saved' : 'Antigravity debug setup saved. Select devices, then press F5 in your IDE.' });
+  } finally { savingIDE = false; }
 });
-app.post('/api/target', async (req, res) => {
-  const d = device(req.body.id);
-  let launchFile = null;
-  if (!demo) { const workspace = requireWorkspace(); if (!d.flutterId) throw new Error('Boot the device and refresh before selecting a VS Code target'); launchFile = await writeLaunch(workspace, d, await validateBuild(workspace, settings)); }
-  settings.targetId = d.id; await persist(); emit('settings', settings);
-  res.json({ settings, launchFile, message: demo ? 'Demo target selected' : 'Target saved to .vscode/launch.json' });
+app.post('/api/targets', async (req, res) => {
+  if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
+  savingIDE = true;
+  try {
+    const devices = targetDevices(req.body.ids);
+    let launchFile = null;
+    if (!demo) { const workspace = await validateWorkspace(requireWorkspace()); launchFile = await writeTargets(workspace, devices, devices.length ? await validateBuild(workspace, settings) : {}); }
+    settings.targetIds = devices.map(d => d.id); await persist(); emit('settings', settings);
+    res.json({ settings, launchFile, message: devices.length ? `${devices.length} device(s) selected. In Antigravity choose “Snapkit: Selected Devices” and press F5.` : 'IDE device selection cleared' });
+  } finally { savingIDE = false; }
 });
-app.post('/api/devices/:id/:action', async (req, res) => {
-  const d = device(req.params.id); const action = req.params.action;
-  if (!['boot', 'shutdown', 'cold-boot', 'erase', 'screenshot', 'appearance', 'locale', 'resolution', 'window-size'].includes(action)) return res.status(400).json({ error: 'Unknown action' });
-  if (locks.has(d.id)) return res.status(409).json({ error: 'Another operation is running on this device' });
-  if ((demo ? demoSessions : sessions.list()).some(s => s.deviceId === d.id && ['starting', 'running'].includes(s.status)) && ['erase', 'shutdown', 'cold-boot', 'locale'].includes(action)) throw new Error('Stop the Flutter session before changing device lifecycle or locale');
+app.post('/api/devices/:id/boot', async (req, res) => {
+  const d = device(req.params.id);
+  if (locks.has(d.id)) return res.status(409).json({ error: 'This device is already starting' });
   locks.add(d.id);
   try {
     if (demo) {
-      if (['boot', 'cold-boot'].includes(action)) { d.state = 'online'; d.flutterId = d.id; }
-      if (['shutdown', 'erase'].includes(action)) d.state = 'offline';
-      if (action === 'screenshot') return res.json({ message: 'Demo mode: connect a real device to capture screenshots' });
-      emit('devices', snapshot); return res.json({ message: `Demo: ${action} completed` });
+      if (d.group === 'physical') throw new Error('Turn on physical devices manually');
+      d.state = 'online'; d.flutterId ||= d.id; emit('devices', snapshot); return res.json({ message: 'Demo: boot completed' });
     }
-    const result = await deviceAction(d, action, req.body, settings.workspace);
-    sessions.log(d.id, result.message);
-    res.json(result);
-    if (['boot', 'shutdown', 'erase', 'cold-boot', 'locale', 'resolution'].includes(action)) scan().catch(e => sessions.log(d.id, e.message, 'error'));
+    res.json(await bootDevice(d));
+    scan().catch(e => console.error(e.message));
   } finally { locks.delete(d.id); }
-});
-app.post('/api/sessions', async (req, res) => {
-  const d = device(req.body.id || settings.targetId);
-  if (d.state !== 'online' || !d.flutterId) throw new Error('Start the device and refresh until Flutter detects it');
-  if (demo) {
-    if (!demoSessions.some(s => s.deviceId === d.id && s.status === 'running')) demoSessions.push({ deviceId: d.id, name: d.name, status: 'running', startedAt: new Date().toISOString() });
-    emit('sessions', demoSessions); sessions.log(d.id, 'Demo Flutter session started'); return res.json({ sessions: demoSessions });
-  }
-  const workspace = await validateWorkspace(requireWorkspace());
-  res.json({ sessions: sessions.start(d, workspace, await validateBuild(workspace, settings)) });
-});
-app.post('/api/sessions/reload-all', async (_req, res) => {
-  const results = demo ? demoSessions.filter(s => s.status === 'running').map(s => ({ deviceId: s.deviceId, ok: true })) : await sessions.reloadAll();
-  res.json({ results, message: `${results.filter(r => r.ok).length}/${results.length} sessions reloaded` });
-});
-app.post('/api/sessions/:id/devtools', async (req, res) => {
-  if (demo) throw new Error('DevTools requires a real Flutter debug session. Demo mode does not start DevTools.');
-  const service = sessions.vmService(req.params.id);
-  const url = await devtools.open(service, req.body.screen || 'inspector');
-  if (sessions.vmService(req.params.id) !== service) throw new Error('Session changed. Open DevTools again.');
-  res.json({ url });
-});
-app.post('/api/sessions/:id/:action', async (req, res) => {
-  if (!['reload', 'restart', 'stop'].includes(req.params.action)) throw new Error('Unknown session action');
-  if (demo) { const s = demoSessions.find(s => s.deviceId === req.params.id && s.status === 'running'); if (!s) throw new Error('Start a demo session first'); if (req.params.action === 'stop') s.status = 'stopped'; emit('sessions', demoSessions); }
-  else await sessions.action(req.params.id, req.params.action);
-  res.json({ message: `${req.params.action} completed` });
-});
-app.get('/api/screenshots', async (_req, res) => {
-  if (demo || !settings.workspace) return res.json([]);
-  const folder = screenshotFolder(settings.workspace);
-  const files = await readdir(folder).catch(() => []);
-  res.json(files.filter(f => f.endsWith('.png')).sort().reverse().map(filename => ({ filename, url: `/api/screenshots/${encodeURIComponent(filename)}` })));
-});
-app.get('/api/screenshots/:file', (req, res) => {
-  if (!settings.workspace || path.basename(req.params.file) !== req.params.file || !req.params.file.endsWith('.png')) return res.sendStatus(404);
-  res.sendFile(path.join(screenshotFolder(settings.workspace), req.params.file), e => { if (e && !res.headersSent) res.sendStatus(404); });
 });
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream'); res.setHeader('Cache-Control', 'no-cache'); res.setHeader('Connection', 'keep-alive'); res.flushHeaders();
@@ -213,6 +176,7 @@ app.get('/api/events', (req, res) => {
   const timer = setInterval(() => res.write(': keepalive\n\n'), 20000);
   req.on('close', () => { clearInterval(timer); clients.delete(res); });
 });
+app.use('/api', (_req, res) => res.status(404).json({ error: 'API not available. Snapkit only creates/starts devices and configures IDE targets.' }));
 app.use('/vendor', express.static(path.join(root, 'node_modules/lucide/dist/umd')));
 app.use(express.static(path.join(root, 'public')));
 app.use((error, _req, res, _next) => { console.error(error.message); res.status(400).json({ error: error.message }); });
@@ -222,5 +186,5 @@ const server = app.listen(port, '127.0.0.1', () => {
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-function stop() { clearInterval(poll); sessions.close(); devtools.close(); for (const res of clients) res.end(); server.close(); }
+function stop() { clearInterval(poll); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
