@@ -75,7 +75,9 @@ function render() {
   $('#list-label').innerHTML = `${filter === 'all' ? 'ALL DEVICES' : groupLabel[filter] + 'S'} <span class="muted">/ ${shown.length}</span>`;
   $('#devices-grid').innerHTML = shown.length ? shown.map(deviceCard).join('') : empty(refreshing || state.scanning ? 'Discovering your devices…' : devices.length ? 'No matching devices' : 'Your device lab starts here', refreshing || state.scanning ? 'Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.' : devices.length ? 'Try a different search or turn off the online filter.' : 'Connect a device, create an Android AVD, or install an iOS Simulator in Xcode. Then refresh to bring it into your workspace.', 'monitor-smartphone', !devices.length && !refreshing && !state.scanning ? '<button class="button" id="empty-refresh">Refresh devices</button><button class="button" id="empty-help">Setup guide</button>' : '');
   $('#scan-time').textContent = state.scannedAt ? `Last synced ${new Date(state.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Auto-refresh every 30s` : 'Waiting for first scan';
-  $('#ide-summary').textContent = targetSaving ? 'Saving device selection…' : unavailable.length ? `${selected.length} selected · ${unavailable.length} unavailable. Uncheck unavailable devices before debugging.` : selected.length ? `${selected.length} device(s) selected · Antigravity → Run and Debug → Snapkit: Selected Devices → F5` : 'Select one or more started devices, then run Debug in Antigravity.';
+  $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
+  $('#ide-use-dashboard').disabled = targetSaving;
+  $('#ide-summary').textContent = state.settings.ideEnabled === false ? 'Dashboard targets paused · IDE uses your normal debug configuration.' : targetSaving ? 'Saving device selection…' : unavailable.length ? `${selected.length} selected · ${unavailable.length} unavailable. Uncheck unavailable devices before debugging.` : selected.length ? `${selected.length} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged` : 'Select one or more started devices, then run Debug in Antigravity.';
   renderWarnings(); renderProvisionJobs(); icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
 }
@@ -103,6 +105,11 @@ async function loadWorkspaceProfiles() {
   try {
     const result = await api('/api/workspace/profiles?path=' + encodeURIComponent(path));
     if (request !== workspaceProfileRequest) return;
+    if (result.savedSetup && path !== state.settings.workspace) {
+      $('#workspace-flavor').value = result.savedSetup.flavor || '';
+      $('#workspace-target').value = result.savedSetup.target || 'lib/main.dart';
+      $('#workspace-defines').value = result.savedSetup.defineFile || '';
+    }
     workspaceProfiles = result.profiles;
     $('#workspace-profile').innerHTML += workspaceProfiles.map((p, i) => `<option value="${i}">${escape(p.name)}</option>`).join('');
     $('#workspace-flavors').innerHTML = result.flavors.map(f => `<option value="${escape(f)}"></option>`).join('');
@@ -191,6 +198,15 @@ $('#delete-device-form').addEventListener('submit', async event => {
     dialog.querySelectorAll('button').forEach(button => { button.disabled = false; });
     $('#delete-device-submit').removeAttribute('aria-busy');
   }
+});
+$('#ide-use-dashboard').addEventListener('change', async event => {
+  const enabled = event.target.checked;
+  const previous = state.settings.ideEnabled;
+  state.settings = { ...state.settings, ideEnabled: enabled };
+  targetSaving = true; render();
+  try { const result = await api('/api/ide/mode', { enabled }); state.settings = result.settings; toast(result.message); }
+  catch (error) { state.settings = { ...state.settings, ideEnabled: previous }; toast(error.message, true); }
+  finally { targetSaving = false; render(); }
 });
 $('#devices-grid').addEventListener('change', async e => {
   const box = e.target.closest('[data-action="select"]'); if (!box || targetSaving) return;

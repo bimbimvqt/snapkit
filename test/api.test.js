@@ -24,6 +24,12 @@ test('device manager boots devices and selects one or more IDE targets without a
   assert.deepEqual(result.settings.targetIds, ['demo-ios-1']);
   assert.equal((await post('/api/targets', { ids: ['demo-ios-1', 'demo-ios-1'] })).status, 400);
   assert.equal((await post('/api/targets', { ids: [] })).status, 200);
+  assert.equal('launchFile' in result, false);
+  assert.equal((await post('/api/ide/mode', { enabled: 'bad' })).status, 400);
+  assert.equal((await post('/api/ide/mode', { enabled: false })).status, 200);
+  assert.equal((await fetch(base + '/api/state').then(r => r.json())).settings.ideEnabled, false);
+  assert.equal((await post('/api/ide/mode', { enabled: true })).status, 200);
+  assert.equal((await fetch(base + '/api/ide/plan').then(r => r.json())).status, 'inactive');
   for (const route of ['/api/sessions', '/api/sessions/reload-all', '/api/sessions/demo-ios-1/devtools', '/api/devices/demo-ios-1/shutdown', '/api/devices/demo-ios-1/screenshot', '/api/target']) assert.equal((await post(route, {})).status, 404);
   const current = await fetch(base + '/api/state').then(r => r.json());
   assert.equal('sessions' in current, false); assert.equal('logs' in current, false);

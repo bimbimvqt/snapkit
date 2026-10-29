@@ -1,17 +1,26 @@
 {
   "name": "snapkit-debug-sync",
   "displayName": "Snapkit Debug Sync",
-  "description": "Restart all running Flutter debug sessions with the IDE Restart button.",
-  "version": "1.0.0",
+  "description": "Debug Dashboard-selected Flutter devices without modifying project files; fall back to normal IDE debugging offline.",
+  "version": "1.1.0",
   "publisher": "snapkit-local",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Debuggers"],
   "activationEvents": ["onDebug", "onStartupFinished"],
   "main": "./extension.cjs",
   "contributes": {
+    "commands": [{ "command": "snapkit.toggleDashboardTargets", "title": "Snapkit: Toggle Dashboard Targets" }],
     "configuration": {
       "title": "Snapkit",
       "properties": {
+        "snapkit.useDashboardTargets": {
+          "type": "boolean", "default": true, "scope": "application",
+          "description": "Use Dashboard targets for native Run/Debug when the local agent is available and the project matches. Otherwise use the normal IDE configuration."
+        },
+        "snapkit.agentUrl": {
+          "type": "string", "default": "http://127.0.0.1:4310", "scope": "application",
+          "description": "Loopback HTTP address of the local Snapkit agent. Debugging continues normally when this agent is offline."
+        },
         "snapkit.syncFlutterRestart": {
           "type": "boolean",
           "default": true,

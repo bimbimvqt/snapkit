@@ -5,8 +5,81 @@ import os from 'node:os';
 import path from 'node:path';
 import { mergeDevices, parseIni } from '../server/discovery.js';
 import { parseJsonOutput } from '../server/cli.js';
-import { writeTargets, validateWorkspace, validateBuild, workspaceProfiles } from '../server/workspace.js';
+import { launchPlan, stripLegacyTargets, validateWorkspace, validateBuild, workspaceProfiles } from '../server/workspace.js';
 import { deleteDevice } from '../server/devices.js';
+import { createRequire } from 'node:module';
+const { createDashboardDebug } = createRequire(import.meta.url)('../ide-extension/dashboard-debug.cjs');
+
+test('native IDE debugging falls back unchanged offline and launches Dashboard groups only for the matching enabled workspace', async () => {
+  const root = path.resolve('flutter-project');
+  const folder = { uri: { fsPath: root } };
+  const original = { name: 'Native dev', type: 'dart', request: 'launch', program: 'lib/main.dart', args: ['--flavor', 'original'] };
+  const before = JSON.stringify(original);
+  const launches = [], stops = [], messages = [];
+  let enabled = true, offline = false, project = root, status = 'ready', launchSuccess = true;
+  const vscode = {
+    workspace: { isTrusted: true, getConfiguration: () => ({ get: (name, fallback) => name === 'useDashboardTargets' ? enabled : fallback }) },
+    window: { showErrorMessage: s => messages.push(s), showWarningMessage: s => messages.push(s) },
+    debug: { startDebugging: async (f, c) => { launches.push(c); return launchSuccess; }, stopDebugging: async s => stops.push(s.id) },
+  };
+  const plan = () => ({ protocol: 1, status, workspace: project, configurations: [1, 2, 3].map(id => ({
+    name: `Device ${id}`, type: 'dart', request: 'launch', flutterMode: 'debug', deviceId: String(id), cwd: root,
+    program: path.join(root, 'lib/main_dev.dart'), toolArgs: ['--flavor', 'dev'],
+  })) });
+  const sync = createDashboardDebug(vscode, { canonical: async p => p, flutterProject: async () => true, readPlan: async () => {
+    if (offline) throw Error('Connection refused');
+    return plan();
+  } });
+  const resolve = c => sync.provider.resolveDebugConfiguration(folder, c);
+  try {
+    offline = true;
+    assert.equal(await resolve(original), original);
+    offline = false; enabled = false;
+    assert.equal(await resolve(original), original);
+    enabled = true; project = path.resolve('different-project');
+    assert.equal(await resolve(original), original);
+    project = root; status = 'inactive';
+    assert.equal(await resolve(original), original);
+    status = 'ready';
+    for (const extra of [{ request: 'attach' }, { flutterMode: 'profile' }, { noDebug: true }, { program: 'test/widget_test.dart' }]) {
+      const config = { ...original, ...extra };
+      assert.equal(await resolve(config), config);
+    }
+    status = 'invalid';
+    assert.equal(await resolve(original), undefined);
+    assert.equal(launches.length, 0);
+    status = 'ready';
+    const first = await resolve(original);
+    assert.equal(first.deviceId, '1');
+    assert.equal(first.program, path.join(root, 'lib/main_dev.dart'));
+    assert.deepEqual(first.args, []);
+    assert.equal(JSON.stringify(original), before);
+    const source = { id: 'source', configuration: first };
+    sync.started(source);
+    assert.equal(await resolve(original), undefined, 'Prevent duplicate Dashboard groups');
+    await sync.ready(source);
+    assert.equal(launches.length, 1);
+    assert.equal(launches[0].deviceId, '2');
+    assert.equal(await resolve(launches[0]), launches[0], 'Peer bypasses the resolver fan-out');
+    const peer = { id: 'peer', configuration: launches[0] };
+    sync.started(peer);
+    await sync.ready(peer);
+    assert.equal(launches[1].deviceId, '3');
+    const last = { id: 'last', configuration: launches[1] };
+    sync.started(last);
+    await sync.terminated(peer);
+    assert.deepEqual(stops.sort(), ['last', 'source']);
+    const canceledPeer = { id: 'late', configuration: launches[1] };
+    sync.started(canceledPeer);
+    assert(stops.includes('late'), 'Cancel a peer that started after its group stopped');
+    assert.equal(await resolve(launches[0]), undefined, 'A canceled group cannot launch more peers');
+    launches.length = 0; stops.length = 0; launchSuccess = false;
+    const next = { id: 'next', configuration: await resolve(original) };
+    sync.started(next); await sync.ready(next);
+    assert(stops.includes('next'));
+    assert(messages.some(message => message.includes('group has been stopped')));
+  } finally { sync.dispose(); }
+});
 
 test('device deletion uses native CLI, stops the specific emulator, and never erases physical devices or shared runtimes', async () => {
   const id = '00000000-0000-0000-0000-000000000001';
@@ -63,44 +136,31 @@ test('CLI parsing accepts startup notices and INI values containing equals', () 
   assert.equal(parseIni('# ignore\n hw.ramSize = 4096\npath=a=b')['path'], 'a=b');
   assert.throws(() => parseJsonOutput('not JSON'));
 });
-test('IDE target updates preserve JSONC profiles and compounds across two, one and zero selected devices', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'snapkit-test-'));
-  try {
-    await assert.rejects(validateWorkspace(root), /pubspec/);
-    await writeFile(path.join(root, 'pubspec.yaml'), 'name: example\ndependencies:\n  flutter:\n    sdk: flutter\n');
-    await validateWorkspace(root);
-    await mkdir(path.join(root, '.vscode'));
-    const file = path.join(root, '.vscode/launch.json');
-    const original = '// keep comment\n{"configurations": [{"name":"Custom","type":"dart","request":"launch",}],"compounds":[{"name":"Custom group","configurations":["Custom"]}],}';
-    await writeFile(file, original);
-    const devices = [{ id: 'sim', name: 'iPhone', flutterId: 'sim-serial' }, { id: 'android', name: 'Pixel', flutterId: 'emulator-5554' }];
-    const build = { flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../defines.dev.json' };
-    const { parse } = await import('jsonc-parser');
-    await writeTargets(root, devices, build);
-    let raw = await readFile(file, 'utf8'), config = parse(raw);
-    assert.ok(raw.includes('// keep comment'));
-    assert.equal(await readFile(file + '.snapkit.bak', 'utf8'), original);
-    assert.equal(config.configurations.length, 3);
-    assert.deepEqual(config.configurations.slice(0, 2).map(c => c.deviceId), ['sim-serial', 'emulator-5554']);
-    assert.deepEqual(config.configurations[0].toolArgs, ['--flavor', 'dev', '--dart-define-from-file', '../defines.dev.json']);
-    assert.equal(config.configurations[0].program, 'lib/main_dev.dart');
-    assert.equal(config.compounds[0].name, 'Snapkit: Selected Devices');
-    assert.equal(config.compounds[0].stopAll, true);
-    assert.deepEqual(config.compounds[0].configurations, config.configurations.slice(0, 2).map(c => c.name));
-    assert.equal((await workspaceProfiles(root)).profiles.length, 1);
-    await writeTargets(root, devices.slice(0, 1), build);
-    config = parse(await readFile(file, 'utf8'));
-    assert.equal(config.configurations.length, 2); assert.equal(config.compounds[0].configurations.length, 1);
-    await writeTargets(root, [], build);
-    config = parse(await readFile(file, 'utf8'));
-    assert.deepEqual(config.configurations.map(c => c.name), ['Custom']);
-    assert.deepEqual(config.compounds.map(c => c.name), ['Custom group']);
-    await writeFile(file, 'invalid JSON');
-    await assert.rejects(writeTargets(root, devices, build), /preserved/);
-    assert.equal(await readFile(file, 'utf8'), 'invalid JSON');
-    await writeFile(file, '{"compounds":{}}');
-    await assert.rejects(writeTargets(root, devices, build), /compounds must be an array/);
-  } finally { await rm(root, { recursive: true, force: true }); }
+test('IDE plans stay in memory and legacy cleanup preserves native JSONC profiles', async () => {
+  const original = '// keep comment\n{"configurations": [{"name":"Custom","type":"dart","request":"launch",}],"compounds":[{"name":"Custom group","configurations":["Custom"]}],}';
+  assert.equal(stripLegacyTargets(original), original);
+  const { parse } = await import('jsonc-parser');
+  const legacy = '// keep comment\n' + JSON.stringify({ configurations: [
+    { name: 'Snapkit: Device · Old iPhone', deviceId: 'old' },
+    { name: 'Custom', type: 'dart', request: 'launch' },
+  ], compounds: [{ name: 'Snapkit: Selected Devices' }, { name: 'Custom group', configurations: ['Custom'] }] });
+  const cleaned = stripLegacyTargets(legacy);
+  assert(cleaned.includes('// keep comment'));
+  assert.deepEqual(parse(cleaned), parse(original));
+  assert.throws(() => stripLegacyTargets('bad JSON'), /preserved/);
+  assert.throws(() => stripLegacyTargets('{"compounds":{}}'), /array/);
+  const root = path.resolve('in-memory-project');
+  const devices = [{ id: 'ios', name: 'iPhone', state: 'online', flutterId: 'ios-serial' }, { id: 'avd', name: 'Android', state: 'online', flutterId: 'emulator-5554' }];
+  const settings = { workspace: root, targetIds: ['ios', 'avd'], flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../defines.json' };
+  const plan = launchPlan(settings, devices);
+  assert.equal(plan.status, 'ready');
+  assert.deepEqual(plan.configurations.map(c => c.deviceId), ['ios-serial', 'emulator-5554']);
+  assert.equal(plan.configurations[0].program, path.join(root, 'lib/main_dev.dart'));
+  assert.deepEqual(plan.configurations[0].toolArgs, ['--flavor', 'dev', '--dart-define-from-file', path.resolve(root, '../defines.json')]);
+  assert.equal(launchPlan({ ...settings, ideEnabled: false }, devices).status, 'inactive');
+  assert.equal(launchPlan({ ...settings, targetIds: [] }, devices).status, 'inactive');
+  assert.equal(launchPlan(settings, devices.slice(0, 1)).status, 'invalid');
+  assert.equal(launchPlan(settings, devices.map(d => ({ ...d, state: 'offline' }))).status, 'invalid');
 });
 
 test('IDE profile import retains flavor, entrypoint and defines path and validates existing files', async () => {

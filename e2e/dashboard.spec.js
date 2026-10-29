@@ -9,7 +9,12 @@ test('device manager boots devices and saves one or two IDE selections; app cont
   await expect(page.locator('#stat-selected')).toHaveText('1');
   await page.getByRole('checkbox', { name: 'Select Pixel 9 Pro for IDE debug', exact: true }).check();
   await expect(page.locator('#stat-selected')).toHaveText('2');
-  await expect(page.locator('#ide-summary')).toContainText('Snapkit: Selected Devices');
+  await expect(page.locator('#ide-summary')).toContainText('Project files unchanged');
+  await page.locator('#ide-use-dashboard').uncheck();
+  await expect(page.locator('#ide-summary')).toContainText('normal debug configuration');
+  await expect(page.locator('#stat-selected')).toHaveText('2');
+  await page.locator('#ide-use-dashboard').check();
+  await expect(page.locator('#ide-summary')).toContainText('Project files unchanged');
   await page.getByRole('checkbox', { name: 'Select Pixel 9 Pro for IDE debug', exact: true }).uncheck();
   await expect(page.locator('#stat-selected')).toHaveText('1');
   const offline = page.locator('[data-device="demo-android-2"]');

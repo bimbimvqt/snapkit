@@ -2,7 +2,7 @@
 
 Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, log và DevTools do IDE quản lý.
 
-Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; compound có `stopAll: true` có thể dừng các phiên cùng nhóm.
+Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; extension cũng dừng các phiên thuộc cùng nhóm Snapkit.
 
 Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · [Device Manager](https://bimbimvqt.github.io/snapkit/preview/)
 
@@ -25,21 +25,33 @@ Mở **http://127.0.0.1:4310/**. Với dữ liệu mẫu: `npm run demo` (dừng
 2. Bấm **Start device**, chờ thiết bị online và được Flutter nhận diện.
 3. Mở **IDE debug setup**, chọn folder Flutter đang mở trong Antigravity. Nhập cấu hình debug từ `.vscode/launch.json` có sẵn hoặc điền flavor, entrypoint và đường dẫn file defines.
 4. Tick **Select for IDE** trên một hoặc nhiều thiết bị đang bật.
-5. Trong Antigravity, mở **Run and Debug**, chọn **Snapkit: Selected Devices**, bấm **F5**. IDE mở phiên debug cho tất cả thiết bị đã chọn. Dùng điều khiển debug của IDE để Hot Reload/Restart/Stop.
+5. Cài **Snapkit Debug Sync 1.1+**, **Dart** và **Flutter** trong IDE. Mở **Run and Debug**, chọn profile Flutter debug thông thường của bạn (ví dụ `dev`), bấm **F5** hoặc **Run/Debug**. Khi **Use Dashboard targets** được bật và folder khớp, extension dùng lựa chọn trên Dashboard để mở các phiên debug trong bộ nhớ. Không cần profile `Snapkit:` trong `launch.json`.
 
-Cài extensions **Dart** và **Flutter** trong Antigravity. Cấu hình dùng chuẩn `.vscode/launch.json`: mỗi thiết bị có một cấu hình Dart riêng và một compound `Snapkit: Selected Devices`, `stopAll: true`. Dashboard chỉ cập nhật các mục do Snapkit tạo, giữ các profile/compound khác và comment JSONC; bản trước được lưu trong `launch.json.snapkit.bak`.
+Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup hay file nào trong repo app. Flavor, entrypoint, đường dẫn defines và ID thiết bị được lưu theo project tại `SnapkitData/state/settings.json` / `workspaces.json` trên SSD. Các profile dùng chung trong `launch.json` vẫn do bạn quản lý; Dashboard chỉ đọc chúng khi nhập cấu hình. Không lưu nội dung defines hoặc secret.
 
-Lựa chọn có hiệu lực ở lần Debug kế tiếp, không tự thêm/bớt thiết bị trong phiên IDE đang chạy. Thiết bị bật mới cần được tick để tham gia. Không tick thiết bị đã tắt/ngắt kết nối. iPhone thật cần trust, Developer Mode và signing đúng trong Xcode. Chạy Android + iOS hoặc hai Simulator tránh yêu cầu signing của iPhone thật.
+### Debug bình thường khi không dùng Snapkit
 
-### Đề xuất: cấu hình debug ngoài repo app
+- **Backend tắt / không kết nối được:** Run/Debug và F5 tự dùng nguyên cấu hình IDE gốc. Không cần khởi động Snapkit để debug.
+- **Backend đang chạy nhưng muốn debug thường:** tắt **Use Dashboard targets** trên Dashboard. Danh sách thiết bị được giữ để bật lại sau này. Hoặc chạy lệnh **Snapkit: Toggle Dashboard Targets** trong IDE để bật/tắt tích hợp ở cài đặt riêng của IDE.
+- **Không chọn thiết bị hoặc project khác:** extension không can thiệp. Attach, chạy test, profile, release và Run Without Debugging cũng giữ luồng IDE gốc.
+- **Không cài / đã tắt extension:** IDE hoạt động như trước với các profile gốc, không có phụ thuộc Snapkit trong code app.
+- **Backend tắt giữa phiên debug:** các phiên đã chạy vẫn do IDE quản lý; Hot Reload, Restart và Stop tiếp tục hoạt động.
 
-Hiện tại phần chọn thiết bị vẫn cập nhật `launch.json` như mô tả ở trên. Phương án chuyển đổi được đề xuất:
+Backend online và mode bật nhưng thiết bị đã chọn bị ngắt kết nối: extension báo lỗi để cập nhật lựa chọn, tránh âm thầm chạy trên thiết bị khác. Agent mặc định `http://127.0.0.1:4310`, có thể đổi setting **Snapkit: Agent URL** trong IDE; chỉ chấp nhận HTTP loopback. Workspace chưa trust không dùng tích hợp.
 
-- Dashboard lưu project, flavor, entrypoint, đường dẫn defines và danh sách thiết bị trong `SnapkitData/state` trên SSD, theo từng workspace; không ghi file trong project Flutter.
-- Mở rộng extension Snapkit với lệnh **Debug Selected Devices**, gán F5 khi workspace hiện tại đang được Dashboard quản lý. Extension lấy cấu hình từ agent loopback, xác minh project khớp cửa sổ IDE rồi gọi `vscode.debug.startDebugging` với cấu hình trong bộ nhớ cho từng thiết bị. IDE tiếp tục quản lý breakpoint, Hot Reload, Restart và Stop.
-- Đọc các profile có sẵn trong `launch.json` để nhập cấu hình lên Dashboard nếu muốn; chỉ đọc. Giữ nguyên các profile dùng chung của nhóm. Không ghi UUID thiết bị, đường dẫn tuyệt đối hay file backup vào repo app.
-- Người khác clone app, cài Snapkit/extension, chọn folder và profile trên Dashboard của họ. Không cần nhận file cấu hình của máy người khác. Có thể xuất/nhập preset flavor/entrypoint có đường dẫn tương đối; ID thiết bị và đường dẫn bí mật luôn là dữ liệu local.
-- Khi triển khai, có bước dọn riêng các profile/compound `Snapkit:` cũ và backup do Snapkit tạo; bảo toàn cấu hình người dùng. Cơ chế hiện tại chỉ được bỏ sau khi kiểm chứng chạy Debug từ IDE bằng cấu hình trong bộ nhớ.
+Lựa chọn áp dụng ở lần Debug kế tiếp. Các thiết bị được build lần lượt để tránh xung đột Xcode cùng thư mục build; khi khởi động xong chúng cùng giữ phiên debug. Stop một phiên trong nhóm sẽ dừng các phiên còn lại và huỷ thiết bị chưa khởi động. Giữ nguyên điều khiển IDE cho breakpoint, Hot Reload, Restart, log và DevTools.
+
+Người khác clone app vẫn dùng profile gốc như thường. Nếu muốn dùng Dashboard, họ cài extension, chọn folder, nhập profile và chọn thiết bị local của họ; không cần commit ID thiết bị hoặc đường dẫn máy cá nhân vào repo app.
+
+### Chuyển từ bản cũ có profile Snapkit trong launch.json
+
+Chạy một lần để xoá riêng profile `Snapkit: Device · …` / `Snapkit: Active Device` và compound `Snapkit: Selected Devices` do bản cũ tạo:
+
+```sh
+node scripts/cleanup-legacy-ide.js /absolute/path/to/flutter-project
+```
+
+Giữ nguyên profile/compound khác và comment JSONC. Bản trước cùng `launch.json.snapkit.bak` được chuyển sang `SnapkitData/state/legacy-ide`, không tạo backup mới trong app. Đây là thao tác migration chủ động; API Dashboard không tự ghi file project. Nếu workspace từng cấu hình Hot Reload on Save qua Snapkit, chuyển setting đó sang cài đặt **User** trong IDE để repo app giữ nguyên.
 
 ### Đồng bộ nút Restart của IDE
 
@@ -50,7 +62,7 @@ python3 scripts/package-ide-extension.py
 antigravity-ide --install-extension ./snapkit-debug-sync.vsix
 ```
 
-Hoặc dùng **Extensions: Install from VSIX…** trong IDE. Tải lại cửa sổ bằng **Developer: Reload Window**, rồi chạy lại `Snapkit: Selected Devices`. Xem kết quả ở **Output → Snapkit Debug Sync**. Có thể tắt bằng setting `snapkit.syncFlutterRestart: false` hoặc gỡ extension. Trên Windows dùng Python 3 (`py` nếu không có `python3`) và CLI của IDE tương ứng.
+Hoặc dùng **Extensions: Install from VSIX…** trong IDE. Tải lại cửa sổ bằng **Developer: Reload Window**, rồi chọn profile Flutter debug thông thường và bấm F5. Xem kết quả ở **Output → Snapkit Debug Sync**. Có thể tắt bằng setting `snapkit.syncFlutterRestart: false` hoặc gỡ extension. Trên Windows dùng Python 3 (`py` nếu không có `python3`) và CLI của IDE tương ứng.
 
 ## Dùng trên domain GitHub
 

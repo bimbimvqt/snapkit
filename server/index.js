@@ -6,7 +6,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { discover } from './discovery.js';
 import { bootDevice, deleteDevice } from './devices.js';
-import { validateWorkspace, writeTargets, workspaceProfiles, validateBuild } from './workspace.js';
+import { validateWorkspace, launchPlan, workspaceProfiles, validateBuild } from './workspace.js';
 import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus } from './storage.js';
 import { Provisioner } from './provision.js';
@@ -28,20 +28,32 @@ if (!demo) await configureStorage();
 const provisioner = new Provisioner();
 if (!demo) await provisioner.restore();
 const store = storage.state;
-let settings = { workspace: process.env.FLUTTER_WORKSPACE || '', targetIds: [] };
+let settings = { workspace: process.env.FLUTTER_WORKSPACE || '', targetIds: [], ideEnabled: true };
 try { settings = { ...settings, ...JSON.parse(await readFile(path.join(store, 'settings.json'), 'utf8')) }; } catch {
   try { settings = { ...settings, ...JSON.parse(await readFile(path.join(root, '.snapkit/settings.json'), 'utf8')) }; } catch {}
 }
-if (demo) settings = { workspace: '/Users/developer/Projects/flutter_app', targetIds: [] };
+if (demo) settings = { workspace: '/Users/developer/Projects/flutter_app', targetIds: [], ideEnabled: true };
 delete settings.targetId;
 if (!Array.isArray(settings.targetIds)) settings.targetIds = [];
+let workspaceSetups = {};
+try {
+  const saved = JSON.parse(await readFile(path.join(store, 'workspaces.json'), 'utf8'));
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) workspaceSetups = saved;
+} catch {}
+function rememberWorkspace() {
+  if (settings.workspace) workspaceSetups[settings.workspace] = {
+    flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '',
+    targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
+  };
+}
+rememberWorkspace();
 let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: [], scannedAt: null };
 let scanning = null;
 const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
 provisioner.on('jobs', jobs => emit('jobs', jobs));
 provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
-async function persist() { if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); } }
+async function persist() { rememberWorkspace(); if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); await writeFile(path.join(store, 'workspaces.json'), JSON.stringify(workspaceSetups, null, 2)); } }
 async function scan() {
   if (demo) { snapshot.scannedAt = new Date().toISOString(); return snapshot; }
   if (!scanning) scanning = discover().then(result => { snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
@@ -127,7 +139,8 @@ app.post('/api/provision/ios/import', async (req, res) => {
 });
 app.get('/api/workspace/profiles', async (req, res) => {
   if (demo) return res.json({ profiles: [], flavors: [] });
-  res.json(await workspaceProfiles(await validateWorkspace(req.query.path || requireWorkspace())));
+  const workspace = await validateWorkspace(req.query.path || requireWorkspace());
+  res.json({ ...await workspaceProfiles(workspace), savedSetup: workspaceSetups[workspace] || null });
 });
 let savingIDE = false;
 function targetDevices(ids) {
@@ -140,9 +153,10 @@ app.post('/api/workspace', async (req, res) => {
   try {
     const workspace = demo ? req.body.path || settings.workspace : await validateWorkspace(req.body.path);
     const build = demo ? {} : await validateBuild(workspace, req.body);
-    const targetIds = workspace === settings.workspace ? settings.targetIds : [];
-    if (!demo && targetIds.length) await writeTargets(workspace, targetDevices(targetIds), build);
-    settings = { ...settings, ...build, workspace, targetIds };
+    const previous = workspaceSetups[workspace];
+    const targetIds = workspace === settings.workspace ? settings.targetIds : previous?.targetIds || [];
+    const ideEnabled = workspace === settings.workspace ? settings.ideEnabled !== false : previous?.ideEnabled !== false;
+    settings = { ...settings, ...build, workspace, targetIds, ideEnabled };
     await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo IDE setup saved' : 'Antigravity debug setup saved. Select devices, then press F5 in your IDE.' });
   } finally { savingIDE = false; }
 });
@@ -151,11 +165,30 @@ app.post('/api/targets', async (req, res) => {
   savingIDE = true;
   try {
     const devices = targetDevices(req.body.ids);
-    let launchFile = null;
-    if (!demo) { const workspace = await validateWorkspace(requireWorkspace()); launchFile = await writeTargets(workspace, devices, devices.length ? await validateBuild(workspace, settings) : {}); }
+    if (!demo) { const workspace = await validateWorkspace(requireWorkspace()); if (devices.length) await validateBuild(workspace, settings); }
     settings.targetIds = devices.map(d => d.id); await persist(); emit('settings', settings);
-    res.json({ settings, launchFile, message: devices.length ? `${devices.length} device(s) selected. In Antigravity choose “Snapkit: Selected Devices” and press F5.` : 'IDE device selection cleared' });
+    res.json({ settings, message: devices.length ? `${devices.length} device(s) selected. Press F5 or Run/Debug in your IDE with the Snapkit extension. Project files are unchanged.` : 'IDE device selection cleared' });
   } finally { savingIDE = false; }
+});
+app.post('/api/ide/mode', async (req, res) => {
+  if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
+  if (typeof req.body.enabled !== 'boolean') throw new Error('enabled must be a boolean');
+  savingIDE = true;
+  try {
+    settings.ideEnabled = req.body.enabled;
+    await persist(); emit('settings', settings);
+    res.json({ settings, message: settings.ideEnabled ? 'IDE uses Dashboard targets when Snapkit is available' : 'IDE uses its normal debug configuration' });
+  } finally { savingIDE = false; }
+});
+app.get('/api/ide/plan', async (_req, res) => {
+  // Demo state is never used to launch real IDE sessions.
+  if (demo) return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
+  let plan = launchPlan(settings, snapshot.devices);
+  if (plan.status === 'ready') {
+    try { await validateBuild(await validateWorkspace(settings.workspace), settings); }
+    catch (e) { plan = { ...plan, status: 'invalid', configurations: [], reason: e.message }; }
+  }
+  res.json(plan);
 });
 app.post('/api/devices/:id/boot', async (req, res) => {
   const d = device(req.params.id);
@@ -180,17 +213,12 @@ app.post('/api/devices/:id/delete', async (req, res) => {
     const result = demo ? { message: `Demo: ${d.name} and its data were deleted. Shared OS runtimes were kept.` } : await deleteDevice(d);
     if (scanning) await scanning;
     snapshot.devices = snapshot.devices.filter(item => item.id !== d.id);
-    const selected = settings.targetIds.includes(d.id);
     settings.targetIds = settings.targetIds.filter(id => id !== d.id);
     // The device is already deleted. Report any settings failure separately so
     // the user is never told a destructive operation failed when it succeeded.
     let warning;
     try {
       await persist();
-      if (!demo && selected && settings.workspace) {
-        const workspace = await validateWorkspace(settings.workspace);
-        await writeTargets(workspace, snapshot.devices.filter(item => settings.targetIds.includes(item.id)), settings);
-      }
     } catch (e) { warning = `Device deleted, but IDE settings could not be updated: ${e.message}`; }
     emit('devices', snapshot); emit('settings', settings);
     res.json({ ...result, settings, warning });

@@ -20,6 +20,6 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
 with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
     archive.writestr('extension.vsixmanifest', manifest)
     archive.writestr('[Content_Types].xml', '''<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="json" ContentType="application/json"/><Default Extension="cjs" ContentType="application/javascript"/><Default Extension="vsixmanifest" ContentType="text/xml"/></Types>''')
-    for name in ('package.json', 'extension.cjs'):
+    for name in ('package.json', 'extension.cjs', 'dashboard-debug.cjs'):
         archive.write(source / name, f'extension/{name}')
 print(output)

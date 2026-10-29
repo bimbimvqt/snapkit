@@ -1,6 +1,5 @@
 import path from 'node:path';
-import { readFile, mkdir, writeFile, realpath, rename, readdir, stat } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { readFile, realpath, readdir, stat } from 'node:fs/promises';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 
 export async function validateWorkspace(input) {
@@ -46,32 +45,33 @@ export async function validateBuild(root, input = {}) {
 export function flutterBuildArgs(options = {}) {
   return [...(options.flavor ? ['--flavor', options.flavor] : []), ...(options.target ? ['--target', options.target] : []), ...(options.defineFile ? ['--dart-define-from-file', options.defineFile] : [])];
 }
-export const compoundName = 'Snapkit: Selected Devices';
-const managed = name => name === 'Snapkit: Active Device' || name?.startsWith('Snapkit: Device · ');
-export async function writeTargets(root, devices, options = {}) {
-  const folder = path.join(root, '.vscode');
-  await mkdir(folder, { recursive: true });
-  const file = path.join(folder, 'launch.json');
-  let raw;
-  try { raw = await readFile(file, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+// Build configurations in memory. Dashboard operations never write to the app.
+export function launchPlan(settings, devices) {
+  const base = { protocol: 1, workspace: settings.workspace || '', configurations: [] };
+  if (settings.ideEnabled === false || !settings.workspace || !settings.targetIds?.length) return { ...base, status: 'inactive' };
+  const selected = settings.targetIds.map(id => devices.find(d => d.id === id));
+  if (selected.some(d => !d || d.state !== 'online' || !d.flutterId)) return { ...base, status: 'invalid', reason: 'Some selected devices are unavailable. Start them or update the selection in Dashboard.' };
+  return { ...base, status: 'ready', configurations: selected.map(device => ({
+    name: `Snapkit: ${device.name}`, type: 'dart', request: 'launch', flutterMode: 'debug',
+    deviceId: device.flutterId, cwd: settings.workspace,
+    program: path.resolve(settings.workspace, settings.target || 'lib/main.dart'),
+    toolArgs: flutterBuildArgs({ flavor: settings.flavor, defineFile: settings.defineFile ? path.resolve(settings.workspace, settings.defineFile) : '' }),
+  })) };
+}
+
+// One-time migration only; never called by Dashboard endpoints.
+export function stripLegacyTargets(raw) {
   const errors = [];
-  const config = raw ? parse(raw, errors, { allowTrailingComma: true }) : { version: '0.2.0', configurations: [] };
-  if (errors.length || !config || typeof config !== 'object' || Array.isArray(config)) throw new Error('launch.json is invalid. The existing file has been preserved.');
+  const config = parse(raw, errors, { allowTrailingComma: true });
+  if (errors.length || !config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid launch.json; preserved unchanged');
   for (const key of ['configurations', 'compounds']) if (config[key] !== undefined && !Array.isArray(config[key])) throw new Error(`launch.json ${key} must be an array`);
-  const entries = devices.map(device => ({ name: `Snapkit: Device · ${device.name} [${device.id}]`, type: 'dart', request: 'launch', flutterMode: 'debug', deviceId: device.flutterId || device.id, cwd: root, program: options.target || 'lib/main.dart', toolArgs: flutterBuildArgs({ ...options, target: undefined }) }));
-  const format = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: raw?.includes('\r\n') ? '\r\n' : '\n' } };
-  let output = raw || JSON.stringify(config, null, 2) + '\n';
-  // Remove only our generated entries; JSONC edits retain unrelated profiles and comments.
-  const list = config.configurations || [];
-  for (let i = list.length - 1; i >= 0; i--) if (managed(list[i]?.name)) output = applyEdits(output, modify(output, ['configurations', i], undefined, format));
-  if (!config.configurations) output = applyEdits(output, modify(output, ['configurations'], [], format));
-  for (let i = entries.length - 1; i >= 0; i--) output = applyEdits(output, modify(output, ['configurations', 0], entries[i], { ...format, isArrayInsertion: true }));
+  const format = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: raw.includes('\r\n') ? '\r\n' : '\n' } };
+  let result = raw;
+  const owned = name => name === 'Snapkit: Active Device' || (typeof name === 'string' && name.startsWith('Snapkit: Device · '));
+  const entries = config.configurations || [];
+  for (let i = entries.length - 1; i >= 0; i--) if (owned(entries[i]?.name)) result = applyEdits(result, modify(result, ['configurations', i], undefined, format));
   const compounds = config.compounds || [];
-  for (let i = compounds.length - 1; i >= 0; i--) if (compounds[i]?.name === compoundName) output = applyEdits(output, modify(output, ['compounds', i], undefined, format));
-  if (!config.compounds) output = applyEdits(output, modify(output, ['compounds'], [], format));
-  if (entries.length) output = applyEdits(output, modify(output, ['compounds', 0], { name: compoundName, configurations: entries.map(e => e.name), stopAll: true }, { ...format, isArrayInsertion: true }));
-  if (raw) await writeFile(`${file}.snapkit.bak`, raw);
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  await writeFile(temporary, output); await rename(temporary, file);
-  return file;
+  for (let i = compounds.length - 1; i >= 0; i--) if (compounds[i]?.name === 'Snapkit: Selected Devices') result = applyEdits(result, modify(result, ['compounds', i], undefined, format));
+  if (compounds.length && compounds.every(c => c?.name === 'Snapkit: Selected Devices')) result = applyEdits(result, modify(result, ['compounds'], undefined, format));
+  return result;
 }
