@@ -5,7 +5,10 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   page.on('request', r => { if (r.url().includes('/api/')) apiRequests.push(r.url()); });
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Mở Dashboard local' })).toHaveAttribute('href', 'http://127.0.0.1:4310/');
+  await expect(page.locator('#app-preview')).toBeVisible();
+  await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup.webp');
+  await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
   await page.goto('demo/');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
   await expect(page.locator('.device-card')).toHaveCount(6);
