@@ -1,29 +1,30 @@
 import path from 'node:path';
 import os from 'node:os';
-import { existsSync, lstatSync } from 'node:fs';
+import { existsSync, lstatSync, readlinkSync } from 'node:fs';
 import { mkdir, realpath, lstat, readdir } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { run, parseJsonOutput } from './cli.js';
-const project = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const dataRoot = path.resolve(process.env.SNAPKIT_DATA_ROOT || (process.platform === 'darwin' && existsSync('/Volumes/SanDiskSSDData') ? '/Volumes/SanDiskSSDData/SnapkitData' : path.join(project, '.snapkit', 'data')));
+import { dataRoot, androidSDKDirectory } from './paths.js';
+import { getPreferences } from './preferences.js';
+export { dataRoot } from './paths.js';
+
 const defaultIOSDevices = path.join(os.homedir(), 'Library/Developer/CoreSimulator/Devices');
 export function selectIOSDeviceRoot(defaultRoot, ssdRoot, platform = process.platform) {
   // Respect an existing native device set, including recovery from blocked SSD access.
   if (platform === 'darwin') {
-    try { if (lstatSync(defaultRoot).isDirectory()) return defaultRoot; } catch { /* Not created yet. */ }
+    try { const info = lstatSync(defaultRoot); if (info.isDirectory()) return defaultRoot; if (info.isSymbolicLink()) return path.resolve(path.dirname(defaultRoot), readlinkSync(defaultRoot)); } catch { /* Not created yet. */ }
   }
-  return ssdRoot;
+  return platform === 'darwin' ? defaultRoot : ssdRoot;
 }
 export const storage = {
-  root: dataRoot, avd: path.join(dataRoot, 'Android/avd'), iosDevices: selectIOSDeviceRoot(defaultIOSDevices, path.join(dataRoot, 'iOS/Devices')),
+  root: dataRoot, avd: process.env.ANDROID_AVD_HOME || (existsSync(path.join(dataRoot, 'Android/avd')) ? path.join(dataRoot, 'Android/avd') : path.join(process.env.ANDROID_USER_HOME || path.join(os.homedir(), '.android'), 'avd')), iosDevices: selectIOSDeviceRoot(defaultIOSDevices, path.join(dataRoot, 'iOS/Devices')),
   downloads: path.join(dataRoot, 'downloads/iOS'),
   temp: path.join(dataRoot, 'tmp'), state: path.join(dataRoot, 'state'),
-  sdk: process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME || (existsSync('/Volumes/SanDiskSSDData/Android/sdk') ? '/Volumes/SanDiskSSDData/Android/sdk' : path.join(dataRoot, 'Android/sdk'))
+  sdk: getPreferences().androidSDK || androidSDKDirectory()
 };
 export async function configureStorage() {
   // Fail closed if an external volume was unplugged; never create a fake mount directory.
   if (dataRoot.startsWith('/Volumes/')) await realpath(path.join('/Volumes', dataRoot.split('/')[2]));
-  for (const key of ['avd', 'iosDevices', 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
+  for (const key of ['avd', ...(process.platform === 'darwin' ? ['iosDevices'] : []), 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
   process.env.ANDROID_AVD_HOME = storage.avd;
   process.env.ANDROID_HOME = storage.sdk;
   process.env.ANDROID_SDK_ROOT = storage.sdk;

@@ -128,4 +128,6 @@ test('iOS storage warns when SSD device data cannot be enumerated by CoreSimulat
   assert.match(blocked.reason, /Full Disk Access/);
   const visible = await iosAccessStatus({ devices: { ios: [{ udid: id }] } }, { deviceRoot: paths.iosDevices, platform: 'darwin' });
   assert.equal(visible.blocked, false);
+  const unavailable = await iosAccessStatus({ devices: { ios: [{ udid: id, isAvailable: false, availabilityError: 'runtime profile not found' }] } }, { deviceRoot: paths.iosDevices, platform: 'darwin' });
+  assert.equal(unavailable.blocked, false, 'A missing runtime does not mean CoreSimulator cannot access device storage');
 }));

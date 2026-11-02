@@ -82,11 +82,11 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
         void vscode.window.showErrorMessage('Snapkit: Invalid IDE configuration from local agent.');
         return undefined;
       }
-      if ([...groups.values()].some(group => group.root === root && group.sessions.size)) {
+      if ([...groups.values()].some(group => group.root === root)) {
         void vscode.window.showWarningMessage('Snapkit: Selected devices are already debugging. Stop that group before starting another.');
         return undefined;
       }
-      const group = { id: randomUUID(), root, folder, sessions: new Map(), queue: [], stopping: false, launching: false };
+      const group = { id: randomUUID(), root, folder, sessions: new Map(), queue: [], stopping: false };
       const configs = plan.configurations.map(c => {
         const combined = { ...config, name: c.name, type: 'dart', request: 'launch', flutterMode: 'debug',
           program: c.program, cwd: c.cwd, deviceId: c.deviceId, args: [], toolArgs: c.toolArgs };
@@ -98,29 +98,36 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       group.expiry = setTimeout(() => { if (!group.sessions.size) groups.delete(group.id); }, 120000);
       group.expiry.unref?.();
       groups.set(group.id, group);
-      report(`Dashboard selected ${configs.length} device(s); launching in memory. Project files are unchanged.`);
+      report(`Dashboard selected ${configs.length} device(s); launching concurrently in memory. Project files are unchanged.`);
       return configs[0];
     },
   };
-  function started(session) {
+  async function started(session) {
     const group = groups.get(session.configuration.__snapkitGroup);
-    if (group) { group.sessions.set(session.id, session); clearTimeout(group.expiry); }
-    else if (session.configuration.__snapkitGroup) { void vscode.debug.stopDebugging(session); }
-  }
-  async function ready(session) {
-    const group = groups.get(session.configuration.__snapkitGroup);
-    if (!group || group.stopping || group.launching || !group.queue.length) return;
-    group.launching = true;
-    try {
-      // Start the next device only after this app is ready, avoiding concurrent
-      // Xcode builds into the same Flutter build directory.
-      const next = group.queue.shift();
-      if (!await vscode.debug.startDebugging(group.folder, next)) throw new Error(`Could not start ${next.name}`);
-    } catch (error) {
-      report(error.message);
-      void vscode.window.showErrorMessage(`Snapkit: ${error.message}. The debug group has been stopped.`);
-      await stop(group);
-    } finally { group.launching = false; }
+    if (!group) {
+      if (session.configuration.__snapkitGroup) await vscode.debug.stopDebugging(session);
+      return;
+    }
+    group.sessions.set(session.id, session);
+    clearTimeout(group.expiry);
+    // Drain before launching: peer start events must not fan out again.
+    // Start every peer now, without waiting for flutter.appStarted or a build.
+    const pending = group.queue.splice(0);
+    if (pending.length) report(`Starting ${pending.length} peer debug session(s) before app readiness.`);
+    await Promise.allSettled(pending.map(async config => {
+      if (group.stopping) return;
+      try {
+        report(`Requesting debug: ${config.name}`);
+        if (!await vscode.debug.startDebugging(group.folder, config)) {
+          throw new Error(`Could not start ${config.name}`);
+        }
+      } catch (error) {
+        if (group.stopping) return;
+        report(error.message);
+        void vscode.window.showErrorMessage(`Snapkit: ${error.message}. The debug group has been stopped.`);
+        await stop(group);
+      }
+    }));
   }
   async function terminated(session) {
     const group = groups.get(session.configuration.__snapkitGroup);
@@ -128,7 +135,7 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
     group.sessions.delete(session.id);
     await stop(group);
   }
-  return { provider, started, ready, terminated, dispose() {
+  return { provider, started, terminated, dispose() {
     // IDE already owns running sessions. Disabling Snapkit must not stop them.
     for (const group of groups.values()) clearTimeout(group.expiry);
     groups.clear();

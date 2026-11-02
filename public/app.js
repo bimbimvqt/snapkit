@@ -56,6 +56,8 @@ async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error('Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.');
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
+    if (url === '/api/product') return { version: '0.2.0-beta.1', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Sample · Flutter ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Sample · Android tools ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Sample · iOS ready', help: 'https://developer.apple.com/xcode/' }], storage: { root: 'Sample · your computer' }, advice: 'Demo only. Your actual setup is checked in Snapkit Desktop.' };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
     throw new Error('This action requires the local Snapkit server.');
@@ -121,9 +123,10 @@ function render() {
   $('#scan-time').textContent = state.scannedAt ? `Last synced ${new Date(state.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Auto-refresh every 30s` : 'Waiting for first scan';
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
-  $('#ide-summary').textContent = state.settings.ideEnabled === false ? 'Dashboard targets paused · IDE uses your normal debug configuration.' : targetSaving ? 'Saving device selection…' : unavailable.length ? `${selected.length} selected · ${unavailable.length} unavailable. Uncheck unavailable devices before debugging.` : selected.length ? `${selected.length} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged` : 'Select one or more started devices, then run Debug in Antigravity.';
+  $('#ide-summary').textContent = state.settings.ideEnabled === false ? 'Dashboard targets paused · IDE uses your normal debug configuration.' : targetSaving ? 'Saving device selection…' : unavailable.length ? `${selected.length} selected · ${unavailable.length} unavailable. Uncheck unavailable devices before debugging.` : selected.length ? `${selected.length} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged` : 'Select one or more started devices, then run Debug in your editor.';
   renderWarnings(); renderProvisionJobs(); icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
+  document.dispatchEvent(new Event('snapkit:state'));
 }
 function renderWarnings() {
   $('#warnings').classList.toggle('hidden', !state.warnings.length);
@@ -539,7 +542,7 @@ function setCreationPlatform(platform) {
   $$('[data-create-platform]').forEach(b => { b.classList.toggle('active', b.dataset.createPlatform === platform); b.setAttribute('aria-pressed', String(b.dataset.createPlatform === platform)); });
   $('#ios-download-tools').classList.toggle('hidden', platform !== 'ios'); $('#android-download-tools').classList.toggle('hidden', platform !== 'android');
   $('#create-storage-path').textContent = (platform === 'ios' ? state.storage?.iosDevices : state.storage?.avd) || 'SSD device storage';
-  $('#create-storage-label').textContent = platform === 'ios' && state.storage?.iosOnSSD === false ? 'iOS DATA ON INTERNAL DISK' : 'DEVICE DATA ON SSD';
+  $('#create-storage-label').textContent = platform === 'ios' && state.storage?.iosOnSSD === false ? 'iOS DATA ON INTERNAL DISK' : 'DEVICE DATA LOCATION';
   renderCreationModels(); icons();
 }
 async function loadCreationCatalog(remote = false) {

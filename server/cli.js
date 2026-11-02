@@ -1,12 +1,22 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { getPreferences } from './preferences.js';
+import { androidSDKDirectory } from './paths.js';
 
+const activeCommands = new Set();
+export function stopCommands() {
+  for (const child of activeCommands) {
+    if (process.platform === 'win32' && child.pid) spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
+    else child.kill('SIGTERM');
+  }
+}
 export function executable(name) {
   const override = process.env[`SNAPKIT_${name.toUpperCase()}`];
   if (override) return override;
-  const sdk = process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Android/sdk') : path.join(process.env.LOCALAPPDATA || os.homedir(), 'Android/Sdk'));
+  const prefs = getPreferences();
+  if (name === 'flutter' && prefs.flutterSDK) return path.join(prefs.flutterSDK, 'bin', process.platform === 'win32' ? 'flutter.bat' : 'flutter');
+  const sdk = prefs.androidSDK || androidSDKDirectory();
   const suffix = process.platform === 'win32' ? '.exe' : '';
   const manager = ['sdkmanager', 'avdmanager'].includes(name) ? path.join(sdk, 'cmdline-tools', 'latest', 'bin', `${name}${process.platform === 'win32' ? '.bat' : ''}`) : null;
   if (manager && existsSync(manager)) return manager;
@@ -30,6 +40,9 @@ export function run(name, args, { timeout = 25000, binary = false, input, onOutp
   return new Promise((resolve, reject) => {
     let child;
     try { child = launch(name, args, { ...options, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] }); } catch (e) { reject(e); return; }
+    activeCommands.add(child);
+    child.once('close', () => activeCommands.delete(child));
+    child.once('error', () => activeCommands.delete(child));
     if (input !== undefined) { child.stdin.on('error', () => {}); child.stdin.end(input); }
     const out = [], err = []; let bytes = 0;
     const timer = setTimeout(() => { child.kill(); reject(new Error(`${name}: timed out after ${timeout / 1000}s`)); }, timeout);

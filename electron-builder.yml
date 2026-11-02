@@ -1,0 +1,37 @@
+appId: dev.snapkit.desktop
+productName: Snapkit
+copyright: Copyright © 2026 Snapkit
+artifactName: Snapkit-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - desktop/**
+  - public/**
+  - server/**
+  - package.json
+  - snapkit-debug-sync.vsix
+  - '!**/*.map'
+asar: true
+asarUnpack:
+  - node_modules/lucide/**
+mac:
+  icon: desktop/assets/icon.icns
+  minimumSystemVersion: "13.0"
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+win:
+  icon: desktop/assets/icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+linux:
+  target: AppImage
+  category: Development

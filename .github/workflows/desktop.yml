@@ -1,0 +1,72 @@
+name: Build Desktop Beta
+on:
+  push:
+    tags: ['v*-beta.*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: mac
+            arch: arm64
+          - os: macos-14
+            platform: mac
+            arch: x64
+          - os: windows-latest
+            platform: win
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: npm ci
+      - run: npm run check
+      - name: Check desktop starts with a bundled agent
+        run: npm run desktop:smoke
+      - name: Package beta
+        run: npm run desktop:dist -- --${{ matrix.platform }} --${{ matrix.arch }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snapkit-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - run: python3 scripts/package-ide-extension.py release/snapkit-debug-sync.vsix
+      - name: Publish checksums and beta downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release
+          sha256sum *.dmg *.zip *.exe *.vsix > SHA256SUMS.txt
+          cd ..
+          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME — Desktop Beta" --notes-file docs/beta-release.md

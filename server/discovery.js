@@ -31,7 +31,9 @@ export async function discover() {
   const attempt = async (name, task, fallback) => { try { return await task(); } catch (e) { warnings.push(`${name}: ${e.message}`); return fallback; } };
   const [flutter, simulators, avdList] = await Promise.all([
     attempt('Flutter', async () => parseJsonOutput(await run('flutter', ['devices', '--machine'], { timeout: 45000 })), []),
-    process.platform === 'darwin' ? attempt('iOS', async () => parseJsonOutput(await run('xcrun', ['simctl', 'list', 'devices', 'available', '--json'])), {}) : {},
+    // Access checks need every registered device, including those with missing runtimes.
+    // mergeDevices filters unavailable devices from the dashboard separately.
+    process.platform === 'darwin' ? attempt('iOS', async () => parseJsonOutput(await run('xcrun', ['simctl', 'list', 'devices', '--json'])), {}) : {},
     attempt('Android', () => run('emulator', ['-list-avds']), '')
   ]);
   const runningAvds = {};

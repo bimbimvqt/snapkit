@@ -1,6 +1,6 @@
 'use strict';
 
-function createRestartSync({ enabled, report, onReady = () => {} }) {
+function createRestartSync({ enabled, report, onReady = () => {}, onStarting = () => {} }) {
   const sessions = new Map();
   let pending = null;
 
@@ -8,6 +8,7 @@ function createRestartSync({ enabled, report, onReady = () => {} }) {
     const state = { session, ready: false };
     sessions.set(session.id, state);
     return {
+      onWillStartSession() { void onStarting(session); },
       onDidSendMessage(message) {
         if (message.type !== 'event') return;
         if (message.event === 'flutter.appStarted') { state.ready = true; void onReady(session); }
@@ -48,18 +49,18 @@ function activate(context) {
   const report = message => output.appendLine(`${new Date().toISOString()} ${message}`);
   const dashboard = require('./dashboard-debug.cjs').createDashboardDebug(vscode, { report });
   const sync = createRestartSync({
+    onStarting: session => dashboard.started(session),
     enabled: session => vscode.workspace.getConfiguration('snapkit', session.workspaceFolder?.uri)
       .get('syncFlutterRestart', true),
     report: (message, failed) => {
       output.appendLine(`${new Date().toISOString()} ${message}`);
       if (failed) void vscode.window.showWarningMessage(`Snapkit: ${message}`);
     },
-    onReady: session => dashboard.ready(session),
   });
   context.subscriptions.push(output, dashboard,
     vscode.debug.registerDebugAdapterTrackerFactory('dart', sync),
     vscode.debug.registerDebugConfigurationProvider('dart', dashboard.provider),
-    vscode.debug.onDidStartDebugSession(session => dashboard.started(session)),
+    vscode.debug.onDidStartDebugSession(session => { void dashboard.started(session); }),
     vscode.debug.onDidTerminateDebugSession(session => { void dashboard.terminated(session); }),
     vscode.commands.registerCommand('snapkit.toggleDashboardTargets', async () => {
       const settings = vscode.workspace.getConfiguration('snapkit');
@@ -67,7 +68,7 @@ function activate(context) {
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Ready. The Restart button synchronizes running Flutter sessions.');
+  output.appendLine('Snapkit Debug Sync 1.2.1 ready. Parallel launches begin before adapter initialization.');
 }
 
 module.exports = { activate, createRestartSync };

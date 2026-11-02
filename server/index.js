@@ -11,12 +11,15 @@ import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus } from './storage.js';
 import { Provisioner } from './provision.js';
 import { demoCatalog, demoDevices } from './demo.js';
-import { run } from './cli.js';
+import { run, stopCommands } from './cli.js';
 import { Pairings } from './pairing.js';
+import { diagnostics } from './diagnostics.js';
+import { getPreferences, savePreferences } from './preferences.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const demo = process.argv.includes('--demo');
 const port = Number(process.env.PORT || 4310);
+const packageInfo = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const token = randomBytes(32).toString('hex');
 const app = express();
 const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.github.io').origin;
@@ -90,6 +93,21 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '16kb' }));
+app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
+app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
+  { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' },
+  { id: 'android-studio', name: 'Android Studio', mode: 'device-manager' }, { id: 'intellij', name: 'IntelliJ IDEA', mode: 'device-manager' }, { id: 'other', name: 'Another editor', mode: 'device-manager' }
+] }));
+app.get('/api/diagnostics', (req, res) => demo ? res.json({ ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checkedAt: Date.now(), checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Flutter is ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Android tools are ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Simulator is ready', help: 'https://developer.apple.com/xcode/' }], preferences: getPreferences(), storage: { root: 'Your computer', android: 'Android devices', ios: 'iOS devices' }, advice: 'Start only the devices you need.' }) : diagnostics({ fresh: req.query.fresh === '1' }).then(value => res.json(value)));
+let savingPreferences = false;
+app.post('/api/preferences', async (req, res) => {
+  if (savingPreferences) return res.status(409).json({ error: 'Settings are being saved. Try again shortly.' });
+  savingPreferences = true;
+  try { res.json({ preferences: demo ? { ...getPreferences(), ...req.body } : await savePreferences(req.body), message: 'Preferences saved. Restart Snapkit if you changed an SDK folder.' }); }
+  finally { savingPreferences = false; }
+});
+app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.join(root, 'snapkit-debug-sync.vsix')));
+
 app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
@@ -241,5 +259,7 @@ const server = app.listen(port, '127.0.0.1', () => {
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-function stop() { clearInterval(poll); for (const res of clients) res.end(); server.close(); }
+function stop() { stopCommands(); clearInterval(poll); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
+
+process.parentPort?.on('message', event => { if (event.data?.type === 'shutdown') stop(); });

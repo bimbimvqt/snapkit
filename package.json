@@ -1,6 +1,6 @@
 {
   "name": "snapkit-device-center",
-  "version": "1.0.0",
+  "version": "0.2.0-beta.1",
   "private": true,
   "type": "module",
   "description": "Local Flutter device control center",
@@ -9,20 +9,34 @@
     "dev": "node --watch server/index.js",
     "demo": "node server/index.js --demo",
     "test": "node --test test/*.test.js",
-    "check": "node --check server/index.js && node --check server/cli.js && node --check server/discovery.js && node --check server/devices.js && node --check server/workspace.js && node --check public/app.js && node --check server/provision.js && node --check server/storage.js && node --check server/folders.js && node --check server/pairing.js && node --check scripts/migrate-storage.js && node --check ide-extension/extension.cjs && node --check ide-extension/dashboard-debug.cjs && node --check scripts/cleanup-legacy-ide.js",
+    "check": "node --check server/index.js && node --check server/cli.js && node --check server/discovery.js && node --check server/devices.js && node --check server/workspace.js && node --check public/app.js && node --check server/provision.js && node --check server/storage.js && node --check server/folders.js && node --check server/pairing.js && node --check scripts/migrate-storage.js && node --check ide-extension/extension.cjs && node --check ide-extension/dashboard-debug.cjs && node --check scripts/cleanup-legacy-ide.js && node --check server/paths.js && node --check server/preferences.js && node --check server/diagnostics.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check public/product.js && node --check cloud/index.js",
     "test:ui": "playwright test",
     "build:pages": "node scripts/build-pages.js",
-    "test:pages": "playwright test --config playwright.pages.config.js"
+    "test:pages": "playwright test --config playwright.pages.config.js",
+    "desktop": "electron .",
+    "desktop:pack": "python3 scripts/package-ide-extension.py && electron-builder --dir --publish never",
+    "desktop:dist": "python3 scripts/package-ide-extension.py && electron-builder --publish never",
+    "cloud": "node cloud/index.js",
+    "desktop:smoke": "node desktop/smoke.cjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "express": "^5.1.0",
+    "jose": "^6.2.15",
     "jsonc-parser": "^3.3.1",
     "lucide": "^0.468.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1"
+    "@playwright/test": "^1.56.1",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
+  },
+  "main": "desktop/main.cjs",
+  "author": "Snapkit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bimbimvqt/snapkit.git"
   }
 }

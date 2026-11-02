@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+release
+.env
+**/.env
+cloud/data
+cloud-data
+.snapkit
+test-results

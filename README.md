@@ -1,4 +1,16 @@
-# Snapkit · Device Manager
+# Snapkit · Desktop Beta
+
+**Snapkit 0.2.0-beta.1** là ứng dụng desktop cho macOS 13+ (Apple Silicon/Intel) và Windows x64. Tải bộ cài tại [GitHub Releases](https://github.com/bimbimvqt/snapkit/releases). Bản beta không cần tài khoản hoặc thẻ thanh toán; mở app → **Setup & tools** → chọn project → bật thiết bị. Không cần cài Node.js để mở ứng dụng đã đóng gói.
+
+Beta đầu chưa có ký số/notarization; không tự cài cập nhật. Flutter, Android SDK và Xcode là công cụ cài riêng. Windows quản lý Android; iOS Simulator cần macOS + Xcode. Device management dùng cùng mọi editor; group Flutter debug dùng VSIX cho editor tương thích VS Code. Cursor/Antigravity còn beta; chưa có plugin group debug JetBrains hoặc tích hợp React Native/Metro.
+
+- [Luồng desktop, tình huống người dùng và lộ trình thương mại](docs/desktop-beta.md)
+- [Phạm vi và giới hạn beta](docs/beta-release.md)
+- Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · dịch vụ phiên bản: [snapkit.45.119.214.94.sslip.io](https://snapkit.45.119.214.94.sslip.io/health)
+
+Gói Free/Pro được giải thích trong app; các tính năng Pro hiện có được dùng miễn phí trong beta. RevenueCat backend đã có adapter xác minh entitlement/webhook. **Checkout luôn tắt trong beta**; account identity, luồng mua/khôi phục, giá thực từ provider và kiểm thử thanh toán là các bước bắt buộc trước khi mở bán. Không có subscription tự phát sinh khi beta kết thúc.
+
+Các hướng dẫn bên dưới dành cho người chạy từ source.
 
 Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, log và DevTools do IDE quản lý.
 
@@ -6,7 +18,7 @@ Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên
 
 Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · [Device Manager](https://bimbimvqt.github.io/snapkit/preview/)
 
-## Cài đặt local
+## Chạy agent từ source
 
 Cần Node.js 20+ (khuyến nghị 22), Flutter SDK trên PATH, Android SDK; iOS cần macOS + Xcode.
 
@@ -25,7 +37,7 @@ Mở **http://127.0.0.1:4310/**. Với dữ liệu mẫu: `npm run demo` (dừng
 2. Bấm **Start device**, chờ thiết bị online và được Flutter nhận diện.
 3. Mở **IDE debug setup**, chọn folder Flutter đang mở trong Antigravity. Nhập cấu hình debug từ `.vscode/launch.json` có sẵn hoặc điền flavor, entrypoint và đường dẫn file defines.
 4. Tick **Select for IDE** trên một hoặc nhiều thiết bị đang bật.
-5. Cài **Snapkit Debug Sync 1.1+**, **Dart** và **Flutter** trong IDE. Mở **Run and Debug**, chọn profile Flutter debug thông thường của bạn (ví dụ `dev`), bấm **F5** hoặc **Run/Debug**. Khi **Use Dashboard targets** được bật và folder khớp, extension dùng lựa chọn trên Dashboard để mở các phiên debug trong bộ nhớ. Không cần profile `Snapkit:` trong `launch.json`.
+5. Cài **Snapkit Debug Sync 1.2+**, **Dart** và **Flutter** trong IDE. Mở **Run and Debug**, chọn profile Flutter debug thông thường của bạn (ví dụ `dev`), bấm **F5** hoặc **Run/Debug**. Khi **Use Dashboard targets** được bật và folder khớp, extension dùng lựa chọn trên Dashboard để mở các phiên debug trong bộ nhớ. Không cần profile `Snapkit:` trong `launch.json`.
 
 Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup hay file nào trong repo app. Flavor, entrypoint, đường dẫn defines và ID thiết bị được lưu theo project tại `SnapkitData/state/settings.json` / `workspaces.json` trên SSD. Các profile dùng chung trong `launch.json` vẫn do bạn quản lý; Dashboard chỉ đọc chúng khi nhập cấu hình. Không lưu nội dung defines hoặc secret.
 
@@ -39,7 +51,7 @@ Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup
 
 Backend online và mode bật nhưng thiết bị đã chọn bị ngắt kết nối: extension báo lỗi để cập nhật lựa chọn, tránh âm thầm chạy trên thiết bị khác. Agent mặc định `http://127.0.0.1:4310`, có thể đổi setting **Snapkit: Agent URL** trong IDE; chỉ chấp nhận HTTP loopback. Workspace chưa trust không dùng tích hợp.
 
-Lựa chọn áp dụng ở lần Debug kế tiếp. Các thiết bị được build lần lượt để tránh xung đột Xcode cùng thư mục build; khi khởi động xong chúng cùng giữ phiên debug. Stop một phiên trong nhóm sẽ dừng các phiên còn lại và huỷ thiết bị chưa khởi động. Giữ nguyên điều khiển IDE cho breakpoint, Hot Reload, Restart, log và DevTools.
+Lựa chọn áp dụng ở lần Debug kế tiếp. Một lần bấm Debug khởi chạy đồng thời tất cả thiết bị đã chọn và đang online, không chờ app trên thiết bị trước sẵn sàng. Mỗi thiết bị có một phiên debug riêng; thời gian build và mở app có thể khác nhau. Flutter/Xcode có thể tự chờ khoá build khi nhiều phiên dùng chung thư mục build. Stop một phiên trong nhóm sẽ dừng các phiên còn lại và huỷ thiết bị chưa khởi động. Giữ nguyên điều khiển IDE cho breakpoint, Hot Reload, Restart, log và DevTools.
 
 Người khác clone app vẫn dùng profile gốc như thường. Nếu muốn dùng Dashboard, họ cài extension, chọn folder, nhập profile và chọn thiết bị local của họ; không cần commit ID thiết bị hoặc đường dẫn máy cá nhân vào repo app.
 
@@ -64,6 +76,10 @@ antigravity-ide --install-extension ./snapkit-debug-sync.vsix
 
 Hoặc dùng **Extensions: Install from VSIX…** trong IDE. Tải lại cửa sổ bằng **Developer: Reload Window**, rồi chọn profile Flutter debug thông thường và bấm F5. Xem kết quả ở **Output → Snapkit Debug Sync**. Có thể tắt bằng setting `snapkit.syncFlutterRestart: false` hoặc gỡ extension. Trên Windows dùng Python 3 (`py` nếu không có `python3`) và CLI của IDE tương ứng.
 
+## Android máy gập trong cửa sổ emulator
+
+Máy **Snapkit Pixel Fold** dùng Android Emulator thật, dữ liệu ở SSD như các AVD khác. Bấm Start device trên Dashboard để mở cửa sổ emulator; chọn Select for IDE rồi debug trong IDE để chạy app. Trong cửa sổ Android Emulator, dùng điều khiển Fold/Unfold, Rotate và **Extended controls → Virtual sensors → Device Pose** để đổi góc bản lề. Tên/vị trí nút phụ thuộc phiên bản emulator. Dashboard không nhúng preview hay điều khiển app; source app giữ nguyên.
+
 ## Dùng trên domain GitHub
 
 GitHub Pages chỉ phục vụ giao diện; agent local phải tiếp tục chạy trên cùng máy:
@@ -74,13 +90,13 @@ GitHub Pages chỉ phục vụ giao diện; agent local phải tiếp tục ch�
 
 Mã ghép đôi dùng một lần, hết hạn sau 5 phút; phiên hết hạn sau 8 giờ hoặc khi agent restart. Token ở sessionStorage, không trong query URL. Backend chỉ bind `127.0.0.1`, kiểm tra Host/Origin, mọi request website cần token. Đổi domain bằng `SNAPKIT_WEB_ORIGIN=https://your-domain`. Không tắt bảo mật trình duyệt.
 
-## Dữ liệu trên SSD
+## Dữ liệu và SDK
 
-macOS tự dùng `/Volumes/SanDiskSSDData/SnapkitData` nếu ổ có sẵn. Có thể đặt `SNAPKIT_DATA_ROOT` trước khi chạy. Android AVD, runtime tải về, file tạm và trạng thái ở thư mục này. Android SDK dùng SDK đã cấu hình qua `ANDROID_SDK_ROOT`/`ANDROID_HOME`, hoặc SDK có sẵn trên SSD.
+Cài đặt mới dùng thư mục dữ liệu chuẩn: macOS `~/Library/Application Support/Snapkit`, Windows `%APPDATA%/Snapkit`, Linux `$XDG_DATA_HOME/snapkit` hoặc `~/.local/share/snapkit`. Có thể override `SNAPKIT_DATA_ROOT`. Bản cài SSD cũ được giữ khi tìm thấy settings hiện hữu; không tự chọn một ổ ngoài chỉ vì trùng tên.
 
-Dữ liệu iOS hiện dùng thư mục CoreSimulator mặc định khi macOS chặn quyền truy cập ổ ngoài. Runtime đã cài do Xcode quản lý trong `/Library/Developer/CoreSimulator`. Vị trí thực tế được hiển thị khi tạo thiết bị; bản sao SSD không phải dữ liệu đang hoạt động. Không tự chuyển lại iOS sang SSD khi hệ thống chặn. Các file/ảnh cũ vẫn được giữ trên ổ.
+Android SDK ưu tiên SDK đã cấu hình qua environment hoặc Preferences, rồi vị trí cài chuẩn của hệ điều hành. AVD home hiện có được giữ; cài đặt mới dùng Android AVD home chuẩn. iOS dùng device set native/symlink hiện hữu, không tự chuyển dữ liệu sang SSD. Runtime iOS do Xcode quản lý.
 
-Trên Windows, cài Flutter và Android SDK; chỉ có Android Emulator. Đặt `SNAPKIT_DATA_ROOT` tới ổ SSD của bạn, ví dụ `D:\SnapkitData`.
+SDK folder trong Preferences phải tồn tại và chứa executable tương ứng. Restart app để áp dụng đường dẫn Android SDK mới. Thay đổi cấu hình không ghi file vào project ứng dụng.
 
 ## Kiểm tra và deploy
 
@@ -93,3 +109,19 @@ npm run build:pages
 ```
 
 Push `main` kích hoạt GitHub Actions để kiểm tra và deploy Pages. Backend dùng Express, frontend HTML/CSS/JavaScript và Lucide local; không cần CDN.
+
+## Build desktop
+
+```sh
+npm ci
+npm run desktop:smoke
+npm run desktop
+# Build trên đúng OS; CI tag v*-beta.* tạo cả ba bộ cài.
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run desktop:dist -- --mac --arm64
+```
+
+Workflow `Build Desktop Beta` tạo DMG/ZIP cho macOS arm64/x64 và NSIS cho Windows x64, chỉ publish prerelease sau khi mọi job thành công. Không commit certificate, provider key hoặc `.env`. Bộ cài unsigned yêu cầu QA và ký số trước khi phát hành bản thương mại.
+
+## Cloud và RevenueCat
+
+Cloud chạy độc lập với device agent; không có API điều khiển thiết bị từ server. Cấu hình ở `cloud/.env.example`; triển khai bằng `cloud/compose.yaml`. Secret RevenueCat chỉ ở server. `/v1/billing/config` trả beta catalog, `/v1/releases/latest` trả bản tải theo OS/CPU, webhook xác thực qua Authorization và reconcile RevenueCat; `/v1/me/subscription` xác thực subject bằng OIDC JWT. Xem điều kiện mở bán trong `docs/desktop-beta.md`.

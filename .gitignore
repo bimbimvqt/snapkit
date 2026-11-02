@@ -7,3 +7,6 @@ test-results/
 dist/
 .DS_Store
 *.vsix
+release/
+cloud-data/
+*.log

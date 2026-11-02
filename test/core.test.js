@@ -8,6 +8,7 @@ import { parseJsonOutput } from '../server/cli.js';
 import { launchPlan, stripLegacyTargets, validateWorkspace, validateBuild, workspaceProfiles } from '../server/workspace.js';
 import { deleteDevice } from '../server/devices.js';
 import { createRequire } from 'node:module';
+const { createRestartSync } = createRequire(import.meta.url)('../ide-extension/extension.cjs');
 const { createDashboardDebug } = createRequire(import.meta.url)('../ide-extension/dashboard-debug.cjs');
 
 test('native IDE debugging falls back unchanged offline and launches Dashboard groups only for the matching enabled workspace', async () => {
@@ -55,29 +56,69 @@ test('native IDE debugging falls back unchanged offline and launches Dashboard g
     assert.deepEqual(first.args, []);
     assert.equal(JSON.stringify(original), before);
     const source = { id: 'source', configuration: first };
-    sync.started(source);
+    await sync.started(source);
     assert.equal(await resolve(original), undefined, 'Prevent duplicate Dashboard groups');
-    await sync.ready(source);
-    assert.equal(launches.length, 1);
+    assert.equal(launches.length, 2, 'Both peers launch before any app is ready');
     assert.equal(launches[0].deviceId, '2');
     assert.equal(await resolve(launches[0]), launches[0], 'Peer bypasses the resolver fan-out');
     const peer = { id: 'peer', configuration: launches[0] };
-    sync.started(peer);
-    await sync.ready(peer);
+    await sync.started(peer);
+    assert.equal(launches.length, 2, 'Peer start does not launch duplicates');
     assert.equal(launches[1].deviceId, '3');
     const last = { id: 'last', configuration: launches[1] };
-    sync.started(last);
+    await sync.started(last);
     await sync.terminated(peer);
     assert.deepEqual(stops.sort(), ['last', 'source']);
     const canceledPeer = { id: 'late', configuration: launches[1] };
-    sync.started(canceledPeer);
+    await sync.started(canceledPeer);
     assert(stops.includes('late'), 'Cancel a peer that started after its group stopped');
     assert.equal(await resolve(launches[0]), undefined, 'A canceled group cannot launch more peers');
     launches.length = 0; stops.length = 0; launchSuccess = false;
     const next = { id: 'next', configuration: await resolve(original) };
-    sync.started(next); await sync.ready(next);
+    await sync.started(next);
     assert(stops.includes('next'));
     assert(messages.some(message => message.includes('group has been stopped')));
+  } finally { sync.dispose(); }
+});
+
+test('Dashboard launches all peers while earlier launches are pending and stops late sessions after failure', async () => {
+  const root = path.resolve('flutter-project');
+  const launches = [], stops = [], pending = [];
+  const vscode = {
+    workspace: { isTrusted: true, getConfiguration: () => ({ get: (_name, fallback) => fallback }) },
+    window: { showErrorMessage() {}, showWarningMessage() {} },
+    debug: {
+      startDebugging: (_folder, config) => {
+        launches.push(config);
+        return new Promise(resolve => pending.push(resolve));
+      },
+      stopDebugging: async session => { stops.push(session.id); },
+    },
+  };
+  const sync = createDashboardDebug(vscode, {
+    canonical: async value => value, flutterProject: async () => true,
+    readPlan: async () => ({ protocol: 1, status: 'ready', workspace: root,
+      configurations: [1, 2, 3].map(id => ({ name: `Device ${id}`, type: 'dart', request: 'launch',
+        flutterMode: 'debug', cwd: root, program: path.join(root, 'lib/main.dart'), deviceId: String(id), toolArgs: [] })) }),
+  });
+  try {
+    const config = await sync.provider.resolveDebugConfiguration({ uri: { fsPath: root } }, { type: 'dart' });
+    let launching;
+    const tracker = createRestartSync({ enabled: () => true, report() {},
+      onStarting: session => { launching = sync.started(session); },
+    }).createDebugAdapterTracker({ id: 'first', configuration: config });
+    assert.equal(launches.length, 0);
+    tracker.onWillStartSession();
+    assert.equal(launches.length, 2, 'Both peers start before either launch promise resolves');
+    await sync.started({ id: 'second', configuration: launches[0] });
+    assert.equal(launches.length, 2, 'Peer events cannot repeat the fan-out');
+    pending[0](false);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(stops.sort(), ['first', 'second']);
+    await sync.started({ id: 'late-third', configuration: launches[1] });
+    assert(stops.includes('late-third'));
+    pending[1](true);
+    await launching;
   } finally { sync.dispose(); }
 });
 

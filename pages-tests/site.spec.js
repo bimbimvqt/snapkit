@@ -20,7 +20,7 @@ test('landing and preview fit a phone screen', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   for (const url of ['./', 'demo/', 'preview/']) {
     await page.goto(url);
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

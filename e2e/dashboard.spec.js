@@ -206,3 +206,30 @@ test('pending boot stays disabled across a scan and cannot be submitted twice', 
   release();
   await expect(card.getByRole('button', { name: 'Start device', exact: true })).toBeEnabled();
 });
+
+test('guided desktop dashboard explains setup, editor compatibility and the free beta without checkout', async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('#setup-card')).toBeVisible();
+  await page.getByRole('button', { name: 'Setup and tools' }).click();
+  await expect(page.locator('.tool-check.ready')).toHaveCount(3);
+  await page.locator('[data-editor="android-studio"]').click();
+  await expect(page.locator('#editor-help')).toContainText('not integrated');
+  await expect(page.locator('#extension-download')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Your plan', exact: true }).click();
+  await expect(page.locator('#plan-title')).toHaveText('Your workflow comes first.');
+  await expect(page.locator('.beta-banner')).toContainText('No automatic subscription');
+  await expect(page.locator('#panel-plan button')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
+  await page.locator('#pref-flutter').fill('/A Folder/Flutter');
+  await page.locator('#save-preferences').click();
+  await expect(page.locator('#preferences-result')).toContainText('Restart Snapkit');
+  for (const width of [375, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.getByRole('button', { name: 'Your plan', exact: true }).click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
