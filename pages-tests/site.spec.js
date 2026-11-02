@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test';
+async function chooseLanguage(page, language) {
+  await page.locator('[data-language-select]').click();
+  await page.locator(`[data-language="${language}"]`).click();
+}
 test('Pages works under a project prefix and preview never calls local APIs', async ({ page }) => {
   const errors = [], apiRequests = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -78,18 +82,18 @@ test('landing switches EN/VN, keeps preview and links, and remembers the languag
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Every device.');
   const downloads = await page.locator('.download-button').evaluateAll(links => links.map(link => link.href));
   await page.getByRole('button', { name: 'Setup & tools', exact: true }).click();
-  await page.locator('[data-language-select]').selectOption('vi');
+  await chooseLanguage(page, 'vi');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mọi thiết bị.');
   await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp');
   expect(await page.locator('.download-button').evaluateAll(links => links.map(link => link.href))).toEqual(downloads);
   await page.goto('./');
-  await expect(page.locator('[data-language-select]')).toHaveValue('vi');
+  await expect(page.locator('[data-language-select]')).toHaveAttribute('data-language-current', 'vi');
   await page.goto('demo/');
   await expect(page.locator('#add-device')).toHaveText('Thêm thiết bị');
   for (const width of [375, 812, 1440]) {
     await page.setViewportSize({ width, height: 812 });
     for (const language of ['vi', 'en']) {
-      await page.locator('[data-language-select]').selectOption(language);
+      await chooseLanguage(page, language);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
   }

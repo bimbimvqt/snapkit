@@ -1,3 +1,5 @@
+Device previews now show the full phone/tablet, including the bottom edge. The EN/VN picker uses a styled, keyboard-accessible menu on desktop and the website, instead of the operating system dropdown.
+
 English and Vietnamese are now available in the desktop app and landing page. Choose EN / VN in the top bar; the choice is remembered. Switching language keeps your current project, filters and unsaved form fields. Device names, SDK paths and technical command output are preserved.
 
 Snapkit brings your local test devices into one calm workspace. The beta is free and does not ask for a payment card or create a subscription.

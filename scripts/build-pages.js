@@ -8,6 +8,7 @@ await rm(out, { recursive: true, force: true });
 await mkdir(path.join(out, 'demo/vendor'), { recursive: true });
 await cp(path.join(root, 'site'), out, { recursive: true });
 await cp(path.join(root, 'public/i18n.js'), path.join(out, 'i18n.js'));
+await cp(path.join(root, 'public/language.css'), path.join(out, 'language.css'));
 await cp(path.join(root, 'public/favicon.svg'), path.join(out, 'favicon.svg'));
 await cp(path.join(root, 'public'), path.join(out, 'demo'), { recursive: true });
 await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.min.js'), path.join(out, 'demo/vendor/lucide.min.js'));

@@ -1,0 +1,12 @@
+.language-picker{position:relative;flex-shrink:0;color:var(--text,#f1f3f3)}
+.language-trigger{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:68px;padding:10px 12px;border:1px solid var(--border,var(--line,#2c3033));border-radius:8px;background:var(--surface,#191c1f);color:inherit;font:600 12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.language-trigger:hover,.language-trigger[aria-expanded=true]{background:var(--surface-hover,#292e30);border-color:var(--muted,#a1a7ac)}
+.language-menu{position:absolute;z-index:100;right:0;top:calc(100% + 8px);width:184px;padding:6px;background:var(--surface,#191c1f);border:1px solid var(--border,var(--line,#2c3033));border-radius:12px;box-shadow:0 12px 36px #0004}
+.language-menu[hidden]{display:none}
+.language-menu button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:44px;padding:10px 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;text-align:left;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.language-menu button:hover,.language-menu button:focus-visible{background:var(--surface-hover,#292e30)}
+.language-menu button[aria-checked=true]{background:var(--surface-hover,#292e30);border-color:var(--border,var(--line,#2c3033));font-weight:650}
+.language-code{font-size:10px;letter-spacing:.6px;color:var(--muted,#a1a7ac)}
+.language-trigger:focus-visible,.language-menu button:focus-visible{outline:2px solid var(--accent,var(--green,#c0f58b));outline-offset:2px}
+.language-trigger:active,.language-menu button:active{opacity:.8}
+@media(max-width:600px){.language-trigger{min-width:60px;padding-inline:10px}}

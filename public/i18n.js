@@ -55,7 +55,11 @@
       if (attr) node.setAttribute(attr, next); else node.nodeValue = next;
       record.last = next;
     }
-    for (const select of document.querySelectorAll('[data-language-select]')) select.value = language;
+    for (const trigger of document.querySelectorAll('[data-language-select]')) {
+      trigger.dataset.languageCurrent = language;
+      trigger.querySelector('[data-language-label]').textContent = language === 'vi' ? 'VN' : 'EN';
+    }
+    for (const option of document.querySelectorAll('[data-language]')) option.setAttribute('aria-checked', String(option.dataset.language === language));
   }
   function setLanguage(value) {
     if (!supported(value)) return;
@@ -70,6 +74,38 @@
   window.SnapkitI18n = { t, setLanguage, get language() { return language; } };
   bind(document); apply();
   if (supported(requested)) { try { localStorage.setItem('snapkit-language', language); } catch {} }
-  document.addEventListener('change', event => { if (event.target.matches('[data-language-select]')) setLanguage(event.target.value); });
+  const trigger = document.querySelector('[data-language-select]');
+  const menu = document.querySelector('#language-menu');
+  const options = [...(menu?.querySelectorAll('[data-language]') || [])];
+  function closeMenu(restoreFocus = false) {
+    if (!menu) return;
+    menu.hidden = true; trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) trigger.focus();
+  }
+  function openMenu(last = false) {
+    menu.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+    (last ? options.at(-1) : options.find(option => option.dataset.language === language) || options[0])?.focus();
+  }
+  trigger?.addEventListener('click', () => { if (menu.hidden) openMenu(); else closeMenu(); });
+  trigger?.addEventListener('keydown', event => {
+    if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); openMenu(event.key === 'ArrowUp'); }
+  });
+  menu?.addEventListener('click', event => {
+    const option = event.target.closest('[data-language]');
+    if (option) { setLanguage(option.dataset.language); closeMenu(true); }
+  });
+  menu?.addEventListener('keydown', event => {
+    const index = options.indexOf(document.activeElement);
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+      options[next]?.focus();
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (menu && !menu.hidden && event.key === 'Escape') { event.preventDefault(); closeMenu(true); }
+  });
+  document.addEventListener('pointerdown', event => { if (!event.target.closest('.language-picker')) closeMenu(); });
+  document.addEventListener('focusin', event => { if (!event.target.closest('.language-picker')) closeMenu(); });
   window.addEventListener('storage', event => { if (event.key === 'snapkit-language' && supported(event.newValue)) setLanguage(event.newValue); });
 })();
