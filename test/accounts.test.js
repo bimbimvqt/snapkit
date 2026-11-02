@@ -70,3 +70,13 @@ test('local account caches verified identity, fails closed, clears expired sessi
   assert.equal((await account.poll()).authenticated,true); assert.equal(stored.token,'new');
   await account.logout(); assert.equal(stored,null); assert.equal((await account.status()).authenticated,false);
 });
+
+test('release lookup includes a published tag while GitHub release list is stale', async t => {
+  const {readFile} = await import('node:fs/promises');
+  const {version} = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
+  const release = {tag_name:'v'+version,published_at:'2026-11-02T10:36:49Z',prerelease:true,html_url:'https://github.com/bimbimvqt/snapkit/releases/tag/v'+version,assets:[{name:`Snapkit-${version}-mac-arm64.dmg`,browser_download_url:'https://github.com/download.dmg',size:100}]};
+  const server = createCloud({env:{},fetcher:async url => Response.json(url.includes('/tags/') ? release : [])}).listen(0,'127.0.0.1');
+  await new Promise(r=>server.once('listening',r));t.after(()=>server.close());
+  const response=await fetch(`http://127.0.0.1:${server.address().port}/v1/releases/latest?platform=darwin&arch=arm64`);
+  const result=await response.json();assert.equal(result.version,version);assert.equal(result.available,true);
+});

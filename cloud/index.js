@@ -43,7 +43,13 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
       try {
         const response = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Snapkit-release-service' }, signal: AbortSignal.timeout(10000) });
         if (!response.ok) throw new Error('Release lookup failed');
-        releaseCache = await response.json(); releaseUntil = Date.now() + 60000;
+        releaseCache = await response.json();
+        // GitHub's release list can lag behind a newly published tag.
+        if (!releaseCache.some(item => item.tag_name === 'v' + version)) {
+          const tagged = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/v' + version, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Snapkit-release-service' }, signal: AbortSignal.timeout(10000) });
+          if (tagged.ok) releaseCache.push(await tagged.json());
+        }
+        releaseCache.sort((a, b) => String(b.published_at || '').localeCompare(String(a.published_at || ''))); releaseUntil = Date.now() + 60000;
       } catch { return res.status(503).json({ error: 'Downloads are temporarily unavailable. Please try GitHub Releases.', url: 'https://github.com/bimbimvqt/snapkit/releases' }); }
     }
     const osName = req.query.platform === 'darwin' ? 'mac' : 'win';

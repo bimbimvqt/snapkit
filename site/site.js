@@ -9,6 +9,12 @@ async function loadDesktopDownloads() {
     const response = await fetch('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error('Unavailable');
     const releases = await response.json(); let count = 0;
+    const fallbackTag = /releases\/download\/([^/]+)/.exec(document.querySelector('.download-button')?.href || '')?.[1];
+    const tag = publicContent?.recommendedVersion ? 'v' + publicContent.recommendedVersion : fallbackTag;
+    if (tag && !releases.some(item => item.tag_name === tag)) {
+      try { const tagged = await fetch('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/' + encodeURIComponent(tag), { signal: AbortSignal.timeout(10000) }); if (tagged.ok) releases.push(await tagged.json()); } catch {}
+    }
+    releases.sort((a, b) => String(b.published_at || '').localeCompare(String(a.published_at || '')));
     for (const button of document.querySelectorAll('.download-button')) {
       const os = button.dataset.platform === 'darwin' ? 'mac' : 'win';
       const ext = os === 'mac' ? 'dmg' : 'exe';
