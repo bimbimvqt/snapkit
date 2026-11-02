@@ -1,3 +1,5 @@
+Snapkit Debug Sync 1.3.1 now includes the shared Snapkit app icon, detailed English and Vietnamese guides, a changelog and support links in its editor Details view. Install the included VSIX and reload your editor to activate the updated extension.
+
 IDE status updates are ordered so delayed state responses cannot restore an already-ended debug session.
 
 Device lifecycle status is checked every two seconds while Dashboard is connected, independently of the slower hardware/Flutter scan. Device cards now offer Turn off device for iOS Simulators and Android AVDs, keeping installed apps and data.

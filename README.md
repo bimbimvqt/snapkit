@@ -1,11 +1,13 @@
 # Snapkit · Desktop Beta
 
-**Snapkit 0.2.0-beta.1** là ứng dụng desktop cho macOS 13+ (Apple Silicon/Intel) và Windows x64. Tải bộ cài tại [GitHub Releases](https://github.com/bimbimvqt/snapkit/releases). Bản beta không cần tài khoản hoặc thẻ thanh toán; mở app → **Setup & tools** → chọn project → bật thiết bị. Không cần cài Node.js để mở ứng dụng đã đóng gói.
+**Snapkit Desktop Beta** là ứng dụng desktop cho macOS 13+ (Apple Silicon/Intel) và Windows x64. Tải bộ cài tại [GitHub Releases](https://github.com/bimbimvqt/snapkit/releases). Bản beta không cần tài khoản hoặc thẻ thanh toán; mở app → **Setup & tools** → chọn project → bật thiết bị. Không cần cài Node.js để mở ứng dụng đã đóng gói.
 
-Beta đầu chưa có ký số/notarization; không tự cài cập nhật. Flutter, Android SDK và Xcode là công cụ cài riêng. Windows quản lý Android; iOS Simulator cần macOS + Xcode. Device management dùng cùng mọi editor; group Flutter debug dùng VSIX cho editor tương thích VS Code. Cursor/Antigravity còn beta; chưa có plugin group debug JetBrains hoặc tích hợp React Native/Metro.
+Bản macOS ký ad-hoc, chưa có Apple Developer ID/notarization; không tự cài cập nhật. Flutter, Android SDK và Xcode là công cụ cài riêng. Windows quản lý Android; iOS Simulator cần macOS + Xcode. Device management dùng cùng mọi editor; group Flutter debug dùng VSIX cho editor tương thích VS Code. Cursor/Antigravity còn beta; chưa có plugin group debug JetBrains hoặc tích hợp React Native/Metro.
 
 - [Luồng desktop, tình huống người dùng và lộ trình thương mại](docs/desktop-beta.md)
 - [Phạm vi và giới hạn beta](docs/beta-release.md)
+- [Hướng dẫn extension EN](ide-extension/README.md) · [Tiếng Việt](ide-extension/README.vi.md)
+- [Changelog extension](ide-extension/CHANGELOG.md) · [Hỗ trợ](ide-extension/SUPPORT.md)
 - Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · dịch vụ phiên bản: [snapkit.45.119.214.94.sslip.io](https://snapkit.45.119.214.94.sslip.io/health)
 
 Gói Free/Pro được giải thích trong app; các tính năng Pro hiện có được dùng miễn phí trong beta. RevenueCat backend đã có adapter xác minh entitlement/webhook. **Checkout luôn tắt trong beta**; account identity, luồng mua/khôi phục, giá thực từ provider và kiểm thử thanh toán là các bước bắt buộc trước khi mở bán. Không có subscription tự phát sinh khi beta kết thúc.
@@ -14,7 +16,7 @@ Các hướng dẫn bên dưới dành cho người chạy từ source.
 
 Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, log và DevTools do IDE quản lý.
 
-Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; extension cũng dừng các phiên thuộc cùng nhóm Snapkit.
+Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; Debug Sync 1.3+ giữ các phiên trên thiết bị khác tiếp tục chạy.
 
 Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · [Device Manager](https://bimbimvqt.github.io/snapkit/preview/)
 
@@ -37,9 +39,9 @@ Mở **http://127.0.0.1:4310/**. Với dữ liệu mẫu: `npm run demo` (dừng
 2. Bấm **Start device**, chờ thiết bị online và được Flutter nhận diện.
 3. Mở **IDE debug setup**, chọn folder Flutter đang mở trong Antigravity. Nhập cấu hình debug từ `.vscode/launch.json` có sẵn hoặc điền flavor, entrypoint và đường dẫn file defines.
 4. Tick **Select for IDE** trên một hoặc nhiều thiết bị đang bật.
-5. Cài **Snapkit Debug Sync 1.2+**, **Dart** và **Flutter** trong IDE. Mở **Run and Debug**, chọn profile Flutter debug thông thường của bạn (ví dụ `dev`), bấm **F5** hoặc **Run/Debug**. Khi **Use Dashboard targets** được bật và folder khớp, extension dùng lựa chọn trên Dashboard để mở các phiên debug trong bộ nhớ. Không cần profile `Snapkit:` trong `launch.json`.
+5. Cài **Snapkit Debug Sync 1.3+**, **Dart** và **Flutter** trong IDE. Mở **Run and Debug**, chọn profile Flutter debug thông thường của bạn (ví dụ `dev`), bấm **F5** hoặc **Run/Debug**. Khi **Use Dashboard targets** được bật và folder khớp, extension dùng lựa chọn trên Dashboard để mở các phiên debug trong bộ nhớ. Không cần profile `Snapkit:` trong `launch.json`.
 
-Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup hay file nào trong repo app. Flavor, entrypoint, đường dẫn defines và ID thiết bị được lưu theo project tại `SnapkitData/state/settings.json` / `workspaces.json` trên SSD. Các profile dùng chung trong `launch.json` vẫn do bạn quản lý; Dashboard chỉ đọc chúng khi nhập cấu hình. Không lưu nội dung defines hoặc secret.
+Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup hay file nào trong repo app. Flavor, entrypoint, đường dẫn defines và ID thiết bị được lưu theo project tại thư mục dữ liệu Snapkit trên máy (`state/settings.json` và `state/workspaces.json`). Các profile dùng chung trong `launch.json` vẫn do bạn quản lý; Dashboard chỉ đọc chúng khi nhập cấu hình. Không lưu nội dung defines hoặc secret.
 
 ### Debug bình thường khi không dùng Snapkit
 
@@ -51,7 +53,7 @@ Dashboard không ghi `.vscode/launch.json`, `.vscode/settings.json`, file backup
 
 Backend online và mode bật nhưng thiết bị đã chọn bị ngắt kết nối: extension báo lỗi để cập nhật lựa chọn, tránh âm thầm chạy trên thiết bị khác. Agent mặc định `http://127.0.0.1:4310`, có thể đổi setting **Snapkit: Agent URL** trong IDE; chỉ chấp nhận HTTP loopback. Workspace chưa trust không dùng tích hợp.
 
-Lựa chọn áp dụng ở lần Debug kế tiếp. Một lần bấm Debug khởi chạy đồng thời tất cả thiết bị đã chọn và đang online, không chờ app trên thiết bị trước sẵn sàng. Mỗi thiết bị có một phiên debug riêng; thời gian build và mở app có thể khác nhau. Flutter/Xcode có thể tự chờ khoá build khi nhiều phiên dùng chung thư mục build. Stop một phiên trong nhóm sẽ dừng các phiên còn lại và huỷ thiết bị chưa khởi động. Giữ nguyên điều khiển IDE cho breakpoint, Hot Reload, Restart, log và DevTools.
+Lựa chọn áp dụng ở lần Debug kế tiếp. Một lần bấm Debug khởi chạy đồng thời tất cả thiết bị đã chọn và đang online, không chờ app trên thiết bị trước sẵn sàng. Mỗi thiết bị có một phiên debug riêng; thời gian build và mở app có thể khác nhau. Flutter/Xcode có thể tự chờ khoá build khi nhiều phiên dùng chung thư mục build. Dừng một phiên đang chạy giữ các phiên đang chạy khác tiếp tục; lỗi khởi chạy nhóm vẫn hủy các phiên cùng nhóm. Giữ nguyên điều khiển IDE cho breakpoint, Hot Reload, Restart, log và DevTools.
 
 Người khác clone app vẫn dùng profile gốc như thường. Nếu muốn dùng Dashboard, họ cài extension, chọn folder, nhập profile và chọn thiết bị local của họ; không cần commit ID thiết bị hoặc đường dẫn máy cá nhân vào repo app.
 

@@ -69,7 +69,7 @@ function activate(context) {
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Snapkit Debug Sync 1.3.0 ready. Parallel launches begin before adapter initialization.');
+  output.appendLine('Snapkit Debug Sync 1.3.1 ready. Parallel launches begin before adapter initialization.');
 }
 
 module.exports = { activate, createRestartSync };
