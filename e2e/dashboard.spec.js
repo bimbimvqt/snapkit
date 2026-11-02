@@ -4,6 +4,10 @@ test('device manager boots devices and saves one or two IDE selections; app cont
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
   await expect(page.locator('.device-card')).toHaveCount(6);
+  await expect(page.locator('.brand')).toContainText('Snapkit');
+  await expect(page.locator('[data-device="demo-physical-1"] [data-action="boot"], [data-device="demo-physical-1"] [data-action="shutdown"]')).toHaveCount(0);
+  await expect(page.locator('[data-device="demo-physical-1"] .spec')).toHaveCount(1);
+  await expect(page.locator('[data-device="demo-physical-1"] .device-specs')).toContainText('1179×2556');
   await expect(page.locator('#console-output, #devtools-page, #sessions-page, #screenshots-page')).toHaveCount(0);
   await page.getByRole('checkbox', { name: 'Select iPhone 16 Pro for IDE debug', exact: true }).check();
   await expect(page.locator('#stat-selected')).toHaveText('1');

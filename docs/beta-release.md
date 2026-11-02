@@ -1,3 +1,5 @@
+Physical device cards no longer show a disabled power button. Missing hardware specifications use a clear availability message instead of empty RAM/CPU/screen indicators. Android values remain visible when reported by adb. The app and website wordmark now reads Snapkit with a capital S.
+
 Snapkit Debug Sync 1.3.1 now includes the shared Snapkit app icon, detailed English and Vietnamese guides, a changelog and support links in its editor Details view. Install the included VSIX and reload your editor to activate the updated extension.
 
 IDE status updates are ordered so delayed state responses cannot restore an already-ended debug session.

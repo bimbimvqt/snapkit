@@ -2,6 +2,12 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Device RAM": "RAM thiết bị",
+    "Logical CPU cores": "Số lõi CPU logic",
+    "Display resolution": "Độ phân giải màn hình",
+    "Hardware details are not available in Snapkit for this iPhone yet.": "Snapkit hiện chưa có thông số phần cứng của iPhone này.",
+    "Hardware details are not available yet.": "Chưa có thông số phần cứng.",
+
     "Stop debug on one device from its card with Snapkit Debug Sync 1.3+. Other devices keep running.": "Dừng debug từng thiết bị ngay trên thẻ với Snapkit Debug Sync 1.3+. Các thiết bị khác tiếp tục chạy.",
     "Last synced {0} · Device status checked every 2s": "Đồng bộ lúc {0} · Kiểm tra trạng thái mỗi 2 giây",
     "Turn off this device and disconnect its debug session. Device data is kept.": "Tắt thiết bị này và ngắt phiên debug của nó. Dữ liệu thiết bị được giữ lại.",
