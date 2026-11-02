@@ -70,6 +70,8 @@ test('hosted controller pairs across origins, runs commands and stops access aft
 });
 
 test('landing switches EN/VN, keeps preview and links, and remembers the language in the app preview', async ({ page }) => {
+  // Release discovery runs independently of locale; hold its result stable for this test.
+  await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases?*', route => route.fulfill({ json: [] }));
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('./?lang=en');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
