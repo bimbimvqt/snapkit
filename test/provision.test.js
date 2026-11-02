@@ -131,3 +131,17 @@ test('iOS storage warns when SSD device data cannot be enumerated by CoreSimulat
   const unavailable = await iosAccessStatus({ devices: { ios: [{ udid: id, isAvailable: false, availabilityError: 'runtime profile not found' }] } }, { deviceRoot: paths.iosDevices, platform: 'darwin' });
   assert.equal(unavailable.blocked, false, 'A missing runtime does not mean CoreSimulator cannot access device storage');
 }));
+
+test('iOS catalog and validation never wait for Android SDK tools', async () => {
+  const calls = [];
+  const provisioner = new Provisioner({ platform: 'darwin', paths: { downloads: '/nonexistent' }, execute: async (command, args) => {
+    calls.push(command);
+    assert.equal(command, 'xcrun');
+    return JSON.stringify(args.includes('devicetypes') ? { devicetypes: [] } : { runtimes: [] });
+  } });
+  const catalog = await provisioner.catalog(false, 'ios');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(catalog.android.models, []);
+  await assert.rejects(provisioner.create({ platform: 'ios', name: 'Test', model: 'missing', runtime: 'missing' }), /Unsupported/);
+  assert.ok(calls.every(command => command === 'xcrun'));
+});

@@ -233,3 +233,58 @@ test('guided desktop dashboard explains setup, editor compatibility and the free
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('add device shows its form immediately, keeps typing and reopens from cache', async ({ page }) => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let requests = 0;
+  await page.route('**/api/provision/catalog?*', async route => {
+    requests++;
+    await gate;
+    await route.fulfill({ response: await route.fetch() });
+  });
+  await page.goto('/');
+  await page.locator('#add-device').click();
+  await expect(page.locator('#create-form')).toBeVisible();
+  await expect(page.locator('#create-loading')).toBeVisible();
+  await expect(page.locator('#create-model')).toBeDisabled();
+  await expect(page.locator('#create-device-submit')).toBeDisabled();
+  await page.locator('#create-name').fill('My test device');
+  release();
+  await expect(page.locator('#create-loading')).toBeHidden();
+  await expect(page.locator('#create-model')).toBeEnabled();
+  await expect(page.locator('#create-name')).toHaveValue('My test device');
+  await page.locator('#create-dialog .close-dialog').first().click();
+  await page.locator('#add-device').click();
+  await expect(page.locator('#create-loading')).toBeHidden();
+  await expect(page.locator('#create-model')).toBeEnabled();
+  expect(requests).toBe(1);
+});
+
+test('switching platforms ignores a late catalog response and failed loads can retry', async ({ page }) => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/provision/catalog?platform=ios', async route => {
+    await gate;
+    await route.fulfill({ response: await route.fetch() });
+  });
+  let failAndroid = true;
+  await page.route('**/api/provision/catalog?platform=android', async route => {
+    if (failAndroid) await route.fulfill({ status: 503, json: { error: 'SDK temporarily unavailable' } });
+    else await route.fulfill({ response: await route.fetch() });
+  });
+  await page.goto('/');
+  await page.locator('#add-device').click();
+  await page.locator('[data-create-platform="android"]').click();
+  await expect(page.locator('#create-error')).toContainText('SDK temporarily unavailable');
+  await expect(page.locator('#create-device-submit')).toBeDisabled();
+  failAndroid = false;
+  await page.locator('#refresh-catalog').click();
+  await expect(page.locator('#create-model')).toBeEnabled();
+  const model = await page.locator('#create-model').inputValue();
+  const lateResponse = page.waitForResponse('**/api/provision/catalog?platform=ios');
+  release();
+  await (await lateResponse).finished();
+  await expect.poll(() => page.locator('#create-model').inputValue()).toBe(model);
+  await expect(page.locator('[data-create-platform="android"]')).toHaveAttribute('aria-pressed', 'true');
+});

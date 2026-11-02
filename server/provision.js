@@ -59,22 +59,22 @@ export class Provisioner extends EventEmitter {
     super(); this.execute = execute; this.paths = paths; this.platform = platform; this.arch = arch; this.checkIOS = checkIOS;
     this.jobs = []; this.remoteImages = []; this.catalogPending = new Map();
   }
-  async catalog(remote = false) {
-    const key = String(remote);
+  async catalog(remote = false, platform = 'all') {
+    const key = `${platform}:${remote}`;
     if (this.catalogPending.has(key)) return this.catalogPending.get(key);
-    const pending = this.getCatalog(remote).finally(() => this.catalogPending.delete(key));
+    const pending = this.getCatalog(remote, platform).finally(() => this.catalogPending.delete(key));
     this.catalogPending.set(key, pending); return pending;
   }
-  async getCatalog(remote) {
+  async getCatalog(remote, platform) {
     const warnings = [];
     const attempt = async (name, task, fallback) => { try { return await task(); } catch (e) { warnings.push(`${name}: ${e.message}`); return fallback; } };
     const [types, runtimes, profiles, images] = await Promise.all([
-      this.platform === 'darwin' ? attempt('iOS models', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'devicetypes', '--json'])).devicetypes, []) : [],
-      this.platform === 'darwin' ? attempt('iOS runtimes', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'runtimes', '--json'])).runtimes, []) : [],
-      attempt('Android profiles', async () => parseAndroidProfiles(await this.execute('avdmanager', ['list', 'device'], { timeout: 45000 })), []),
-      attempt('Android images', async () => parseAndroidImages(await this.execute('sdkmanager', [remote ? '--list' : '--list_installed', ...(remote ? ['--include_obsolete'] : []), `--sdk_root=${this.paths.sdk}`], { timeout: remote ? 120000 : 45000 }), this.arch), [])
+      platform !== 'android' && this.platform === 'darwin' ? attempt('iOS models', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'devicetypes', '--json'])).devicetypes, []) : [],
+      platform !== 'android' && this.platform === 'darwin' ? attempt('iOS runtimes', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'runtimes', '--json'])).runtimes, []) : [],
+      platform !== 'ios' ? attempt('Android profiles', async () => parseAndroidProfiles(await this.execute('avdmanager', ['list', 'device'], { timeout: 45000 })), []) : [],
+      platform !== 'ios' ? attempt('Android images', async () => parseAndroidImages(await this.execute('sdkmanager', [remote ? '--list' : '--list_installed', ...(remote ? ['--include_obsolete'] : []), `--sdk_root=${this.paths.sdk}`], { timeout: remote ? 120000 : 45000 }), this.arch), []) : []
     ]);
-    if (remote) this.remoteImages = images;
+    if (remote && platform !== 'ios') this.remoteImages = images;
     const merged = new Map(this.remoteImages.map(i => [i.id, { ...i, installed: false }]));
     for (const image of images) merged.set(image.id, image);
     const iosRuntimes = runtimes.filter(r => r.platform === 'iOS' || r.identifier?.includes('SimRuntime.iOS-'));
@@ -83,7 +83,7 @@ export class Provisioner extends EventEmitter {
       minVersion: d.minRuntimeVersionString, maxVersion: d.maxRuntimeVersion < 4294967295 ? d.maxRuntimeVersionString : null,
       runtimeIds: iosRuntimes.filter(r => iosCompatible(d, r, this.arch)).map(r => r.identifier),
       reason: 'No installed runtime supports this model and host architecture.' }));
-    if (this.platform === 'darwin' && !models.some(d => d.name === 'iPhone 5')) models.push({ id: 'legacy:iphone-5', name: 'iPhone 5 (legacy, 32-bit)', runtimeIds: [], unsupported: true,
+    if (platform !== 'android' && this.platform === 'darwin' && !models.some(d => d.name === 'iPhone 5')) models.push({ id: 'legacy:iphone-5', name: 'iPhone 5 (legacy, 32-bit)', runtimeIds: [], unsupported: true,
       reason: 'iPhone 5 needs legacy iOS 6–10 / 32-bit simulator tooling. This Xcode has no compatible profile; current Flutter does not support 32-bit iOS.' });
     const downloads = (await readdir(this.paths.downloads, { recursive: true }).catch(() => [])).filter(f => f.toLowerCase().endsWith('.dmg'));
     return { ios: { models, runtimes: iosRuntimes.map(r => ({ id: r.identifier, name: r.name, version: r.version, available: r.isAvailable, error: r.availabilityError })) },
@@ -108,7 +108,7 @@ export class Provisioner extends EventEmitter {
   }
   async downloadIOSForModel(version, modelId) {
     if (modelId) {
-      const catalog = await this.catalog();
+      const catalog = await this.catalog(false, 'ios');
       const model = catalog.ios.models.find(m => m.id === modelId);
       if (!model || model.unsupported) throw new Error(model?.reason || 'This model is not supported by the selected Xcode');
       if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version || '')) throw new Error('Enter a valid iOS version');
@@ -135,7 +135,7 @@ export class Provisioner extends EventEmitter {
     if (!['ios', 'android'].includes(body.platform)) throw new Error('Choose iOS or Android');
     const name = String(body.name || '').trim();
     if (!/^[a-zA-Z0-9][a-zA-Z0-9 ._()-]{0,63}$/.test(name)) throw new Error('Use a device name of 1–64 letters, numbers, spaces, dots, hyphens or parentheses');
-    const catalog = await this.catalog();
+    const catalog = await this.catalog(false, body.platform);
     if (body.platform === 'ios') {
       const model = catalog.ios.models.find(m => m.id === body.model);
       if (!model || !model.runtimeIds.includes(body.runtime)) throw new Error(model?.reason || 'Unsupported iOS model/runtime pair');

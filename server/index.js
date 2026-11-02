@@ -120,7 +120,7 @@ app.post('/api/folders/pick', async (_req, res) => {
   pickingFolder = true;
   try { res.json(await chooseFolder()); } finally { pickingFolder = false; }
 });
-app.get('/api/provision/catalog', async (req, res) => res.json(demo ? demoCatalog : await provisioner.catalog(req.query.remote === '1')));
+app.get('/api/provision/catalog', async (req, res) => res.json(demo ? demoCatalog : await provisioner.catalog(req.query.remote === '1', ['ios', 'android'].includes(req.query.platform) ? req.query.platform : 'all')));
 app.post('/api/provision/create', async (req, res) => {
   if (demo) {
     const models = req.body.platform === 'ios' ? demoCatalog.ios.models : demoCatalog.android.models;

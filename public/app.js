@@ -57,7 +57,7 @@ async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
-    if (url === '/api/product') return { version: '0.2.0-beta.3', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url === '/api/product') return { version: '0.2.0-beta.4', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
     if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
@@ -66,7 +66,7 @@ async function api(url, data) {
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
   const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
-  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
+  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
   if (connection && response.status === 401) forgetConnection();
   if (!response.ok) throw new Error(payload.error || t("Request failed ({0})", [response.status]));
@@ -319,7 +319,7 @@ async function init() {
       const changed = jobs.filter(job => state.jobs?.some(old => old.id === job.id && old.status === 'running') && job.status !== 'running');
       state.jobs = jobs; renderProvisionJobs();
       for (const job of changed) toast(job.status === 'error' ? `${job.title}: ${job.error}` : t("{0} completed", [job.title]), job.status === 'error');
-      if (changed.length && $('#create-dialog').open) loadCreationCatalog();
+      if (changed.length) { creationCatalogs.clear(); if ($('#create-dialog').open) loadCreationCatalog(); }
     });
     events.addEventListener('settings', e => { state.settings = { ...state.settings, ...JSON.parse(e.data) }; render(); });
     events.onopen = () => { setConnectionStatus('online'); $('#server-status').textContent = t("Local server connected"); loadState().catch(() => {}); };
@@ -358,7 +358,7 @@ async function pollRemoteState() {
   try {
     await loadState(); remoteOffline = false; renderConnection();
     const finished = (state.jobs || []).filter(j => j.status !== 'running' && previousJobs.some(old => old.id === j.id && old.status === 'running'));
-    if (finished.length && $('#create-dialog').open) await loadCreationCatalog();
+    if (finished.length) { creationCatalogs.clear(); if ($('#create-dialog').open) await loadCreationCatalog(); }
   } catch { remoteOffline = true; renderConnection(); }
   finally { remotePolling = false; }
 }
@@ -439,6 +439,8 @@ $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, asyn
 }));
 
 let creationCatalog = null, creationPlatform = 'ios', creationNameEdited = false, catalogLoading = false;
+const creationCatalogs = new Map(), catalogRequests = new Map();
+let catalogView = 0;
 let iosDownloadCatalog = null, iosDownloadModelId = null;
 const iosVersionCode = value => /^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(value || '') ? value.split('.').reduce((n, part, i) => n + Number(part) * [65536, 256, 1][i], 0) : null;
 function iosDownloadError() {
@@ -492,7 +494,11 @@ function selectedCreationRuntime() {
   return options?.find(r => r.id === $('#create-runtime').value);
 }
 function updateCreateAvailability() {
-  if (!creationCatalog) { $('#create-device-submit').disabled = true; return; }
+  for (const id of ['create-model', 'create-runtime', 'load-android-versions']) $('#' + id).disabled = !creationCatalog || catalogLoading;
+  if (!creationCatalog) {
+    for (const id of ['create-device-submit', 'install-android-image', 'download-ios-runtime', 'import-ios-runtime', 'load-ios-versions']) $('#' + id).disabled = true;
+    return;
+  }
   const model = selectedCreationModel(), runtime = selectedCreationRuntime();
   const jobRunning = (state.jobs || []).some(j => j.status === 'running');
   const supported = !!model && !!runtime && (creationPlatform === 'ios' ? model.runtimeIds.includes(runtime.id) && runtime.available : model.imageIds.includes(runtime.id) && runtime.installed);
@@ -544,28 +550,58 @@ function setCreationPlatform(platform) {
   $('#ios-download-tools').classList.toggle('hidden', platform !== 'ios'); $('#android-download-tools').classList.toggle('hidden', platform !== 'android');
   $('#create-storage-path').textContent = (platform === 'ios' ? state.storage?.iosDevices : state.storage?.avd) || t("SSD device storage");
   $('#create-storage-label').textContent = platform === 'ios' && state.storage?.iosOnSSD === false ? t("iOS DATA ON INTERNAL DISK") : t("DEVICE DATA LOCATION");
+  creationCatalog = creationCatalogs.get(platform)?.value || null;
   renderCreationModels(); icons();
+  loadCreationCatalog(false, true);
 }
-async function loadCreationCatalog(remote = false) {
-  if (catalogLoading) return;
-  catalogLoading = true; const previousModel = $('#create-model').value, previousRuntime = $('#create-runtime').value;
-  $('#create-loading').classList.remove('hidden'); $('#create-loading').textContent = remote ? t("Loading downloadable Android versions from the SDK repository…") : t("Reading your installed models and OS versions…");
-  $('#create-error').textContent = ''; updateCreateAvailability();
+async function loadCreationCatalog(remote = false, reuse = false) {
+  const platform = creationPlatform, view = ++catalogView;
+  const cached = creationCatalogs.get(platform);
+  creationCatalog = cached?.value || null;
+  catalogLoading = !(reuse && cached && Date.now() - cached.time < 60000);
+  $('#create-form').classList.remove('hidden');
+  $('#create-loading').classList.toggle('hidden', !catalogLoading);
+  $('#create-loading').textContent = remote ? t("Loading downloadable Android versions from the SDK repository…") : t("Reading your installed models and OS versions…");
+  $('#create-error').textContent = '';
+  if (!creationCatalog) {
+    for (const id of ['create-model', 'create-runtime']) $('#' + id).innerHTML = `<option value="">${t("Reading your installed models and OS versions…")}</option>`;
+    $('#compatibility-note').textContent = '';
+    if (!creationNameEdited) $('#create-name').value = '';
+    if (platform === 'ios') renderIOSDownloads();
+    $('#catalog-warnings').textContent = '';
+    $('#install-android-image').classList.add('hidden');
+  }
+  updateCreateAvailability();
   try {
-    creationCatalog = await api(`/api/provision/catalog${remote ? '?remote=1' : ''}`);
-    $('#create-form').classList.remove('hidden');
+    if (catalogLoading) {
+      const key = `${platform}:${remote}`;
+      if (!catalogRequests.has(key)) {
+        const request = api(`/api/provision/catalog?platform=${platform}${remote ? '&remote=1' : ''}`)
+          .then(value => { creationCatalogs.set(platform, { value, time: Date.now() }); return value; })
+          .finally(() => catalogRequests.delete(key));
+        catalogRequests.set(key, request);
+      }
+      const value = await catalogRequests.get(key);
+      if (view !== catalogView) return;
+      creationCatalog = value;
+    }
     $('#catalog-warnings').textContent = creationCatalog.warnings.join('\n');
+    const previousFile = $('#ios-runtime-file').value;
     $('#ios-runtime-file').innerHTML = creationCatalog.downloads.length ? creationCatalog.downloads.map(f => `<option value="${escape(f)}">${escape(f)}</option>`).join('') : `<option value="">${t("No downloaded runtime DMGs")}</option>`;
-    renderCreationModels(previousModel, previousRuntime);
-  } catch (e) { $('#create-error').textContent = t(e.message); $('#create-form').classList.remove('hidden'); }
-  finally { catalogLoading = false; $('#create-loading').classList.add('hidden'); updateCreateAvailability(); }
+    if (creationCatalog.downloads.includes(previousFile)) $('#ios-runtime-file').value = previousFile;
+    renderCreationModels($('#create-model').value, $('#create-runtime').value);
+  } catch (e) {
+    if (view === catalogView) { $('#create-error').textContent = t(e.message); $('#runtime-downloads').open = true; }
+  }
+  finally {
+    if (view === catalogView) { catalogLoading = false; $('#create-loading').classList.add('hidden'); updateCreateAvailability(); }
+  }
 }
-$('#add-device').addEventListener('click', async () => {
-  creationCatalog = null; creationNameEdited = false;
-  $('#create-form').classList.add('hidden'); $('#create-dialog').showModal();
-  creationPlatform = state.platform === 'darwin' ? 'ios' : 'android';
+$('#add-device').addEventListener('click', () => {
+  creationNameEdited = false;
+  $('#create-form').classList.remove('hidden'); $('#create-dialog').showModal();
   $$('[data-create-platform]').forEach(b => b.disabled = b.dataset.createPlatform === 'ios' && state.platform !== 'darwin');
-  await loadCreationCatalog(); setCreationPlatform(creationPlatform);
+  setCreationPlatform(state.platform === 'darwin' ? 'ios' : 'android');
 });
 $$('[data-create-platform]').forEach(b => b.addEventListener('click', () => setCreationPlatform(b.dataset.createPlatform)));
 $('#model-search').addEventListener('input', () => renderCreationModels());
