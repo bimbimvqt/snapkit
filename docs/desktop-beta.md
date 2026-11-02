@@ -2,7 +2,7 @@
 
 ## What ships
 
-Snapkit 0.2.0-beta.1 is a free, account-free desktop beta. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
+Snapkit 0.2.0-beta.2 is a free, account-free desktop beta. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
 
 The dashboard separates Devices, Setup & tools, Preferences and Your plan. Onboarding can be hidden and reopened from Setup & tools. No purchase button, price or artificial active subscription is shown. Multi-device Flutter workflows remain available during beta. Signing, production accounts and payments are release gates for commercialization, not beta features silently claimed as complete.
 
@@ -71,3 +71,11 @@ Temporary HTTPS host: `snapkit.45.119.214.94.sslip.io`. Website downloads remain
 Run `npm run check`, `npm test`, `npm run test:ui`, `npm run test:pages`, `npm run desktop:smoke`, then `npm run desktop:dist` on target platforms. Tag `v*-beta.*` builds macOS arm64/x64 and Windows x64, publishes a prerelease only when all packaging jobs succeed, and includes VSIX plus SHA256 checksums.
 
 The first downloadable beta is unsigned/not notarized. GitHub-hosted Windows/macOS launch checks and packaging do not establish USB-device, virtualization, production billing or clean-machine user acceptance. Perform real-device and first-install QA before declaring those supported without qualification. Obtain Apple distribution/notarization credentials and Windows code-signing credentials before signed public distribution. No signing credential is checked into source.
+
+## Language support
+
+Landing page and desktop UI support English (`en`) and Vietnamese (`vi`, shown as VN). A first visit follows the browser locale; an explicit selection is saved as `snapkit-language`. `?lang=en` and `?lang=vi` provide direct links and update when the selector changes. Selection is shared by tabs on the same origin. Desktop and website have separate browser storage, so each retains its own choice. Native desktop notices use the remembered desktop language.
+
+`public/i18n.js` is reused by Pages and cloud. Authored static copy is bound once; dynamic renderers call `t` with source keys and positional values. No observer scans or rewrites arbitrary server data. Project names, device names, paths, identifiers, source code and raw SDK output are preserved. Unknown technical errors retain their original diagnostic text. Catalogs live in `public/locales.js`, `site/locales.js`, and `desktop/locales.cjs`.
+
+Beta.2 macOS bundles use verified ad-hoc signatures. Apple Developer ID signing and notarization remain pending. See the beta release notes for targeted tester installation steps.

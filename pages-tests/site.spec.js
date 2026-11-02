@@ -3,13 +3,13 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   const errors = [], apiRequests = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', r => { if (r.url().includes('/api/')) apiRequests.push(r.url()); });
-  await page.goto('./');
+  await page.goto('./?lang=vi');
   await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
   await expect(page.locator('#app-preview')).toBeVisible();
   await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup.webp');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp');
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
-  await page.goto('demo/');
+  await page.goto('demo/?lang=en');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
   await expect(page.locator('.device-card')).toHaveCount(6);
   await page.locator('[data-device="demo-ios-3"] [data-action="boot"]').click();
@@ -67,4 +67,29 @@ test('hosted controller pairs across origins, runs commands and stops access aft
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('#connection-button').click();
   expect(await page.locator('#pairing-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+test('landing switches EN/VN, keeps preview and links, and remembers the language in the app preview', async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('./?lang=en');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Every device.');
+  const downloads = await page.locator('.download-button').evaluateAll(links => links.map(link => link.href));
+  await page.getByRole('button', { name: 'Setup & tools', exact: true }).click();
+  await page.locator('[data-language-select]').selectOption('vi');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Mọi thiết bị.');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp');
+  expect(await page.locator('.download-button').evaluateAll(links => links.map(link => link.href))).toEqual(downloads);
+  await page.goto('./');
+  await expect(page.locator('[data-language-select]')).toHaveValue('vi');
+  await page.goto('demo/');
+  await expect(page.locator('#add-device')).toHaveText('Thêm thiết bị');
+  for (const width of [375, 812, 1440]) {
+    await page.setViewportSize({ width, height: 812 });
+    for (const language of ['vi', 'en']) {
+      await page.locator('[data-language-select]').selectOption(language);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  }
+  expect(errors).toEqual([]);
 });

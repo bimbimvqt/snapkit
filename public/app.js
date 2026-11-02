@@ -1,3 +1,4 @@
+const t = (...args) => window.SnapkitI18n.t(...args);
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -46,7 +47,7 @@ let connection = null, remotePoll = null, remotePolling = false;
 let remoteOffline = false;
 function agentURL(value) {
   const url = new URL(value);
-  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Use a loopback server URL such as http://127.0.0.1:4310');
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(t("Use a loopback server URL such as http://127.0.0.1:4310"));
   return url.origin;
 }
 const groupLabel = { ios: 'iOS SIMULATOR', android: 'ANDROID EMULATOR', physical: 'PHYSICAL DEVICE' };
@@ -54,26 +55,26 @@ const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
 
 async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
-    if (data !== undefined) throw new Error('Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.');
+    if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
-    if (url === '/api/product') return { version: '0.2.0-beta.1', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
-    if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Sample · Flutter ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Sample · Android tools ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Sample · iOS ready', help: 'https://developer.apple.com/xcode/' }], storage: { root: 'Sample · your computer' }, advice: 'Demo only. Your actual setup is checked in Snapkit Desktop.' };
+    if (url === '/api/product') return { version: '0.2.0-beta.2', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
-    throw new Error('This action requires the local Snapkit server.');
+    throw new Error("This action requires the local Snapkit server.");
   }
-  if (window.SNAPKIT_CONTROLLER && !connection) throw new Error('Connect your local Snapkit server first.');
+  if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
   const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
   const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
   if (connection && response.status === 401) forgetConnection();
-  if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+  if (!response.ok) throw new Error(payload.error || t("Request failed ({0})", [response.status]));
   return payload;
 }
 function toast(message, error = false) {
   const node = document.createElement('div'); node.className = `toast${error ? ' error' : ''}`;
-  node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(message)}</span>`;
+  node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(t(message))}</span>`;
   $('#toast-region').append(node); icons(); setTimeout(() => node.remove(), error ? 9000 : 4500);
 }
 async function busy(button, task) {
@@ -86,14 +87,14 @@ function deviceCard(d) {
   const online = d.state === 'online', active = (state.settings.targetIds || []).includes(d.id);
   const tablet = /ipad|tablet/i.test(d.name);
   const starting = booting.has(d.id);
-  const readiness = starting ? 'Starting device…' : !online ? 'Start this device to select it for debug' : !d.flutterId ? 'Waiting for Flutter detection · refresh shortly' : 'Ready for IDE debug';
+  const readiness = starting ? t("Starting device…") : !online ? t("Start this device to select it for debug") : !d.flutterId ? t("Waiting for Flutter detection · refresh shortly") : t("Ready for IDE debug");
   const spec = (i, value, label) => `<span class="spec" title="${escape(label)}">${icon(i)}${escape(value || '—')}</span>`;
   return `<article class="device-card ${d.group} ${online ? 'online' : 'offline'} ${active ? 'target' : ''} ${tablet ? 'tablet' : ''}" data-device="${escape(d.id)}">
-    <div class="card-top"><span class="platform-label">${icon(groupIcon[d.group])}${groupLabel[d.group]}</span><div class="card-badges">${active ? `<span class="target-badge">${icon('crosshair')}IDE</span>` : ''}<span class="status-badge ${online ? 'online' : ''}"><span class="dot ${online ? 'green' : ''}"></span>${online ? 'Online' : 'Offline'}</span>${d.group === 'ios' || (d.group === 'android' && d.avd) ? `<button class="icon-button delete-device" data-action="delete" aria-label="Delete ${escape(d.name)}" title="Delete device and its data">${icon('trash-2')}</button>` : ''}</div></div>
+    <div class="card-top"><span class="platform-label">${icon(groupIcon[d.group])}${t(groupLabel[d.group])}</span><div class="card-badges">${active ? `<span class="target-badge">${icon('crosshair')}IDE</span>` : ''}<span class="status-badge ${online ? 'online' : ''}"><span class="dot ${online ? 'green' : ''}"></span>${online ? t("Online") : t("Offline")}</span>${d.group === 'ios' || (d.group === 'android' && d.avd) ? `<button class="icon-button delete-device" data-action="delete" aria-label="${escape(t('Delete {0}', [d.name]))}" title="${t("Delete device and its data")}">${icon('trash-2')}</button>` : ''}</div></div>
     <div class="device-stage" aria-hidden="true"><div class="stage-grid"></div><div class="device-model"><div class="phone-screen">${online ? `<div class="wallpaper"></div><span class="screen-clock">9:41</span><span class="screen-date">Thursday, October 29</span><span class="screen-label">READY FOR IDE</span>` : `<span class="offline-symbol">${icon('power')}</span>`}</div></div></div>
-    <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p><div class="device-specs">${spec('memory-stick', d.ram, 'Device RAM; — means unavailable')}${spec('cpu', d.cpu, 'Logical CPU cores; — means unavailable')}${spec('scan', d.resolution?.replaceAll(' ', ''), 'Display resolution; — means unavailable')}</div></div>
-    <p class="device-readiness">${escape(readiness)}</p>
-    <div class="card-actions"><button class="button" data-action="boot" ${online || starting || d.group === 'physical' ? 'disabled' : ''} ${starting ? 'aria-busy="true"' : ''}>${icon(starting ? 'loader-circle' : online ? 'circle-check' : 'power')}${starting ? 'Starting…' : online ? 'Device started' : d.group === 'physical' ? 'Turn on manually' : 'Start device'}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="Select ${escape(d.name)} for IDE debug" ${active ? 'checked' : ''} ${targetSaving || starting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? 'Selected for IDE' : 'Select for IDE'}</label></div>
+    <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p><div class="device-specs">${spec('memory-stick', d.ram, t("Device RAM; — means unavailable"))}${spec('cpu', d.cpu, t("Logical CPU cores; — means unavailable"))}${spec('scan', d.resolution?.replaceAll(' ', ''), t("Display resolution; — means unavailable"))}</div></div>
+    <p class="device-readiness">${escape(t(readiness))}</p>
+    <div class="card-actions"><button class="button" data-action="boot" ${online || starting || d.group === 'physical' ? 'disabled' : ''} ${starting ? 'aria-busy="true"' : ''}>${icon(starting ? 'loader-circle' : online ? 'circle-check' : 'power')}${starting ? t("Starting…") : online ? t("Device started") : d.group === 'physical' ? t("Turn on manually") : t("Start device")}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="${escape(t('Select {0} for IDE debug', [d.name]))}" ${active ? 'checked' : ''} ${targetSaving || starting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? t("Selected for IDE") : t("Select for IDE")}</label></div>
   </article>`;
 }
 function empty(title, text, i = 'monitor-smartphone', action = '') {
@@ -107,23 +108,23 @@ function render() {
   $('#stat-selected').textContent = selected.length; $('#nav-device-count').textContent = devices.length;
   $('#all-count').textContent = devices.length;
   const workspace = state.settings.workspace;
-  $('#workspace-name').textContent = workspace ? workspace.split(/[\\/]/).filter(Boolean).at(-1) : 'Select workspace';
-  $('#workspace-switch').title = workspace || 'Choose a Flutter workspace';
+  $('#workspace-name').textContent = workspace ? workspace.split(/[\\/]/).filter(Boolean).at(-1) : t("Select workspace");
+  $('#workspace-switch').title = workspace || t("Choose a Flutter workspace");
   $('#demo-notice').classList.toggle('hidden', !state.demo);
-  if (state.demo) $('#mode-badge').innerHTML = '<span class="dot green"></span>DEMO ENVIRONMENT';
-  $('#host-label').textContent = `Connected to ${state.host || 'localhost'}`;
+  if (state.demo) $('#mode-badge').innerHTML = `<span class="dot green"></span>${t("DEMO ENVIRONMENT")}`;
+  $('#host-label').textContent = t("Connected to {0}", [state.host || 'localhost']);
   const shown = devices.filter(d => (filter === 'all' || d.group === filter) && (!onlyOnline || d.state === 'online') && `${d.name} ${d.os} ${d.id}`.toLowerCase().includes(search.toLowerCase()));
-  $('#list-label').innerHTML = `${filter === 'all' ? 'ALL DEVICES' : groupLabel[filter] + 'S'} <span class="muted">/ ${shown.length}</span>`;
+  $('#list-label').innerHTML = `${filter === 'all' ? t("ALL DEVICES") : t(groupLabel[filter] + 'S')} <span class="muted">/ ${shown.length}</span>`;
   $('#devices-grid').classList.toggle('compact', compact);
   $('#view-toggle').setAttribute('aria-pressed', String(compact));
-  $('#view-toggle').setAttribute('aria-label', compact ? 'Switch to card view' : 'Switch to compact view');
+  $('#view-toggle').setAttribute('aria-label', compact ? t("Switch to card view") : t("Switch to compact view"));
   $('#reset-filters').classList.toggle('hidden', !search && !onlyOnline && filter === 'all');
-  $('#filter-summary').textContent = `${shown.length} of ${devices.length} devices`;
-  renderGrid(shown.length ? shown.map(deviceCard) : [empty(refreshing || state.scanning ? 'Discovering your devices…' : devices.length ? 'No matching devices' : 'Your device lab starts here', refreshing || state.scanning ? 'Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.' : devices.length ? 'Clear the filters to see all your devices.' : 'Add a simulator or emulator, or connect a physical device to get started.', 'monitor-smartphone', devices.length ? '<button class="button" id="empty-reset">Clear filters</button>' : !refreshing && !state.scanning ? '<button class="button" id="empty-add">Add device</button><button class="button" id="empty-refresh">Refresh devices</button>' : '')]);
-  $('#scan-time').textContent = state.scannedAt ? `Last synced ${new Date(state.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Auto-refresh every 30s` : 'Waiting for first scan';
+  $('#filter-summary').textContent = t("{0} of {1} devices", [shown.length, devices.length]);
+  renderGrid(shown.length ? shown.map(deviceCard) : [empty(refreshing || state.scanning ? t("Discovering your devices…") : devices.length ? t("No matching devices") : t("Your device lab starts here"), refreshing || state.scanning ? t("Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.") : devices.length ? t("Clear the filters to see all your devices.") : t("Add a simulator or emulator, or connect a physical device to get started."), 'monitor-smartphone', devices.length ? `<button class="button" id="empty-reset">${t("Clear filters")}</button>` : !refreshing && !state.scanning ? `<button class="button" id="empty-add">${t("Add device")}</button><button class="button" id="empty-refresh">${t("Refresh devices")}</button>` : '')]);
+  $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Auto-refresh every 30s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
-  $('#ide-summary').textContent = state.settings.ideEnabled === false ? 'Dashboard targets paused · IDE uses your normal debug configuration.' : targetSaving ? 'Saving device selection…' : unavailable.length ? `${selected.length} selected · ${unavailable.length} unavailable. Uncheck unavailable devices before debugging.` : selected.length ? `${selected.length} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged` : 'Select one or more started devices, then run Debug in your editor.';
+  $('#ide-summary').textContent = state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
   renderWarnings(); renderProvisionJobs(); icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
   document.dispatchEvent(new Event('snapkit:state'));
@@ -131,7 +132,7 @@ function render() {
 function renderWarnings() {
   $('#warnings').classList.toggle('hidden', !state.warnings.length);
   const open = !!$('#warnings details[open]');
-  $('#warnings').innerHTML = state.warnings.length ? `<details ${open ? 'open' : ''}><summary>${state.warnings.length} toolchain ${state.warnings.length === 1 ? 'notice' : 'notices'} — view details</summary>${state.warnings.map(w => `<p>${escape(w)}</p>`).join('')}</details>` : '';
+  $('#warnings').innerHTML = state.warnings.length ? `<details ${open ? 'open' : ''}><summary>${t('{0} toolchain {1} — view details', [state.warnings.length, state.warnings.length === 1 ? 'notice' : 'notices'])}</summary>${state.warnings.map(w => `<p>${escape(t(w))}</p>`).join('')}</details>` : '';
 }
 async function refresh(button = $('#refresh-button')) {
   if (refreshing) return;
@@ -147,7 +148,7 @@ async function loadWorkspaceProfiles() {
   const path = $('#workspace-path').value.trim();
   workspaceProfilePath = path;
   workspaceProfiles = [];
-  $('#workspace-profile').innerHTML = '<option value="">Custom configuration</option>';
+  $('#workspace-profile').innerHTML = `<option value="">${t("Custom configuration")}</option>`;
   $('#workspace-flavors').innerHTML = '';
   if (!path || window.SNAPKIT_PREVIEW) return;
   try {
@@ -161,7 +162,7 @@ async function loadWorkspaceProfiles() {
     workspaceProfiles = result.profiles;
     $('#workspace-profile').innerHTML += workspaceProfiles.map((p, i) => `<option value="${i}">${escape(p.name)}</option>`).join('');
     $('#workspace-flavors').innerHTML = result.flavors.map(f => `<option value="${escape(f)}"></option>`).join('');
-  } catch (error) { if (request === workspaceProfileRequest) $('#workspace-error').textContent = error.message; }
+  } catch (error) { if (request === workspaceProfileRequest) $('#workspace-error').textContent = t(error.message); }
 }
 function showWorkspace() {
   $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || '');
@@ -185,7 +186,7 @@ $('#workspace-form').addEventListener('submit', e => {
   e.preventDefault(); const button = e.submitter;
   busy(button, async () => {
     try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
-    catch (error) { $('#workspace-error').textContent = error.message; }
+    catch (error) { $('#workspace-error').textContent = t(error.message); }
   });
 });
 ['#workspace-switch', '#settings-button', '#ide-setup'].forEach(id => $(id).addEventListener('click', showWorkspace));
@@ -238,7 +239,7 @@ $('#devices-grid').addEventListener('click', e => {
     if (!d) return;
     $('#delete-device-form').dataset.device = id;
     $('#delete-device-name').textContent = d.name;
-    $('#delete-device-note').textContent = `${d.state === 'online' ? 'This device will be stopped. Any running app/debug session on it will disconnect. ' : ''}All installed apps, settings, snapshots and local device data will be permanently removed. This cannot be undone. Shared OS runtimes and your project files will be kept.${state.settings.targetIds.includes(id) ? ' It will also be removed from the IDE selection.' : ''}`;
+    $('#delete-device-note').textContent = t("{0}All installed apps, settings, snapshots and local device data will be permanently removed. This cannot be undone. Shared OS runtimes and your project files will be kept.{1}", [d.state === 'online' ? t("This device will be stopped. Any running app/debug session on it will disconnect. ") : '', state.settings.targetIds.includes(id) ? t(" It will also be removed from the IDE selection.") : '']);
     $('#delete-device-error').textContent = '';
     $('#delete-device-dialog').showModal();
     return;
@@ -268,7 +269,7 @@ $('#delete-device-form').addEventListener('submit', async event => {
     dialog.close(); toast(result.message);
     if (result.warning) toast(result.warning, true);
     await loadState();
-  } catch (error) { $('#delete-device-error').textContent = error.message; }
+  } catch (error) { $('#delete-device-error').textContent = t(error.message); }
   finally {
     deletingDevice = false;
     dialog.querySelectorAll('button').forEach(button => { button.disabled = false; });
@@ -305,10 +306,10 @@ async function init() {
   try {
     await loadState();
     if (window.SNAPKIT_PREVIEW) {
-      $('#connection-button').textContent = 'Manage real devices';
-      $('#server-status').textContent = 'Static preview · sample data';
-      $('#mode-badge').textContent = 'READ-ONLY PREVIEW';
-      $('#demo-notice span').textContent = 'Read-only preview · Sample devices. Start Snapkit locally to create and start real devices.';
+      $('#connection-button').textContent = t("Manage real devices");
+      $('#server-status').textContent = t("Static preview · sample data");
+      $('#mode-badge').textContent = t("READ-ONLY PREVIEW");
+      $('#demo-notice span').textContent = t("Read-only preview · Sample devices. Start Snapkit locally to create and start real devices.");
       return;
     }
     const events = new EventSource('/api/events');
@@ -317,28 +318,28 @@ async function init() {
       const jobs = JSON.parse(e.data);
       const changed = jobs.filter(job => state.jobs?.some(old => old.id === job.id && old.status === 'running') && job.status !== 'running');
       state.jobs = jobs; renderProvisionJobs();
-      for (const job of changed) toast(job.status === 'error' ? `${job.title}: ${job.error}` : `${job.title} completed`, job.status === 'error');
+      for (const job of changed) toast(job.status === 'error' ? `${job.title}: ${job.error}` : t("{0} completed", [job.title]), job.status === 'error');
       if (changed.length && $('#create-dialog').open) loadCreationCatalog();
     });
     events.addEventListener('settings', e => { state.settings = { ...state.settings, ...JSON.parse(e.data) }; render(); });
-    events.onopen = () => { setConnectionStatus('online'); $('#server-status').textContent = 'Local server connected'; loadState().catch(() => {}); };
-    events.onerror = () => { setConnectionStatus('offline'); $('#host-label').textContent = 'Reconnecting · showing last sync'; $('#server-status').textContent = 'Reconnecting to server…'; };
+    events.onopen = () => { setConnectionStatus('online'); $('#server-status').textContent = t("Local server connected"); loadState().catch(() => {}); };
+    events.onerror = () => { setConnectionStatus('offline'); $('#host-label').textContent = t("Reconnecting · showing last sync"); $('#server-status').textContent = t("Reconnecting to server…"); };
     if (state.scanning) setTimeout(() => loadState().catch(() => {}), 5000);
-  } catch (error) { setConnectionStatus('offline'); $('#host-label').textContent = 'Local agent unavailable'; $('#devices-grid').innerHTML = empty('Local server unavailable', 'Start Snapkit with npm start, then refresh this page.', 'wifi-off'); icons(); toast(`Cannot connect to local server: ${error.message}`, true); $('#server-status').textContent = 'Local server unavailable'; }
+  } catch (error) { setConnectionStatus('offline'); $('#host-label').textContent = t("Local agent unavailable"); $('#devices-grid').innerHTML = empty(t("Local server unavailable"), t("Start Snapkit with npm start, then refresh this page."), 'wifi-off'); icons(); toast(t("Cannot connect to local server: {0}", [error.message]), true); $('#server-status').textContent = t("Local server unavailable"); }
 }
 queueMicrotask(init);
 function setConnectionStatus(status) {
   document.body.dataset.connection = status;
 }
 function renderConnection() {
-  $('#connection-button').textContent = connection ? 'Connection settings' : 'Connect local server';
+  $('#connection-button').textContent = connection ? t("Connection settings") : t("Connect local server");
   $('#demo-notice').classList.remove('hidden');
-  $('#demo-notice span').textContent = !connection ? 'Connect Snapkit running on this computer to control real devices. No sample devices are loaded.' : remoteOffline ? 'Cannot reach the local server. Keep npm start running and check browser local network permission.' : state.demo ? 'Connected to a local DEMO backend. Actions are simulated.' : 'Connected to your local Snapkit server. Device commands run on this computer.';
-  $('#mode-badge').textContent = connection ? remoteOffline ? 'AGENT OFFLINE' : state.demo ? 'LOCAL DEMO BACKEND' : 'CONNECTED TO LOCAL AGENT' : 'NOT CONNECTED';
-  $('#server-status').textContent = connection ? remoteOffline ? 'Local server unavailable' : `Connected · ${connection.base}` : 'Local server not connected';
+  $('#demo-notice span').textContent = !connection ? t("Connect Snapkit running on this computer to control real devices. No sample devices are loaded.") : remoteOffline ? t("Cannot reach the local server. Keep npm start running and check browser local network permission.") : state.demo ? t("Connected to a local DEMO backend. Actions are simulated.") : t("Connected to your local Snapkit server. Device commands run on this computer.");
+  $('#mode-badge').textContent = connection ? remoteOffline ? t("AGENT OFFLINE") : state.demo ? t("LOCAL DEMO BACKEND") : t("CONNECTED TO LOCAL AGENT") : t("NOT CONNECTED");
+  $('#server-status').textContent = connection ? remoteOffline ? t("Local server unavailable") : t("Connected · {0}", [connection.base]) : t("Local server not connected");
   setConnectionStatus(!connection || remoteOffline ? 'offline' : 'online');
-  $('#host-label').textContent = !connection ? 'No local agent connected' : remoteOffline ? 'Local agent unavailable · showing last sync' : `Connected to ${state.host || 'local agent'}`;
-  if (!connection) { lastGridMarkup = null; $('#devices-grid').innerHTML = empty('Connect your local device lab', 'Start Snapkit with npm start, then click Connect local server and enter a code from your local Dashboard.', 'link'); }
+  $('#host-label').textContent = !connection ? t("No local agent connected") : remoteOffline ? t("Local agent unavailable · showing last sync") : t("Connected to {0}", [state.host || t("local agent")]);
+  if (!connection) { lastGridMarkup = null; $('#devices-grid').innerHTML = empty(t("Connect your local device lab"), t("Start Snapkit with npm start, then click Connect local server and enter a code from your local Dashboard."), 'link'); }
 }
 function forgetConnection() {
   clearInterval(remotePoll); remotePoll = null; connection = null; remoteOffline = false;
@@ -368,9 +369,9 @@ async function connectController(base, code) {
   base = agentURL(base);
   let response;
   try { response = await fetch(base + '/api/pairing/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit', body: JSON.stringify({ code: code.trim() }) }); }
-  catch { throw new Error('Cannot reach Snapkit. Run npm start, open the local Dashboard, and allow local network access for this website when your browser asks.'); }
+  catch { throw new Error(t("Cannot reach Snapkit. Run npm start, open the local Dashboard, and allow local network access for this website when your browser asks.")); }
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Pairing failed');
+  if (!response.ok) throw new Error(result.error || t("Pairing failed"));
   connection = { base, token: result.token, expiresAt: result.expiresAt }; remoteOffline = false;
   sessionStorage.setItem('snapkit-connection', JSON.stringify(connection));
   await loadState(); startRemotePolling(); renderConnection();
@@ -383,7 +384,7 @@ async function initController() {
     history.replaceState(null, '', location.pathname + location.search);
     $('#agent-url').value = fragment.get('agent') || 'http://127.0.0.1:4310'; $('#agent-code').value = fragment.get('pair');
     try { await connectController($('#agent-url').value, $('#agent-code').value); }
-    catch (error) { showPairing(); $('#pairing-error').textContent = error.message; }
+    catch (error) { showPairing(); $('#pairing-error').textContent = t(error.message); }
     return;
   }
   try {
@@ -406,7 +407,7 @@ async function showPairing() {
     const result = await api('/api/pairing/code', {});
     $('#pairing-code').textContent = result.code;
     $('#pairing-link').href = result.webUrl + '#pair=' + encodeURIComponent(result.code) + '&agent=' + encodeURIComponent(location.origin);
-  } catch (error) { $('#pairing-error').textContent = error.message; }
+  } catch (error) { $('#pairing-error').textContent = t(error.message); }
 }
 $('#connection-button').addEventListener('click', () => {
   if (window.SNAPKIT_PREVIEW) { location.href = '../control/'; return; }
@@ -416,7 +417,7 @@ $('#pairing-form').addEventListener('submit', e => {
   e.preventDefault(); $('#pairing-error').textContent = '';
   busy($('#pairing-submit'), async () => {
     try { await connectController($('#agent-url').value, $('#agent-code').value); }
-    catch (error) { $('#pairing-error').textContent = error.message; }
+    catch (error) { $('#pairing-error').textContent = t(error.message); }
   });
 });
 $('#disconnect-agent').addEventListener('click', async () => {
@@ -426,7 +427,7 @@ $('#disconnect-agent').addEventListener('click', async () => {
 });
 $('#revoke-connections').addEventListener('click', e => busy(e.currentTarget, async () => {
   const result = await api('/api/pairing/revoke', {});
-  $('#pairing-code').textContent = 'Connections revoked'; $('#pairing-link').removeAttribute('href'); toast(result.message);
+  $('#pairing-code').textContent = t("Connections revoked"); $('#pairing-link').removeAttribute('href'); toast(result.message);
 }));
 
 $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, async () => {
@@ -434,7 +435,7 @@ $('#browse-workspace').addEventListener('click', e => busy(e.currentTarget, asyn
   try {
     const result = await api('/api/folders/pick', {});
     if (result.path) { $('#workspace-path').value = result.path; $('#workspace-path').focus(); $('#workspace-path').dispatchEvent(new Event('change')); }
-  } catch (error) { $('#workspace-error').textContent = error.message; }
+  } catch (error) { $('#workspace-error').textContent = t(error.message); }
 }));
 
 let creationCatalog = null, creationPlatform = 'ios', creationNameEdited = false, catalogLoading = false;
@@ -442,9 +443,9 @@ let iosDownloadCatalog = null, iosDownloadModelId = null;
 const iosVersionCode = value => /^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(value || '') ? value.split('.').reduce((n, part, i) => n + Number(part) * [65536, 256, 1][i], 0) : null;
 function iosDownloadError() {
   const model = selectedCreationModel(), code = iosVersionCode($('#ios-download-version').value.trim());
-  if (!model || model.unsupported) return 'This model cannot be enabled by downloading an iOS runtime in this Xcode.';
-  if (code === null) return 'Choose an Apple-listed version, or enter an iOS version manually.';
-  if (code < (model.minRuntimeVersion ?? 0) || code > (model.maxRuntimeVersion ?? 4294967295)) return 'This iOS version is outside the model’s supported range.';
+  if (!model || model.unsupported) return t("This model cannot be enabled by downloading an iOS runtime in this Xcode.");
+  if (code === null) return t("Choose an Apple-listed version, or enter an iOS version manually.");
+  if (code < (model.minRuntimeVersion ?? 0) || code > (model.maxRuntimeVersion ?? 4294967295)) return t("This iOS version is outside the model’s supported range.");
   return '';
 }
 function renderIOSDownloads() {
@@ -452,18 +453,18 @@ function renderIOSDownloads() {
   const model = selectedCreationModel();
   const changed = iosDownloadModelId !== model?.id; iosDownloadModelId = model?.id;
   const blocked = !model || model.unsupported;
-  $('#ios-model-help').textContent = blocked ? (model?.reason || 'Choose a device model first.') :
-    `${model.name}${model.minVersion ? ` needs iOS ${model.minVersion}${model.maxVersion ? `–${model.maxVersion}` : ' or later'}` : ' uses runtimes supported by Xcode'}. ${model.runtimeIds.length ? 'Install another version below if needed.' : 'No compatible runtime is installed. Load Apple versions below or open Xcode → Settings → Components.'}`;
+  $('#ios-model-help').textContent = blocked ? (model?.reason || t("Choose a device model first.")) :
+    `${model.name}${model.minVersion ? t(" needs iOS {0}{1}", [model.minVersion, model.maxVersion ? `–${model.maxVersion}` : t(" or later")]) : t(" uses runtimes supported by Xcode")}. ${model.runtimeIds.length ? t("Install another version below if needed.") : t("No compatible runtime is installed. Load Apple versions below or open Xcode → Settings → Components.")}`;
   $('#load-ios-versions').disabled = blocked;
   $('#use-supported-ios').classList.toggle('hidden', !blocked);
   const choices = (iosDownloadCatalog || []).filter(r => !blocked && iosVersionCode(r.version) >= (model.minRuntimeVersion ?? 0) && iosVersionCode(r.version) <= (model.maxRuntimeVersion ?? 4294967295));
   const previous = $('#ios-download-choice').value;
-  $('#ios-download-choice').innerHTML = choices.length ? choices.map(r => `<option value="${escape(r.version)}">${escape(r.name)}${r.bytes ? ` · ${(r.bytes / 1073741824).toFixed(1)} GB` : ''}${r.authentication ? ' · Apple account may be required' : ''}</option>`).join('') : `<option value="">${blocked ? 'Unsupported model in this Xcode' : iosDownloadCatalog ? 'No Apple-listed version matches this model and host' : 'Load Apple iOS versions first'}</option>`;
+  $('#ios-download-choice').innerHTML = choices.length ? choices.map(r => `<option value="${escape(r.version)}">${escape(r.name)}${r.bytes ? ` · ${(r.bytes / 1073741824).toFixed(1)} GB` : ''}${r.authentication ? t(" · Apple account may be required") : ''}</option>`).join('') : `<option value="">${blocked ? t("Unsupported model in this Xcode") : iosDownloadCatalog ? t("No Apple-listed version matches this model and host") : t("Load Apple iOS versions first")}</option>`;
   $('#ios-download-choice').disabled = !choices.length;
   if (!changed && choices.some(r => r.version === previous)) $('#ios-download-choice').value = previous;
   if (changed || !$('#ios-download-version').value) $('#ios-download-version').value = choices[0]?.version || '';
   $('#ios-download-version').disabled = blocked;
-  $('#ios-download-path').textContent = state.storage?.downloads || 'configured SSD downloads directory';
+  $('#ios-download-path').textContent = state.storage?.downloads || t("configured SSD downloads directory");
   if (model && !model.runtimeIds.length) $('#runtime-downloads').open = true;
   $('#ios-download-validation').textContent = iosDownloadError();
 }
@@ -472,7 +473,7 @@ function renderProvisionJobs() {
   const jobs = (state.jobs || []).slice(-3).reverse();
   if (jobs.some(j => j.status === 'running')) $('.setup-history').open = true;
   $('#provision-jobs').classList.toggle('hidden', !jobs.length);
-  $('#provision-jobs').innerHTML = jobs.map(job => `<article class="provision-job" data-job="${escape(job.id)}"><div class="job-heading">${icon(job.status === 'running' ? 'loader-circle' : job.status === 'error' ? 'circle-alert' : 'circle-check')}<strong>${escape(job.title)}</strong><span class="status-badge ${job.status === 'completed' ? 'online' : ''}">${escape(job.status)}</span></div>${job.error ? `<p class="job-error">${escape(job.error)}</p>` : ''}${job.result?.path ? `<p class="job-path">${escape(job.result.path)}</p>` : ''}${job.result?.message ? `<p class="job-path">${escape(job.result.message)}</p>` : ''}${job.logs?.length ? `<details ${openJobs.has(job.id) ? 'open' : ''}><summary>Setup output</summary><pre>${escape(job.logs.join('\n'))}</pre></details>` : ''}</article>`).join('');
+  $('#provision-jobs').innerHTML = jobs.map(job => `<article class="provision-job" data-job="${escape(job.id)}"><div class="job-heading">${icon(job.status === 'running' ? 'loader-circle' : job.status === 'error' ? 'circle-alert' : 'circle-check')}<strong>${escape(job.title)}</strong><span class="status-badge ${job.status === 'completed' ? 'online' : ''}">${escape(t(job.status))}</span></div>${job.error ? `<p class="job-error">${escape(job.error)}</p>` : ''}${job.result?.path ? `<p class="job-path">${escape(job.result.path)}</p>` : ''}${job.result?.message ? `<p class="job-path">${escape(t(job.result.message))}</p>` : ''}${job.logs?.length ? `<details ${openJobs.has(job.id) ? 'open' : ''}><summary>${t("Setup output")}</summary><pre>${escape(job.logs.join('\n'))}</pre></details>` : ''}</article>`).join('');
   icons(); updateCreateAvailability();
 }
 function trackProvisionJob(job) {
@@ -483,7 +484,7 @@ function trackProvisionJob(job) {
     if (state.jobs[index].status === 'running' || job.status !== 'running') state.jobs[index] = job;
   } else state.jobs.push(job);
   renderProvisionJobs();
-  toast(job.status === 'completed' ? job.title : `${job.title} started. Progress appears below the device list.`);
+  toast(job.status === 'completed' ? job.title : t("{0} started. Progress appears below the device list.", [job.title]));
 }
 function selectedCreationModel() { return creationCatalog?.[creationPlatform]?.models.find(m => m.id === $('#create-model').value); }
 function selectedCreationRuntime() {
@@ -510,7 +511,7 @@ function renderCreationRuntimes(keep = '') {
   const all = creationPlatform === 'ios' ? creationCatalog.ios.runtimes : creationCatalog.android.images;
   const ids = model?.runtimeIds || model?.imageIds || [];
   const versions = all.filter(r => ids.includes(r.id));
-  $('#create-runtime').innerHTML = versions.length ? versions.map(r => `<option value="${escape(r.id)}">${escape(r.name)}${creationPlatform === 'android' ? r.installed ? ' — Installed' : ' — Download required' : ' — Installed'}</option>`).join('') : '<option value="">No compatible installed runtime</option>';
+  $('#create-runtime').innerHTML = versions.length ? versions.map(r => `<option value="${escape(r.id)}">${escape(r.name)}${creationPlatform === 'android' ? r.installed ? t(" — Installed") : t(" — Download required") : t(" — Installed")}</option>`).join('') : `<option value="">${t("No compatible installed runtime")}</option>`;
   if (versions.some(r => r.id === keep)) $('#create-runtime').value = keep;
   else if (creationPlatform === 'android' && versions.some(r => r.installed)) $('#create-runtime').value = versions.find(r => r.installed).id;
   renderCompatibility(); updateCreationName();
@@ -518,12 +519,12 @@ function renderCreationRuntimes(keep = '') {
 function renderCompatibility() {
   const model = selectedCreationModel(), runtime = selectedCreationRuntime();
   const note = $('#compatibility-note'); let unavailable = !runtime;
-  if (!model) note.textContent = 'No model matches your search. Try a different name.';
-  else if (!runtime) note.textContent = model.reason || 'No compatible version is available. Load downloadable Android versions or install a supported iOS runtime.';
-  else if (creationPlatform === 'android' && !runtime.installed) { note.textContent = 'Download this system image first. Once installed, you can create the device.'; unavailable = true; }
-  else note.textContent = creationPlatform === 'ios' ? 'Compatible model + runtime provided by your Xcode installation.' : 'System image matches this hardware profile and your computer’s CPU architecture.';
-  if (creationPlatform === 'ios' && !state.demo && !state.storage?.iosReady) { note.textContent += ' iOS device storage is unavailable. Check the configured CoreSimulator directory.'; unavailable = true; }
-  if (creationPlatform === 'ios' && !state.demo && state.iosAccess?.blocked) { note.textContent = state.iosAccess.reason; unavailable = true; }
+  if (!model) note.textContent = t("No model matches your search. Try a different name.");
+  else if (!runtime) note.textContent = model.reason || t("No compatible version is available. Load downloadable Android versions or install a supported iOS runtime.");
+  else if (creationPlatform === 'android' && !runtime.installed) { note.textContent = t("Download this system image first. Once installed, you can create the device."); unavailable = true; }
+  else note.textContent = creationPlatform === 'ios' ? t("Compatible model + runtime provided by your Xcode installation.") : t("System image matches this hardware profile and your computer’s CPU architecture.");
+  if (creationPlatform === 'ios' && !state.demo && !state.storage?.iosReady) { note.textContent += t(" iOS device storage is unavailable. Check the configured CoreSimulator directory."); unavailable = true; }
+  if (creationPlatform === 'ios' && !state.demo && state.iosAccess?.blocked) { note.textContent = t(state.iosAccess.reason); unavailable = true; }
   note.classList.toggle('unavailable', unavailable);
   $('#install-android-image').classList.toggle('hidden', creationPlatform !== 'android' || !runtime || runtime.installed);
   renderIOSDownloads();
@@ -533,7 +534,7 @@ function renderCreationModels(keepModel = '', keepRuntime = '') {
   if (!creationCatalog) return;
   const query = $('#model-search').value.toLowerCase().replace(/\s/g, '');
   const models = creationCatalog[creationPlatform].models.filter(m => m.name.toLowerCase().replace(/\s/g, '').includes(query));
-  $('#create-model').innerHTML = models.length ? models.map(m => `<option value="${escape(m.id)}">${escape(m.name)}${m.unsupported ? ' — Not supported by this toolchain' : ''}</option>`).join('') : '<option value="">No matching models</option>';
+  $('#create-model').innerHTML = models.length ? models.map(m => `<option value="${escape(m.id)}">${escape(m.name)}${m.unsupported ? t(" — Not supported by this toolchain") : ''}</option>`).join('') : `<option value="">${t("No matching models")}</option>`;
   if (models.some(m => m.id === keepModel)) $('#create-model').value = keepModel;
   renderCreationRuntimes(keepRuntime);
 }
@@ -541,22 +542,22 @@ function setCreationPlatform(platform) {
   creationPlatform = platform; creationNameEdited = false; $('#model-search').value = ''; $('#create-error').textContent = '';
   $$('[data-create-platform]').forEach(b => { b.classList.toggle('active', b.dataset.createPlatform === platform); b.setAttribute('aria-pressed', String(b.dataset.createPlatform === platform)); });
   $('#ios-download-tools').classList.toggle('hidden', platform !== 'ios'); $('#android-download-tools').classList.toggle('hidden', platform !== 'android');
-  $('#create-storage-path').textContent = (platform === 'ios' ? state.storage?.iosDevices : state.storage?.avd) || 'SSD device storage';
-  $('#create-storage-label').textContent = platform === 'ios' && state.storage?.iosOnSSD === false ? 'iOS DATA ON INTERNAL DISK' : 'DEVICE DATA LOCATION';
+  $('#create-storage-path').textContent = (platform === 'ios' ? state.storage?.iosDevices : state.storage?.avd) || t("SSD device storage");
+  $('#create-storage-label').textContent = platform === 'ios' && state.storage?.iosOnSSD === false ? t("iOS DATA ON INTERNAL DISK") : t("DEVICE DATA LOCATION");
   renderCreationModels(); icons();
 }
 async function loadCreationCatalog(remote = false) {
   if (catalogLoading) return;
   catalogLoading = true; const previousModel = $('#create-model').value, previousRuntime = $('#create-runtime').value;
-  $('#create-loading').classList.remove('hidden'); $('#create-loading').textContent = remote ? 'Loading downloadable Android versions from the SDK repository…' : 'Reading your installed models and OS versions…';
+  $('#create-loading').classList.remove('hidden'); $('#create-loading').textContent = remote ? t("Loading downloadable Android versions from the SDK repository…") : t("Reading your installed models and OS versions…");
   $('#create-error').textContent = ''; updateCreateAvailability();
   try {
     creationCatalog = await api(`/api/provision/catalog${remote ? '?remote=1' : ''}`);
     $('#create-form').classList.remove('hidden');
     $('#catalog-warnings').textContent = creationCatalog.warnings.join('\n');
-    $('#ios-runtime-file').innerHTML = creationCatalog.downloads.length ? creationCatalog.downloads.map(f => `<option value="${escape(f)}">${escape(f)}</option>`).join('') : '<option value="">No downloaded runtime DMGs</option>';
+    $('#ios-runtime-file').innerHTML = creationCatalog.downloads.length ? creationCatalog.downloads.map(f => `<option value="${escape(f)}">${escape(f)}</option>`).join('') : `<option value="">${t("No downloaded runtime DMGs")}</option>`;
     renderCreationModels(previousModel, previousRuntime);
-  } catch (e) { $('#create-error').textContent = e.message; $('#create-form').classList.remove('hidden'); }
+  } catch (e) { $('#create-error').textContent = t(e.message); $('#create-form').classList.remove('hidden'); }
   finally { catalogLoading = false; $('#create-loading').classList.add('hidden'); updateCreateAvailability(); }
 }
 $('#add-device').addEventListener('click', async () => {
@@ -578,7 +579,7 @@ $('#create-form').addEventListener('submit', async e => {
       const result = await api('/api/provision/create', { platform: creationPlatform, model: $('#create-model').value, runtime: $('#create-runtime').value, name: $('#create-name').value.trim() });
       trackProvisionJob(result.job); $('#create-dialog').close();
       if (result.demo) await loadState();
-    } catch (error) { $('#create-error').textContent = error.message; }
+    } catch (error) { $('#create-error').textContent = t(error.message); }
   });
   updateCreateAvailability();
 });
@@ -602,7 +603,7 @@ $('#load-ios-versions').addEventListener('click', e => busy(e.currentTarget, asy
   try {
     const result = await api('/api/provision/ios/runtimes'); iosDownloadCatalog = result.runtimes;
     renderIOSDownloads(); updateCreateAvailability();
-  } catch (error) { $('#ios-model-help').textContent = `${error.message}. You can open Xcode Components or enter a version manually.`; throw error; }
+  } catch (error) { $('#ios-model-help').textContent = t("{0}. You can open Xcode Components or enter a version manually.", [error.message]); throw error; }
 }));
 $('#ios-download-choice').addEventListener('change', () => {
   $('#ios-download-version').value = $('#ios-download-choice').value;
@@ -617,4 +618,14 @@ $('#use-supported-ios').addEventListener('click', () => {
 $('#import-ios-runtime').addEventListener('click', async e => {
   await busy(e.currentTarget, async () => { const result = await api('/api/provision/ios/import', { file: $('#ios-runtime-file').value }); trackProvisionJob(result.job); });
   updateCreateAvailability();
+});
+
+document.addEventListener('snapkit:language', () => {
+  lastGridMarkup = null;
+  render();
+  if (creationCatalog) {
+    const model = $('#create-model').value, runtime = $('#create-runtime').value;
+    renderCreationModels(model, runtime);
+    $('#create-storage-label').textContent = t(creationPlatform === 'ios' && state.storage?.iosOnSSD === false ? 'iOS DATA ON INTERNAL DISK' : 'DEVICE DATA LOCATION');
+  }
 });

@@ -10,3 +10,6 @@
 @media(max-height:850px){.sidebar-note{display:none}.sidebar{overflow-y:auto;scrollbar-width:thin}}
 
 .button[aria-busy=true] svg{animation:spin 1s linear infinite}.tool-checks[aria-busy=true]{opacity:.65}@media(prefers-reduced-motion:reduce){.button[aria-busy=true] svg{animation:none}}
+
+.language-select{font:600 12px/1.4 var(--font,sans-serif);background:var(--surface,#191c1f);color:var(--text,#f1f3f3);border:1px solid var(--line,#2c3033);border-radius:8px;min-height:44px;min-width:64px;padding:8px;cursor:pointer;flex-shrink:0}.language-select:focus-visible{outline:2px solid #c0f58b;outline-offset:3px}html[lang=vi] .nav-item{font-size:12px}html[lang=vi] .topbar-right{gap:8px}html[lang=vi] .heading-actions .button{white-space:normal}@media(max-width:600px){.topbar-right .language-select{min-width:60px}.topbar-right{flex-wrap:wrap}.topbar{height:auto;min-height:64px}html[lang=vi] .heading-actions{flex-wrap:wrap}}
+@media(max-width:1100px){.topbar{height:auto;min-height:75px;flex-wrap:wrap;gap:12px;padding-block:12px}.topbar-right{max-width:100%;flex-wrap:wrap}.breadcrumbs{min-width:0;flex-wrap:wrap}}

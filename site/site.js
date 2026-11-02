@@ -1,3 +1,6 @@
+const t = (...args) => window.SnapkitI18n.t(...args);
+let downloadMessage = null;
+let activePreview = 'devices';
 async function loadDesktopDownloads() {
   try {
     const response = await fetch('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) });
@@ -11,8 +14,8 @@ async function loadDesktopDownloads() {
       if (asset && asset.browser_download_url.startsWith('https://github.com/bimbimvqt/snapkit/releases/download/')) { button.href = asset.browser_download_url; count++; }
     }
     const status = document.querySelector('#download-status');
-    if (status) status.textContent = count === 3 ? 'Bản desktop beta đã sẵn sàng. Chọn đúng loại máy của bạn.' : 'Một số bộ cài chưa sẵn sàng. Hãy chọn hệ điều hành phù hợp hoặc thử lại sau.';
-  } catch { const status = document.querySelector('#download-status'); if (status) status.textContent = 'Không thể kiểm tra phiên bản mới. Các nút tải vẫn dùng bản beta hiện có.'; }
+    if (status) { downloadMessage = count === 3 ? 'Bản desktop beta đã sẵn sàng. Chọn đúng loại máy của bạn.' : 'Một số bộ cài chưa sẵn sàng. Hãy chọn hệ điều hành phù hợp hoặc thử lại sau.'; status.textContent = t(downloadMessage); }
+  } catch { const status = document.querySelector('#download-status'); if (status) { downloadMessage = 'Không thể kiểm tra phiên bản mới. Các nút tải vẫn dùng bản beta hiện có.'; status.textContent = t(downloadMessage); } }
 }
 loadDesktopDownloads();
 
@@ -23,13 +26,23 @@ const captions = {
 };
 for (const button of document.querySelectorAll('[data-preview]')) {
   button.addEventListener('click', () => {
-    const key = button.dataset.preview;
+    const key = button.dataset.preview; activePreview = key;
     for (const sibling of document.querySelectorAll('[data-preview]')) sibling.setAttribute('aria-pressed', String(sibling === button));
-    preview.src = `assets/${key}.webp`;
-    preview.alt = captions[key][0];
-    document.querySelector('#preview-caption').textContent = captions[key][1];
+    preview.src = `assets/${key}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.webp`;
+    preview.alt = t(captions[key][0]);
+    document.querySelector('#preview-caption').textContent = t(captions[key][1]);
   });
 }
 for (const link of document.querySelectorAll('a[href="#install-help"]')) {
   link.addEventListener('click', () => { document.querySelector('#install-help').open = true; });
 }
+
+document.addEventListener('snapkit:language', () => {
+  if (downloadMessage) document.querySelector('#download-status').textContent = t(downloadMessage);
+  preview.src = `assets/${activePreview}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.webp`;
+  preview.alt = t(captions[activePreview][0]);
+  document.querySelector('#preview-caption').textContent = t(captions[activePreview][1]);
+});
+
+preview.src = `assets/${activePreview}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.webp`;
+preview.alt = t(captions[activePreview][0]);

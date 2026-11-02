@@ -21,7 +21,9 @@ mac:
   target:
     - dmg
     - zip
-  hardenedRuntime: true
+  identity: "-"
+  hardenedRuntime: false
+  notarize: false
   gatekeeperAssess: false
 win:
   icon: desktop/assets/icon.ico

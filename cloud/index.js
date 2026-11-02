@@ -81,6 +81,7 @@ export function createCloud({ env = process.env, fetcher = fetch } = {}) {
     try { res.json(await operation); } catch { res.status(503).json({ error: 'Event not processed; retry later.' }); }
   });
   for (const page of ['demo', 'control', 'preview']) app.get('/' + page + '/', (_req, res) => res.redirect(302, 'https://bimbimvqt.github.io/snapkit/' + page + '/'));
+  app.get('/i18n.js', (_req, res) => res.sendFile(path.join(root, 'public/i18n.js')));
   app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'site/favicon.svg')));
   app.use(express.static(path.join(root, 'site'), { maxAge: '5m' }));
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
