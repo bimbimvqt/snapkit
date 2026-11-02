@@ -1,3 +1,5 @@
+IDE status updates are ordered so delayed state responses cannot restore an already-ended debug session.
+
 Device lifecycle status is checked every two seconds while Dashboard is connected, independently of the slower hardware/Flutter scan. Device cards now offer Turn off device for iOS Simulators and Android AVDs, keeping installed apps and data.
 
 Snapkit Debug Sync 1.3.0 reports active Flutter device sessions to the local agent. A Stop debug button appears on the matching device card and asks the owning IDE to stop that device only, leaving peer sessions and the simulator running. Install the updated VSIX and reload your compatible editor; existing sessions may need restarting. Other IDEs retain their own debug controls. Physical phones cannot be powered off from Snapkit. Session reports expire when the owning extension disconnects; agent failure never stops debug sessions automatically.

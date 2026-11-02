@@ -24,6 +24,7 @@ const port = Number(process.env.PORT || 4310);
 const packageInfo = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const token = randomBytes(32).toString('hex');
 const app = express();
+let demoPreferences = { flutterSDK: '', androidSDK: '', editor: 'vscode', onboardingComplete: false };
 const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.github.io').origin;
 if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(webOrigin)) throw new Error('Website origin must use HTTPS or loopback HTTP');
 const pairings = new Pairings(webOrigin);
@@ -56,7 +57,8 @@ let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: []
 let scanning = null;
 const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
-const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list() }) });
+let debugRevision = 0;
+const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list(), debugRevision: ++debugRevision }) });
 provisioner.on('jobs', jobs => emit('jobs', jobs));
 provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
 async function persist() { rememberWorkspace(); if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); await writeFile(path.join(store, 'workspaces.json'), JSON.stringify(workspaceSetups, null, 2)); } }
@@ -97,7 +99,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '16kb' }));
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
-app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
+app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: demo ? demoPreferences : getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
   { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' },
   { id: 'android-studio', name: 'Android Studio', mode: 'device-manager' }, { id: 'intellij', name: 'IntelliJ IDEA', mode: 'device-manager' }, { id: 'other', name: 'Another editor', mode: 'device-manager' }
 ] }));
@@ -106,7 +108,7 @@ let savingPreferences = false;
 app.post('/api/preferences', async (req, res) => {
   if (savingPreferences) return res.status(409).json({ error: 'Settings are being saved. Try again shortly.' });
   savingPreferences = true;
-  try { res.json({ preferences: demo ? { ...getPreferences(), ...req.body } : await savePreferences(req.body), message: 'Preferences saved. Restart Snapkit if you changed an SDK folder.' }); }
+  try { res.json({ preferences: demo ? (demoPreferences = { ...demoPreferences, ...req.body }) : await savePreferences(req.body), message: 'Preferences saved. Restart Snapkit if you changed an SDK folder.' }); }
   finally { savingPreferences = false; }
 });
 app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.join(root, 'snapkit-debug-sync.vsix')));
@@ -114,7 +116,7 @@ app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.j
 app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
-app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (req, res) => {

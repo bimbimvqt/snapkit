@@ -336,13 +336,27 @@ test('device cards turn off one simulator and request stopping only its IDE debu
   const first = page.locator('[data-device="demo-ios-1"]');
   const second = page.locator('[data-device="demo-android-1"]');
   await expect(first.locator('[data-action="stop-debug"]')).toBeVisible();
+  let releaseState, stateCaptured;
+  const captured = new Promise(resolve => { stateCaptured = resolve; });
+  const staleState = new Promise(resolve => { releaseState = resolve; });
+  await page.route('**/api/state', async route => {
+    const response = await route.fetch(); stateCaptured(); await staleState;
+    await route.fulfill({ response });
+  });
   await first.locator('[data-action="stop-debug"]').click();
   await expect(first.locator('[data-action="stop-debug"]')).toBeDisabled();
   await expect(second.locator('[data-action="stop-debug"]')).toBeEnabled();
   const response = await report(sessions);
   expect((await response.json()).stopSessionIds).toEqual(['first-debug']);
+  await captured;
   await report(sessions.slice(1));
   await expect(first.locator('[data-action="stop-debug"]')).toHaveCount(0);
+  const delivered = page.waitForResponse('**/api/state');
+  releaseState();
+  await (await delivered).finished();
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  await expect(first.locator('[data-action="stop-debug"]')).toHaveCount(0);
+  await page.unroute('**/api/state');
   await expect(first.locator('[data-action="shutdown"]')).toBeEnabled();
   let release, requests = 0;
   const gate = new Promise(resolve => { release = resolve; });
