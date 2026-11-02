@@ -288,3 +288,36 @@ test('switching platforms ignores a late catalog response and failed loads can r
   await expect.poll(() => page.locator('#create-model').inputValue()).toBe(model);
   await expect(page.locator('[data-create-platform="android"]')).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('SDK folder buttons select local folders, preserve inputs on cancel and expose picker errors', async ({ page }) => {
+  const selections = [];
+  let result = { path: '/Tools/Flutter SDK' };
+  await page.route('**/api/folders/pick', async route => {
+    selections.push(route.request().postDataJSON());
+    await route.fulfill({ status: result.error ? 500 : 200, json: result });
+  });
+  await page.goto('/?lang=vi');
+  await page.locator('[data-app-page="preferences"]').click();
+  await page.locator('#browse-flutter-sdk').click();
+  await expect(page.locator('#pref-flutter')).toHaveValue('/Tools/Flutter SDK');
+  await expect(page.locator('#preferences-result')).toContainText('Lưu tùy chọn');
+  result = { path: '/Tools/Android SDK' };
+  await page.locator('#browse-android-sdk').click();
+  await expect(page.locator('#pref-android')).toHaveValue('/Tools/Android SDK');
+  expect(selections).toEqual([{ purpose: 'flutterSDK', language: 'vi' }, { purpose: 'androidSDK', language: 'vi' }]);
+  result = { cancelled: true };
+  await page.locator('#browse-flutter-sdk').click();
+  await expect(page.locator('#browse-flutter-sdk')).toBeEnabled();
+  await expect(page.locator('#pref-flutter')).toHaveValue('/Tools/Flutter SDK');
+  result = { error: 'Folder picker could not open' };
+  await page.locator('#browse-android-sdk').click();
+  await expect(page.locator('#preferences-error')).toContainText('Folder picker could not open');
+  await expect(page.locator('#pref-android')).toHaveValue('/Tools/Android SDK');
+  const saving = page.waitForRequest(request => request.url().endsWith('/api/preferences') && request.method() === 'POST');
+  await page.locator('#save-preferences').click();
+  expect((await saving).postDataJSON()).toEqual({ flutterSDK: '/Tools/Flutter SDK', androidSDK: '/Tools/Android SDK' });
+  await expect(page.locator('#preferences-result')).toContainText('Khởi động lại');
+  await page.setViewportSize({ width: 375, height: 844 });
+  await expect(page.locator('#browse-android-sdk')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

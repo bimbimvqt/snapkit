@@ -13,3 +13,5 @@
 @media(max-width:1100px){.topbar{height:auto;min-height:75px;flex-wrap:wrap;gap:12px;padding-block:12px}.topbar-right{max-width:100%;flex-wrap:wrap}.breadcrumbs{min-width:0;flex-wrap:wrap}}
 
 .physical .device-model{transform:rotate(-6deg) scale(.85)}.tablet .device-model{transform:rotate(-8deg) scale(.85)}
+
+.sdk-folder-field{display:flex;align-items:stretch;gap:10px}.sdk-folder-field input{flex:1;min-width:0}.sdk-folder-field .button{flex-shrink:0;white-space:nowrap}@media(max-width:600px){.sdk-folder-field{flex-direction:column}.sdk-folder-field .button{align-self:flex-start}}

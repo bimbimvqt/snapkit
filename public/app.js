@@ -57,7 +57,7 @@ async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
-    if (url === '/api/product') return { version: '0.2.0-beta.4', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url === '/api/product') return { version: '0.2.0-beta.5', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
     if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
@@ -66,7 +66,7 @@ async function api(url, data) {
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
   const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
-  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
+  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/folders/pick' ? 310000 : url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
   if (connection && response.status === 401) forgetConnection();
   if (!response.ok) throw new Error(payload.error || t("Request failed ({0})", [response.status]));

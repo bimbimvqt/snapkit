@@ -1,3 +1,5 @@
+Preferences now includes Choose folder buttons for Flutter SDK and Android SDK. Each opens a native folder picker with an English or Vietnamese prompt, keeps existing paths when cancelled, and reminds you to save the selected folder. Saving validates SDK contents; restart Snapkit after changing SDK paths.
+
 The Add device dialog now shows its form immediately while installed models load. iOS no longer waits for Android SDK discovery. Recent catalogs are reused for fast reopening; platform changes, in-progress typing and retry after errors are handled safely.
 
 Device previews now show the full phone/tablet, including the bottom edge. The EN/VN picker uses a styled, keyboard-accessible menu on desktop and the website, instead of the operating system dropdown.

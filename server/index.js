@@ -114,11 +114,11 @@ app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken)
 app.get('/api/state', async (req, res) => res.json({ storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
-app.post('/api/folders/pick', async (_req, res) => {
+app.post('/api/folders/pick', async (req, res) => {
   if (pickingFolder) return res.status(409).json({ error: 'A folder picker is already open on your computer' });
-  if (demo) return res.json({ path: '/Volumes/SanDiskSSDData/flutter_projects/demo_app', demo: true });
+  if (demo) return res.json({ path: { flutterSDK: '/Demo/Flutter SDK', androidSDK: '/Demo/Android SDK' }[req.body?.purpose] || '/Volumes/SanDiskSSDData/flutter_projects/demo_app', demo: true });
   pickingFolder = true;
-  try { res.json(await chooseFolder()); } finally { pickingFolder = false; }
+  try { res.json(await chooseFolder({ purpose: req.body?.purpose, language: req.body?.language })); } finally { pickingFolder = false; }
 });
 app.get('/api/provision/catalog', async (req, res) => res.json(demo ? demoCatalog : await provisioner.catalog(req.query.remote === '1', ['ios', 'android'].includes(req.query.platform) ? req.query.platform : 'all')));
 app.post('/api/provision/create', async (req, res) => {

@@ -36,7 +36,7 @@ function renderEditors() {
   const extension = ['vscode', 'cursor', 'antigravity'].includes(selected);
   $('#extension-download').classList.toggle('hidden', !extension);
   $('#editor-help').textContent = extension ? t("Install Snapkit Debug Sync, choose a normal Flutter debug profile in your editor, then start Debug. Your selected devices are used for the next run.") : t("Start your devices here, then choose them in your editor’s own device selector. Group debug and coordinated restart are not integrated with this editor yet.");
-  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/tag/v0.2.0-beta.4';
+  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/tag/v0.2.0-beta.5';
   icons();
 }
 $('#editor-options').addEventListener('click', event => {
@@ -73,6 +73,19 @@ function renderTools() {
       icons();
 }
 $('#check-tools').addEventListener('click', checkTools);
+for (const kind of ['flutter', 'android']) {
+  $(`#browse-${kind}-sdk`).addEventListener('click', event => busy(event.currentTarget, async () => {
+    $('#preferences-error').textContent = ''; $('#preferences-result').textContent = '';
+    try {
+      const result = await api('/api/folders/pick', { purpose: `${kind}SDK`, language: window.SnapkitI18n.language });
+      if (result.path) {
+        const input = $(`#pref-${kind}`);
+        input.value = result.path; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus();
+        $('#preferences-result').textContent = t("Folder selected. Save preferences to apply this change.");
+      }
+    } catch (error) { $('#preferences-error').textContent = t(error.message); }
+  }));
+}
 $('#preferences-form').addEventListener('submit', event => {
   event.preventDefault(); $('#preferences-error').textContent = '';
   busy($('#save-preferences'), async () => {

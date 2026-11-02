@@ -145,3 +145,14 @@ test('iOS catalog and validation never wait for Android SDK tools', async () => 
   await assert.rejects(provisioner.create({ platform: 'ios', name: 'Test', model: 'missing', runtime: 'missing' }), /Unsupported/);
   assert.ok(calls.every(command => command === 'xcrun'));
 });
+
+test('SDK folder pickers use a specific localized prompt on macOS and Windows', async () => {
+  const calls = [];
+  const execute = async (...args) => { calls.push(args); return '/SDK Folder'; };
+  await chooseFolder({ platform: 'darwin', purpose: 'flutterSDK', language: 'vi', execute });
+  assert.match(calls[0][1][1], /Flutter SDK chứa bin\/flutter/);
+  await chooseFolder({ platform: 'win32', purpose: 'androidSDK', execute });
+  assert.match(calls[1][1].at(-1), /Android SDK folder containing platform-tools/);
+  await chooseFolder({ platform: 'darwin', purpose: '__proto__', execute });
+  assert.match(calls[2][1][1], /Choose your Flutter project folder/);
+});

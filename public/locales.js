@@ -2,6 +2,9 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Choose Flutter SDK folder": "Chọn thư mục Flutter SDK",
+    "Choose Android SDK folder": "Chọn thư mục Android SDK",
+    "Folder selected. Save preferences to apply this change.": "Đã chọn thư mục. Nhấn Lưu tùy chọn để áp dụng thay đổi.",
     "Snapkit — Device Control Center": "Snapkit — Trung tâm quản lý thiết bị",
     "Skip to devices": "Đến danh sách thiết bị",
     "Snapkit home": "Trang chủ Snapkit",
