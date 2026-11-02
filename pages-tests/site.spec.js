@@ -44,6 +44,19 @@ test('hosted controller pairs across origins, runs commands and stops access aft
   await expect(page.locator('#console-output, #devtools-page')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('.device-card')).toHaveCount(6);
+  // A hidden hosted dashboard must stop its 2-second polling loop.
+  await page.clock.install();
+  let backgroundReads = 0;
+  page.on('request', request => { if (request.url() === base + '/api/state') backgroundReads++; });
+  await page.evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+  await page.clock.fastForward(6000);
+  expect(backgroundReads).toBe(0);
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => backgroundReads).toBeGreaterThan(0);
+  await page.clock.resume();
   await localPost('/api/pairing/revoke');
   await expect(page.locator('.device-card')).toHaveCount(0, { timeout: 10000 });
   await expect(page.locator('#server-status')).toHaveText('Local server not connected');

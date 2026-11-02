@@ -9,7 +9,7 @@ await mkdir(path.join(out, 'demo/vendor'), { recursive: true });
 await cp(path.join(root, 'site'), out, { recursive: true });
 await cp(path.join(root, 'public/favicon.svg'), path.join(out, 'favicon.svg'));
 await cp(path.join(root, 'public'), path.join(out, 'demo'), { recursive: true });
-await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.js'), path.join(out, 'demo/vendor/lucide.js'));
+await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.min.js'), path.join(out, 'demo/vendor/lucide.min.js'));
 const snapshot = {
   state: { demo: true, devices: demoDevices, warnings: [], jobs: [], settings: { workspace: '/Projects/flutter_app', targetIds: [] },
     storage: { iosDevices: '/Users/developer/Library/Developer/CoreSimulator/Devices', iosOnSSD: false, avd: '/SSD/SnapkitData/Android/avd', downloads: '/SSD/SnapkitData/downloads/iOS', iosReady: true }, host: 'Preview', platform: 'darwin', scannedAt: '2026-01-01T00:00:00.000Z' },
@@ -22,7 +22,7 @@ const html = (await readFile(path.join(root, 'public/index.html'), 'utf8'))
 await writeFile(path.join(out, 'demo/index.html'), html);
 await mkdir(path.join(out, 'control/vendor'), { recursive: true });
 await cp(path.join(root, 'public'), path.join(out, 'control'), { recursive: true });
-await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.js'), path.join(out, 'control/vendor/lucide.js'));
+await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.min.js'), path.join(out, 'control/vendor/lucide.min.js'));
 await writeFile(path.join(out, 'control/controller-config.js'), 'window.SNAPKIT_CONTROLLER = true;\n');
 await writeFile(path.join(out, 'control/index.html'), html.replace('preview-data.js', 'controller-config.js'));
 // Preserve old bookmarks as a fully functional controller, including pairing fragments.

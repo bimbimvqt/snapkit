@@ -147,3 +147,62 @@ test('workspace imports a debug profile and submits flavor, entrypoint and defin
   await expect(page.locator('#workspace-dialog')).not.toBeVisible();
   expect(saved).toEqual({ path: '/Projects/merchant', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' });
 });
+
+test('compact view persists, tabs support arrow keys, and empty filters recover', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.device-card')).toHaveCount(6);
+  await page.getByRole('button', { name: 'Switch to compact view' }).click();
+  await expect(page.locator('#devices-grid')).toHaveClass(/compact/);
+  await page.reload();
+  await expect(page.locator('#view-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('tab', { name: 'All devices' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'iOS simulators' })).toBeFocused();
+  await expect(page.locator('.device-card')).toHaveCount(3);
+  await page.getByRole('searchbox').fill('missing device');
+  await expect(page.locator('#filter-summary')).toHaveText('0 of 6 devices');
+  await page.locator('#empty-reset').click();
+  await expect(page.locator('.device-card')).toHaveCount(6);
+  await expect(page.getByRole('searchbox')).toBeFocused();
+  for (const width of [375, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  const summary = page.locator('#ide-summary');
+  expect(await summary.evaluate(el => el.clientWidth)).toBeGreaterThan(180);
+});
+
+test('unchanged devices and icons keep their DOM and focus across scans', async ({ page }) => {
+  await page.goto('/');
+  const target = page.locator('[data-device="demo-ios-1"] [data-action="select"]');
+  await target.focus();
+  const card = await page.locator('[data-device="demo-ios-1"]').elementHandle();
+  const svg = await page.locator('[data-device="demo-ios-1"] svg').first().elementHandle();
+  await page.locator('#refresh-button').click();
+  await expect(page.locator('#refresh-button')).toBeEnabled();
+  expect(await card.evaluate(el => el.isConnected)).toBe(true);
+  expect(await svg.evaluate(el => el.isConnected)).toBe(true);
+  // Scan with focus inside a card (the refresh button normally takes focus).
+  await target.focus();
+  await page.evaluate(async () => { await refresh(); });
+  await expect(target).toBeFocused();
+});
+
+test('pending boot stays disabled across a scan and cannot be submitted twice', async ({ page }) => {
+  let boots = 0, release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/devices/demo-ios-2/boot', async route => {
+    boots++; await pending; await route.fulfill({ json: { message: 'Boot accepted' } });
+  });
+  await page.goto('/');
+  const card = page.locator('[data-device="demo-ios-2"]');
+  await card.getByRole('button', { name: 'Start device', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'Starting…', exact: true })).toBeDisabled();
+  await page.locator('#refresh-button').click();
+  await expect(page.locator('#refresh-button')).toBeEnabled();
+  await expect(card.getByRole('button', { name: 'Starting…', exact: true })).toBeDisabled();
+  expect(boots).toBe(1);
+  release();
+  await expect(card.getByRole('button', { name: 'Start device', exact: true })).toBeEnabled();
+});

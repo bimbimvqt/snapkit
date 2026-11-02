@@ -2,7 +2,43 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const escape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const icon = name => `<i data-lucide="${name}" aria-hidden="true"></i>`;
-const icons = () => window.lucide?.createIcons();
+const icons = () => {
+  if (!document.querySelector('i[data-lucide]')) return;
+  window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
+  document.querySelectorAll('svg[data-lucide]').forEach(node => node.removeAttribute('data-lucide'));
+};
+// Keep unchanged cards (and keyboard focus) across scans and controller polls.
+const cardMarkup = new WeakMap();
+let lastGridMarkup = null;
+function renderGrid(markup) {
+  const grid = $('#devices-grid');
+  if (!markup.length) return;
+  const signature = markup.join('');
+  if (signature === lastGridMarkup && grid.firstElementChild) return;
+  lastGridMarkup = signature;
+  const template = document.createElement('template');
+  template.innerHTML = signature;
+  const existing = new Map([...grid.children].map(node => [node.dataset.device, node]));
+  const focused = document.activeElement;
+  const focusedId = focused?.closest('[data-device]')?.dataset.device;
+  const focusedAction = focused?.dataset.action;
+  [...template.content.children].forEach((next, index) => {
+    const old = existing.get(next.dataset.device);
+    const html = next.outerHTML;
+    const node = old && cardMarkup.get(old) === html ? old : next;
+    cardMarkup.set(node, html);
+    if (node !== grid.children[index]) grid.insertBefore(node, grid.children[index] || null);
+    existing.delete(next.dataset.device);
+    if (old && old !== node) old.remove();
+  });
+  existing.forEach(node => node.remove());
+  if (focusedId && focusedAction && !focused.isConnected) {
+    [...grid.querySelectorAll('[data-device]')].find(node => node.dataset.device === focusedId)
+      ?.querySelector(`[data-action="${focusedAction}"]`)?.focus({ preventScroll: true });
+  }
+}
+const booting = new Set();
+let compact = localStorage.getItem('snapkit-view') === 'compact';
 let state = { devices: [], settings: { targetIds: [] }, warnings: [], jobs: [] };
 let filter = 'all', search = '', onlyOnline = false;
 let refreshing = false;
@@ -27,7 +63,7 @@ async function api(url, data) {
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error('Connect your local Snapkit server first.');
   const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
-  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
+  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
   if (connection && response.status === 401) forgetConnection();
   if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
@@ -47,12 +83,15 @@ async function busy(button, task) {
 function deviceCard(d) {
   const online = d.state === 'online', active = (state.settings.targetIds || []).includes(d.id);
   const tablet = /ipad|tablet/i.test(d.name);
+  const starting = booting.has(d.id);
+  const readiness = starting ? 'Starting device…' : !online ? 'Start this device to select it for debug' : !d.flutterId ? 'Waiting for Flutter detection · refresh shortly' : 'Ready for IDE debug';
   const spec = (i, value, label) => `<span class="spec" title="${escape(label)}">${icon(i)}${escape(value || '—')}</span>`;
   return `<article class="device-card ${d.group} ${online ? 'online' : 'offline'} ${active ? 'target' : ''} ${tablet ? 'tablet' : ''}" data-device="${escape(d.id)}">
     <div class="card-top"><span class="platform-label">${icon(groupIcon[d.group])}${groupLabel[d.group]}</span><div class="card-badges">${active ? `<span class="target-badge">${icon('crosshair')}IDE</span>` : ''}<span class="status-badge ${online ? 'online' : ''}"><span class="dot ${online ? 'green' : ''}"></span>${online ? 'Online' : 'Offline'}</span>${d.group === 'ios' || (d.group === 'android' && d.avd) ? `<button class="icon-button delete-device" data-action="delete" aria-label="Delete ${escape(d.name)}" title="Delete device and its data">${icon('trash-2')}</button>` : ''}</div></div>
     <div class="device-stage" aria-hidden="true"><div class="stage-grid"></div><div class="device-model"><div class="phone-screen">${online ? `<div class="wallpaper"></div><span class="screen-clock">9:41</span><span class="screen-date">Thursday, October 29</span><span class="screen-label">READY FOR IDE</span>` : `<span class="offline-symbol">${icon('power')}</span>`}</div></div></div>
     <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p><div class="device-specs">${spec('memory-stick', d.ram, 'Device RAM; — means unavailable')}${spec('cpu', d.cpu, 'Logical CPU cores; — means unavailable')}${spec('scan', d.resolution?.replaceAll(' ', ''), 'Display resolution; — means unavailable')}</div></div>
-    <div class="card-actions"><button class="button" data-action="boot" ${online || d.group === 'physical' ? 'disabled' : ''}>${icon(online ? 'circle-check' : 'power')}${online ? 'Device started' : d.group === 'physical' ? 'Turn on manually' : 'Start device'}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="Select ${escape(d.name)} for IDE debug" ${active ? 'checked' : ''} ${targetSaving || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? 'Selected for IDE' : 'Select for IDE'}</label></div>
+    <p class="device-readiness">${escape(readiness)}</p>
+    <div class="card-actions"><button class="button" data-action="boot" ${online || starting || d.group === 'physical' ? 'disabled' : ''} ${starting ? 'aria-busy="true"' : ''}>${icon(starting ? 'loader-circle' : online ? 'circle-check' : 'power')}${starting ? 'Starting…' : online ? 'Device started' : d.group === 'physical' ? 'Turn on manually' : 'Start device'}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="Select ${escape(d.name)} for IDE debug" ${active ? 'checked' : ''} ${targetSaving || starting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? 'Selected for IDE' : 'Select for IDE'}</label></div>
   </article>`;
 }
 function empty(title, text, i = 'monitor-smartphone', action = '') {
@@ -73,7 +112,12 @@ function render() {
   $('#host-label').textContent = `Connected to ${state.host || 'localhost'}`;
   const shown = devices.filter(d => (filter === 'all' || d.group === filter) && (!onlyOnline || d.state === 'online') && `${d.name} ${d.os} ${d.id}`.toLowerCase().includes(search.toLowerCase()));
   $('#list-label').innerHTML = `${filter === 'all' ? 'ALL DEVICES' : groupLabel[filter] + 'S'} <span class="muted">/ ${shown.length}</span>`;
-  $('#devices-grid').innerHTML = shown.length ? shown.map(deviceCard).join('') : empty(refreshing || state.scanning ? 'Discovering your devices…' : devices.length ? 'No matching devices' : 'Your device lab starts here', refreshing || state.scanning ? 'Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.' : devices.length ? 'Try a different search or turn off the online filter.' : 'Connect a device, create an Android AVD, or install an iOS Simulator in Xcode. Then refresh to bring it into your workspace.', 'monitor-smartphone', !devices.length && !refreshing && !state.scanning ? '<button class="button" id="empty-refresh">Refresh devices</button><button class="button" id="empty-help">Setup guide</button>' : '');
+  $('#devices-grid').classList.toggle('compact', compact);
+  $('#view-toggle').setAttribute('aria-pressed', String(compact));
+  $('#view-toggle').setAttribute('aria-label', compact ? 'Switch to card view' : 'Switch to compact view');
+  $('#reset-filters').classList.toggle('hidden', !search && !onlyOnline && filter === 'all');
+  $('#filter-summary').textContent = `${shown.length} of ${devices.length} devices`;
+  renderGrid(shown.length ? shown.map(deviceCard) : [empty(refreshing || state.scanning ? 'Discovering your devices…' : devices.length ? 'No matching devices' : 'Your device lab starts here', refreshing || state.scanning ? 'Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.' : devices.length ? 'Clear the filters to see all your devices.' : 'Add a simulator or emulator, or connect a physical device to get started.', 'monitor-smartphone', devices.length ? '<button class="button" id="empty-reset">Clear filters</button>' : !refreshing && !state.scanning ? '<button class="button" id="empty-add">Add device</button><button class="button" id="empty-refresh">Refresh devices</button>' : '')]);
   $('#scan-time').textContent = state.scannedAt ? `Last synced ${new Date(state.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Auto-refresh every 30s` : 'Waiting for first scan';
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
@@ -83,13 +127,14 @@ function render() {
 }
 function renderWarnings() {
   $('#warnings').classList.toggle('hidden', !state.warnings.length);
-  $('#warnings').innerHTML = state.warnings.length ? `<details><summary>${state.warnings.length} toolchain ${state.warnings.length === 1 ? 'notice' : 'notices'} — view details</summary>${state.warnings.map(w => `<p>${escape(w)}</p>`).join('')}</details>` : '';
+  const open = !!$('#warnings details[open]');
+  $('#warnings').innerHTML = state.warnings.length ? `<details ${open ? 'open' : ''}><summary>${state.warnings.length} toolchain ${state.warnings.length === 1 ? 'notice' : 'notices'} — view details</summary>${state.warnings.map(w => `<p>${escape(w)}</p>`).join('')}</details>` : '';
 }
 async function refresh(button = $('#refresh-button')) {
   if (refreshing) return;
-  refreshing = true; $('#refresh-button svg')?.classList.add('spin');
+  refreshing = true; $('#devices-grid').setAttribute('aria-busy', 'true'); $('#refresh-button svg')?.classList.add('spin');
   await busy(button, async () => { const result = await api('/api/scan', {}); state = { ...state, ...result, scanning: false };  });
-  refreshing = false; $('#refresh-button svg')?.classList.remove('spin'); render();
+  refreshing = false; $('#devices-grid').removeAttribute('aria-busy'); $('#refresh-button svg')?.classList.remove('spin'); render();
 }
 let workspaceProfiles = [];
 let workspaceProfileRequest = 0;
@@ -153,11 +198,34 @@ async function loadState() {
   state = { ...state, ...result };
   if (!window.SNAPKIT_CONTROLLER || previous !== JSON.stringify(state)) render();
 }
-$$('[data-filter]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; $$('[data-filter]').forEach(t => { t.classList.toggle('active', t === b); t.setAttribute('aria-selected', t === b ? 'true' : 'false'); }); render(); }));
+function setFilter(value) {
+  filter = value;
+  $$('[data-filter]').forEach(tab => {
+    const active = tab.dataset.filter === value;
+    tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  render();
+}
+function resetFilters() {
+  search = ''; onlyOnline = false; $('#device-search').value = ''; $('#online-only').checked = false; setFilter('all');
+}
+$$('[data-filter]').forEach(b => b.addEventListener('click', () => setFilter(b.dataset.filter)));
+$('.tabs').addEventListener('keydown', event => {
+  const tabs = $$('[data-filter]'); const current = tabs.indexOf(event.target);
+  if (current < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  setFilter(tabs[index].dataset.filter); tabs[index].focus();
+});
+$('#reset-filters').addEventListener('click', resetFilters);
+$('#view-toggle').addEventListener('click', () => { compact = !compact; localStorage.setItem('snapkit-view', compact ? 'compact' : 'cards'); render(); });
 $('#device-search').addEventListener('input', e => { search = e.target.value; render(); });
 $('#online-only').addEventListener('change', e => { onlyOnline = e.target.checked; render(); });
 $('#refresh-button').addEventListener('click', () => refresh());
 $('#devices-grid').addEventListener('click', e => {
+  if (e.target.closest('#empty-reset')) { resetFilters(); $('#device-search').focus(); return; }
+  if (e.target.closest('#empty-add')) return $('#add-device').click();
   if (e.target.closest('#empty-refresh')) return refresh();
   if (e.target.closest('#empty-help')) return $('#guide-dialog').showModal();
   const remove = e.target.closest('button[data-action="delete"]');
@@ -174,7 +242,12 @@ $('#devices-grid').addEventListener('click', e => {
   }
   const b = e.target.closest('button[data-action="boot"]'); if (!b || b.disabled) return;
   const id = b.closest('[data-device]').dataset.device;
-  busy(b, async () => { const result = await api(`/api/devices/${encodeURIComponent(id)}/boot`, {}); toast(result.message); await loadState(); });
+  if (booting.has(id)) return;
+  booting.add(id); render();
+  busy(null, async () => {
+    try { const result = await api(`/api/devices/${encodeURIComponent(id)}/boot`, {}); toast(result.message); await loadState(); }
+    finally { booting.delete(id); render(); }
+  });
 });
 let deletingDevice = false;
 $('#delete-device-dialog').addEventListener('cancel', event => { if (deletingDevice) event.preventDefault(); });
@@ -245,19 +318,24 @@ async function init() {
       if (changed.length && $('#create-dialog').open) loadCreationCatalog();
     });
     events.addEventListener('settings', e => { state.settings = { ...state.settings, ...JSON.parse(e.data) }; render(); });
-    events.onopen = () => { $('#server-status').textContent = 'Local server connected'; loadState().catch(() => {}); };
-    events.onerror = () => { $('#server-status').textContent = 'Reconnecting to server…'; };
+    events.onopen = () => { setConnectionStatus('online'); $('#server-status').textContent = 'Local server connected'; loadState().catch(() => {}); };
+    events.onerror = () => { setConnectionStatus('offline'); $('#host-label').textContent = 'Reconnecting · showing last sync'; $('#server-status').textContent = 'Reconnecting to server…'; };
     if (state.scanning) setTimeout(() => loadState().catch(() => {}), 5000);
-  } catch (error) { toast(`Cannot connect to local server: ${error.message}`, true); $('#server-status').textContent = 'Local server unavailable'; }
+  } catch (error) { setConnectionStatus('offline'); $('#host-label').textContent = 'Local agent unavailable'; $('#devices-grid').innerHTML = empty('Local server unavailable', 'Start Snapkit with npm start, then refresh this page.', 'wifi-off'); icons(); toast(`Cannot connect to local server: ${error.message}`, true); $('#server-status').textContent = 'Local server unavailable'; }
 }
 queueMicrotask(init);
+function setConnectionStatus(status) {
+  document.body.dataset.connection = status;
+}
 function renderConnection() {
   $('#connection-button').textContent = connection ? 'Connection settings' : 'Connect local server';
   $('#demo-notice').classList.remove('hidden');
   $('#demo-notice span').textContent = !connection ? 'Connect Snapkit running on this computer to control real devices. No sample devices are loaded.' : remoteOffline ? 'Cannot reach the local server. Keep npm start running and check browser local network permission.' : state.demo ? 'Connected to a local DEMO backend. Actions are simulated.' : 'Connected to your local Snapkit server. Device commands run on this computer.';
   $('#mode-badge').textContent = connection ? remoteOffline ? 'AGENT OFFLINE' : state.demo ? 'LOCAL DEMO BACKEND' : 'CONNECTED TO LOCAL AGENT' : 'NOT CONNECTED';
   $('#server-status').textContent = connection ? remoteOffline ? 'Local server unavailable' : `Connected · ${connection.base}` : 'Local server not connected';
-  if (!connection) $('#devices-grid').innerHTML = empty('Connect your local device lab', 'Start Snapkit with npm start, then click Connect local server and enter a code from your local Dashboard.', 'link');
+  setConnectionStatus(!connection || remoteOffline ? 'offline' : 'online');
+  $('#host-label').textContent = !connection ? 'No local agent connected' : remoteOffline ? 'Local agent unavailable · showing last sync' : `Connected to ${state.host || 'local agent'}`;
+  if (!connection) { lastGridMarkup = null; $('#devices-grid').innerHTML = empty('Connect your local device lab', 'Start Snapkit with npm start, then click Connect local server and enter a code from your local Dashboard.', 'link'); }
 }
 function forgetConnection() {
   clearInterval(remotePoll); remotePoll = null; connection = null; remoteOffline = false;
@@ -267,18 +345,22 @@ function forgetConnection() {
 }
 function startRemotePolling() {
   clearInterval(remotePoll);
-  remotePoll = setInterval(async () => {
-    if (remotePolling || !connection) return;
-    remotePolling = true;
-    const previousJobs = state.jobs || [];
-    try {
-      await loadState(); remoteOffline = false; renderConnection();
-      const finished = (state.jobs || []).filter(j => j.status !== 'running' && previousJobs.some(old => old.id === j.id && old.status === 'running'));
-      if (finished.length && $('#create-dialog').open) await loadCreationCatalog();
-    } catch { remoteOffline = true; renderConnection(); }
-    finally { remotePolling = false; }
-  }, 2000);
+  remotePoll = setInterval(pollRemoteState, 2000);
 }
+async function pollRemoteState() {
+  if (remotePolling || !connection || document.hidden) return;
+  remotePolling = true;
+  const previousJobs = state.jobs || [];
+  try {
+    await loadState(); remoteOffline = false; renderConnection();
+    const finished = (state.jobs || []).filter(j => j.status !== 'running' && previousJobs.some(old => old.id === j.id && old.status === 'running'));
+    if (finished.length && $('#create-dialog').open) await loadCreationCatalog();
+  } catch { remoteOffline = true; renderConnection(); }
+  finally { remotePolling = false; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && window.SNAPKIT_CONTROLLER && connection) pollRemoteState();
+});
 async function connectController(base, code) {
   base = agentURL(base);
   let response;
