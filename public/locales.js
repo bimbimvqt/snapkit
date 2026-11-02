@@ -2,6 +2,19 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Stop debug on one device from its card with Snapkit Debug Sync 1.3+. Other devices keep running.": "Dừng debug từng thiết bị ngay trên thẻ với Snapkit Debug Sync 1.3+. Các thiết bị khác tiếp tục chạy.",
+    "Last synced {0} · Device status checked every 2s": "Đồng bộ lúc {0} · Kiểm tra trạng thái mỗi 2 giây",
+    "Turn off this device and disconnect its debug session. Device data is kept.": "Tắt thiết bị này và ngắt phiên debug của nó. Dữ liệu thiết bị được giữ lại.",
+    "Turning off…": "Đang tắt…",
+    "Turn off device": "Tắt thiết bị",
+    "Debugging in IDE": "Đang debug trong IDE",
+    "Stopping debug…": "Đang dừng debug…",
+    "Stop debug": "Dừng debug",
+    "Device shutdown requested. Device data is kept.": "Đã yêu cầu tắt thiết bị. Dữ liệu thiết bị được giữ lại.",
+    "Stop requested in your IDE. Other devices keep debugging.": "Đã yêu cầu dừng trong IDE. Các thiết bị khác tiếp tục debug.",
+    "No connected IDE debug session for this device. Update Snapkit Debug Sync and start debug in your IDE.": "Không có phiên debug được kết nối cho thiết bị này. Cập nhật Snapkit Debug Sync và bắt đầu debug trong IDE.",
+    "Only simulators and emulators can be turned off. Disconnect physical devices manually.": "Chỉ có thể tắt thiết bị giả lập. Hãy ngắt kết nối thiết bị thật theo cách thủ công.",
+
     "Choose Flutter SDK folder": "Chọn thư mục Flutter SDK",
     "Choose Android SDK folder": "Chọn thư mục Android SDK",
     "Folder selected. Save preferences to apply this change.": "Đã chọn thư mục. Nhấn Lưu tùy chọn để áp dụng thay đổi.",
@@ -205,7 +218,7 @@ window.SnapkitMessages = {
     "Select one or more devices": "Chọn một hoặc nhiều thiết bị",
     "Open IDE debug setup, choose your Flutter folder and debug profile. Tick Select for IDE on the devices you want.": "Mở Thiết lập debug trong IDE, chọn thư mục Flutter và cấu hình debug. Đánh dấu Chọn cho IDE trên các thiết bị bạn muốn.",
     "Start Debug in your editor": "Bắt đầu Debug trong editor",
-    "Install Snapkit Debug Sync 1.1+, open a normal Flutter debug profile in the same project, then press F5 or Run/Debug. Snapkit launches all selected devices without modifying launch.json. With the local agent offline or Dashboard targets turned off, normal IDE debugging works as before. Change selection before starting the next debug run; running IDE sessions are not changed.": "Cài Snapkit Debug Sync 1.1+, mở cấu hình debug Flutter thông thường trong cùng dự án, rồi nhấn F5 hoặc Run/Debug. Snapkit chạy trên tất cả thiết bị đã chọn mà không sửa launch.json. Khi agent offline hoặc tắt lựa chọn thiết bị, IDE debug như trước. Đổi lựa chọn trước lần debug tiếp theo; phiên IDE đang chạy không thay đổi.",
+    "Install Snapkit Debug Sync 1.3+, open a normal Flutter debug profile in the same project, then press F5 or Run/Debug. Snapkit launches all selected devices without modifying launch.json. With the local agent offline or Dashboard targets turned off, normal IDE debugging works as before. Change selection before starting the next debug run; running IDE sessions are not changed.": "Cài Snapkit Debug Sync 1.3+, mở cấu hình debug Flutter thông thường trong cùng dự án, rồi nhấn F5 hoặc Run/Debug. Snapkit chạy trên tất cả thiết bị đã chọn mà không sửa launch.json. Khi agent offline hoặc tắt lựa chọn thiết bị, IDE debug như trước. Đổi lựa chọn trước lần debug tiếp theo; phiên IDE đang chạy không thay đổi.",
     "Keep the Dart and Flutter extensions installed in your compatible editor. Physical iPhones need developer mode, trust and signing. Use the IDE for logs, Hot Reload and DevTools.": "Giữ extension Dart và Flutter trong editor tương thích. iPhone thật cần chế độ nhà phát triển, tin cậy máy và ký ứng dụng. Dùng IDE để xem logs, Hot Reload và DevTools.",
     "Connect your local device lab.": "Kết nối thiết bị trên máy bạn.",
     "Authorize the Snapkit website to control this computer. The code is single-use and expires in 5 minutes. Connections expire after 8 hours or when the server restarts.": "Cho phép website Snapkit điều khiển máy này. Mã chỉ dùng một lần và hết hạn sau 5 phút. Kết nối hết hạn sau 8 giờ hoặc khi server khởi động lại.",

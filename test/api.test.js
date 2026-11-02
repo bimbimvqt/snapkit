@@ -30,7 +30,7 @@ test('device manager boots devices and selects one or more IDE targets without a
   assert.equal((await fetch(base + '/api/state').then(r => r.json())).settings.ideEnabled, false);
   assert.equal((await post('/api/ide/mode', { enabled: true })).status, 200);
   assert.equal((await fetch(base + '/api/ide/plan').then(r => r.json())).status, 'inactive');
-  for (const route of ['/api/sessions', '/api/sessions/reload-all', '/api/sessions/demo-ios-1/devtools', '/api/devices/demo-ios-1/shutdown', '/api/devices/demo-ios-1/screenshot', '/api/target']) assert.equal((await post(route, {})).status, 404);
+  for (const route of ['/api/sessions', '/api/sessions/reload-all', '/api/sessions/demo-ios-1/devtools', '/api/devices/demo-ios-1/screenshot', '/api/target']) assert.equal((await post(route, {})).status, 404);
   const current = await fetch(base + '/api/state').then(r => r.json());
   assert.equal('sessions' in current, false); assert.equal('logs' in current, false);
 });
@@ -79,4 +79,21 @@ test('website API requires pairing for reads and commands, hides local token, an
   assert.equal((await fetch(base + '/api/state', { headers: { ...headers, Origin: 'https://other.example' } })).status, 403);
   await post('/api/pairing/revoke', {});
   assert.equal((await request('/api/state', { headers })).status, 401);
+});
+
+test('per-device shutdown preserves registration and debug-stop requires a live owning IDE', async () => {
+  await post('/api/devices/demo-ios-2/boot', {});
+  assert.equal((await post('/api/devices/demo-ios-2/shutdown', {}, 'wrong')).status, 403);
+  assert.equal((await post('/api/devices/demo-physical-1/shutdown', {})).status, 400);
+  const result = await post('/api/devices/demo-ios-2/shutdown', {});
+  assert.equal(result.status, 200);
+  const current = await fetch(base + '/api/state').then(r => r.json());
+  assert.equal(current.devices.find(d => d.id === 'demo-ios-2').state, 'offline');
+  assert.equal((await post('/api/devices/demo-ios-2/stop-debug', {})).status, 409);
+  const sessions = [{ id: 'session1', deviceId: 'demo-ios-1', name: 'First' }, { id: 'session2', deviceId: 'demo-ios-2', name: 'Second' }];
+  await post('/api/ide/sessions', { ownerId: 'test-ide', sessions });
+  assert.equal((await post('/api/devices/demo-ios-1/stop-debug', {})).status, 200);
+  const commands = await post('/api/ide/sessions', { ownerId: 'test-ide', sessions }).then(r => r.json());
+  assert.deepEqual(commands.stopSessionIds, ['session1']);
+  await post('/api/ide/sessions', { ownerId: 'test-ide', sessions: [] });
 });

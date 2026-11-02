@@ -133,7 +133,9 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
     const group = groups.get(session.configuration.__snapkitGroup);
     if (!group) return;
     group.sessions.delete(session.id);
-    await stop(group);
+    // Ending one device must keep peer debug sessions alive. Startup failures
+    // still stop the group through stop(group).
+    if (!group.sessions.size) { groups.delete(group.id); clearTimeout(group.expiry); }
   }
   return { provider, started, terminated, dispose() {
     // IDE already owns running sessions. Disabling Snapkit must not stop them.

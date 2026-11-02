@@ -38,7 +38,7 @@ function renderGrid(markup) {
       ?.querySelector(`[data-action="${focusedAction}"]`)?.focus({ preventScroll: true });
   }
 }
-const booting = new Set();
+const booting = new Set(), shuttingDown = new Set(), stoppingDebug = new Set();
 let compact = localStorage.getItem('snapkit-view') === 'compact';
 let state = { devices: [], settings: { targetIds: [] }, warnings: [], jobs: [] };
 let filter = 'all', search = '', onlyOnline = false;
@@ -57,7 +57,7 @@ async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
-    if (url === '/api/product') return { version: '0.2.0-beta.5', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url === '/api/product') return { version: '0.2.0-beta.6', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
     if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
@@ -66,7 +66,7 @@ async function api(url, data) {
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
   const headers = connection ? { Authorization: `Bearer ${connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!connection) headers['X-Snapkit-Token'] = state.token; }
-  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/folders/pick' ? 310000 : url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
+  const response = await fetch(connection ? connection.base + url : url, { method: data === undefined ? 'GET' : 'POST', headers, credentials: 'omit', signal: AbortSignal.timeout(url === '/api/folders/pick' ? 310000 : url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') || url.includes('/shutdown') ? 120000 : 30000), ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
   const payload = await response.json();
   if (connection && response.status === 401) forgetConnection();
   if (!response.ok) throw new Error(payload.error || t("Request failed ({0})", [response.status]));
@@ -86,7 +86,9 @@ async function busy(button, task) {
 function deviceCard(d) {
   const online = d.state === 'online', active = (state.settings.targetIds || []).includes(d.id);
   const tablet = /ipad|tablet/i.test(d.name);
-  const starting = booting.has(d.id);
+  const starting = booting.has(d.id), shutting = shuttingDown.has(d.id);
+  const debug = (state.debugSessions || []).filter(session => session.deviceId === d.id || session.deviceId === d.flutterId);
+  const debugStopping = stoppingDebug.has(d.id) || debug.some(session => session.stopping);
   const readiness = starting ? t("Starting device…") : !online ? t("Start this device to select it for debug") : !d.flutterId ? t("Waiting for Flutter detection · refresh shortly") : t("Ready for IDE debug");
   const spec = (i, value, label) => `<span class="spec" title="${escape(label)}">${icon(i)}${escape(value || '—')}</span>`;
   return `<article class="device-card ${d.group} ${online ? 'online' : 'offline'} ${active ? 'target' : ''} ${tablet ? 'tablet' : ''}" data-device="${escape(d.id)}">
@@ -94,7 +96,8 @@ function deviceCard(d) {
     <div class="device-stage" aria-hidden="true"><div class="stage-grid"></div><div class="device-model"><div class="phone-screen">${online ? `<div class="wallpaper"></div><span class="screen-clock">9:41</span><span class="screen-date">Thursday, October 29</span><span class="screen-label">READY FOR IDE</span>` : `<span class="offline-symbol">${icon('power')}</span>`}</div></div></div>
     <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p><div class="device-specs">${spec('memory-stick', d.ram, t("Device RAM; — means unavailable"))}${spec('cpu', d.cpu, t("Logical CPU cores; — means unavailable"))}${spec('scan', d.resolution?.replaceAll(' ', ''), t("Display resolution; — means unavailable"))}</div></div>
     <p class="device-readiness">${escape(t(readiness))}</p>
-    <div class="card-actions"><button class="button" data-action="boot" ${online || starting || d.group === 'physical' ? 'disabled' : ''} ${starting ? 'aria-busy="true"' : ''}>${icon(starting ? 'loader-circle' : online ? 'circle-check' : 'power')}${starting ? t("Starting…") : online ? t("Device started") : d.group === 'physical' ? t("Turn on manually") : t("Start device")}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="${escape(t('Select {0} for IDE debug', [d.name]))}" ${active ? 'checked' : ''} ${targetSaving || starting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? t("Selected for IDE") : t("Select for IDE")}</label></div>
+    <div class="card-actions"><button class="button" data-action="${online && d.group !== 'physical' ? 'shutdown' : 'boot'}" ${starting || shutting || d.group === 'physical' ? 'disabled' : ''} ${starting || shutting ? 'aria-busy="true"' : ''} title="${escape(t(online && d.group !== 'physical' ? 'Turn off this device and disconnect its debug session. Device data is kept.' : 'Start device'))}">${icon(starting || shutting ? 'loader-circle' : 'power')}${shutting ? t("Turning off…") : starting ? t("Starting…") : online && d.group !== 'physical' ? t("Turn off device") : d.group === 'physical' ? t("Turn on manually") : t("Start device")}</button><label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="${escape(t('Select {0} for IDE debug', [d.name]))}" ${active ? 'checked' : ''} ${targetSaving || starting || shutting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? t("Selected for IDE") : t("Select for IDE")}</label></div>
+    ${debug.length ? `<div class="device-debug"><span>${icon('bug')}${t("Debugging in IDE")}</span><button class="button" data-action="stop-debug" ${debugStopping || shutting ? 'disabled' : ''} ${debugStopping ? 'aria-busy="true"' : ''}>${icon(debugStopping ? 'loader-circle' : 'square')}${debugStopping ? t("Stopping debug…") : t("Stop debug")}</button></div>` : ''}
   </article>`;
 }
 function empty(title, text, i = 'monitor-smartphone', action = '') {
@@ -121,7 +124,7 @@ function render() {
   $('#reset-filters').classList.toggle('hidden', !search && !onlyOnline && filter === 'all');
   $('#filter-summary').textContent = t("{0} of {1} devices", [shown.length, devices.length]);
   renderGrid(shown.length ? shown.map(deviceCard) : [empty(refreshing || state.scanning ? t("Discovering your devices…") : devices.length ? t("No matching devices") : t("Your device lab starts here"), refreshing || state.scanning ? t("Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.") : devices.length ? t("Clear the filters to see all your devices.") : t("Add a simulator or emulator, or connect a physical device to get started."), 'monitor-smartphone', devices.length ? `<button class="button" id="empty-reset">${t("Clear filters")}</button>` : !refreshing && !state.scanning ? `<button class="button" id="empty-add">${t("Add device")}</button><button class="button" id="empty-refresh">${t("Refresh devices")}</button>` : '')]);
-  $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Auto-refresh every 30s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
+  $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Device status checked every 2s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
   $('#ide-summary').textContent = state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
@@ -244,13 +247,14 @@ $('#devices-grid').addEventListener('click', e => {
     $('#delete-device-dialog').showModal();
     return;
   }
-  const b = e.target.closest('button[data-action="boot"]'); if (!b || b.disabled) return;
-  const id = b.closest('[data-device]').dataset.device;
-  if (booting.has(id)) return;
-  booting.add(id); render();
+  const b = e.target.closest('button[data-action]'); if (!b || b.disabled || !['boot', 'shutdown', 'stop-debug'].includes(b.dataset.action)) return;
+  const id = b.closest('[data-device]').dataset.device, action = b.dataset.action;
+  if (booting.has(id) || shuttingDown.has(id) || stoppingDebug.has(id)) return;
+  const pending = action === 'boot' ? booting : action === 'shutdown' ? shuttingDown : stoppingDebug;
+  pending.add(id); render();
   busy(null, async () => {
-    try { const result = await api(`/api/devices/${encodeURIComponent(id)}/boot`, {}); toast(result.message); await loadState(); }
-    finally { booting.delete(id); render(); }
+    try { const result = await api(`/api/devices/${encodeURIComponent(id)}/${action}`, {}); toast(result.message); await loadState(); }
+    finally { pending.delete(id); render(); }
   });
 });
 let deletingDevice = false;
@@ -321,6 +325,7 @@ async function init() {
       for (const job of changed) toast(job.status === 'error' ? `${job.title}: ${job.error}` : t("{0} completed", [job.title]), job.status === 'error');
       if (changed.length) { creationCatalogs.clear(); if ($('#create-dialog').open) loadCreationCatalog(); }
     });
+    events.addEventListener('debug', e => { state.debugSessions = JSON.parse(e.data).debugSessions; render(); });
     events.addEventListener('settings', e => { state.settings = { ...state.settings, ...JSON.parse(e.data) }; render(); });
     events.onopen = () => { setConnectionStatus('online'); $('#server-status').textContent = t("Local server connected"); loadState().catch(() => {}); };
     events.onerror = () => { setConnectionStatus('offline'); $('#host-label').textContent = t("Reconnecting · showing last sync"); $('#server-status').textContent = t("Reconnecting to server…"); };

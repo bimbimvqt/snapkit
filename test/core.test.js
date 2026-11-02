@@ -68,7 +68,9 @@ test('native IDE debugging falls back unchanged offline and launches Dashboard g
     const last = { id: 'last', configuration: launches[1] };
     await sync.started(last);
     await sync.terminated(peer);
-    assert.deepEqual(stops.sort(), ['last', 'source']);
+    assert.deepEqual(stops, [], 'Stopping one device keeps peer sessions alive');
+    await sync.terminated(source);
+    await sync.terminated(last);
     const canceledPeer = { id: 'late', configuration: launches[1] };
     await sync.started(canceledPeer);
     assert(stops.includes('late'), 'Cancel a peer that started after its group stopped');

@@ -18,6 +18,23 @@ export async function bootDevice(d) {
   return { message: 'Boot requested. Refresh after the device finishes starting.' };
 }
 
+export async function shutdownDevice(d, { execute = run } = {}) {
+  if (!canDeleteDevice(d)) throw new Error('Only simulators and emulators can be turned off. Disconnect physical devices manually.');
+  if (d.platform === 'ios') {
+    const list = parseJsonOutput(await execute('xcrun', ['simctl', 'list', 'devices', '--json']));
+    const current = Object.values(list.devices || {}).flat().find(item => item.udid === d.id);
+    if (!current) throw new Error('Simulator no longer exists. Refresh devices.');
+    if (current.state !== 'Shutdown') await execute('xcrun', ['simctl', 'shutdown', d.id], { timeout: 30000 });
+  } else {
+    const serials = (await execute('adb', ['devices'])).split(/\r?\n/).map(line => /^(emulator-\d+)\s+/.exec(line)?.[1]).filter(Boolean);
+    for (const serial of serials) {
+      const name = (await execute('adb', ['-s', serial, 'emu', 'avd', 'name'])).split(/\r?\n/)[0].trim();
+      if (name === d.avd) await execute('adb', ['-s', serial, 'emu', 'kill']);
+    }
+  }
+  return { message: 'Device shutdown requested. Device data is kept.' };
+}
+
 export function canDeleteDevice(d) {
   return (d.group === 'ios' && d.platform === 'ios' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(d.id))
     || (d.group === 'android' && d.platform === 'android' && typeof d.avd === 'string' && /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$/.test(d.avd));

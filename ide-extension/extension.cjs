@@ -48,6 +48,7 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Snapkit Debug Sync');
   const report = message => output.appendLine(`${new Date().toISOString()} ${message}`);
   const dashboard = require('./dashboard-debug.cjs').createDashboardDebug(vscode, { report });
+  const control = require('./session-control.cjs').createSessionControl(vscode, { report });
   const sync = createRestartSync({
     onStarting: session => dashboard.started(session),
     enabled: session => vscode.workspace.getConfiguration('snapkit', session.workspaceFolder?.uri)
@@ -57,18 +58,18 @@ function activate(context) {
       if (failed) void vscode.window.showWarningMessage(`Snapkit: ${message}`);
     },
   });
-  context.subscriptions.push(output, dashboard,
+  context.subscriptions.push(output, dashboard, control,
     vscode.debug.registerDebugAdapterTrackerFactory('dart', sync),
     vscode.debug.registerDebugConfigurationProvider('dart', dashboard.provider),
-    vscode.debug.onDidStartDebugSession(session => { void dashboard.started(session); }),
-    vscode.debug.onDidTerminateDebugSession(session => { void dashboard.terminated(session); }),
+    vscode.debug.onDidStartDebugSession(session => { control.started(session); void dashboard.started(session); }),
+    vscode.debug.onDidTerminateDebugSession(session => { control.terminated(session); void dashboard.terminated(session); }),
     vscode.commands.registerCommand('snapkit.toggleDashboardTargets', async () => {
       const settings = vscode.workspace.getConfiguration('snapkit');
       const enabled = !settings.get('useDashboardTargets', true);
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Snapkit Debug Sync 1.2.1 ready. Parallel launches begin before adapter initialization.');
+  output.appendLine('Snapkit Debug Sync 1.3.0 ready. Parallel launches begin before adapter initialization.');
 }
 
 module.exports = { activate, createRestartSync };

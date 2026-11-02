@@ -36,7 +36,7 @@ function renderEditors() {
   const extension = ['vscode', 'cursor', 'antigravity'].includes(selected);
   $('#extension-download').classList.toggle('hidden', !extension);
   $('#editor-help').textContent = extension ? t("Install Snapkit Debug Sync, choose a normal Flutter debug profile in your editor, then start Debug. Your selected devices are used for the next run.") : t("Start your devices here, then choose them in your editor’s own device selector. Group debug and coordinated restart are not integrated with this editor yet.");
-  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/tag/v0.2.0-beta.5';
+  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/tag/v0.2.0-beta.6';
   icons();
 }
 $('#editor-options').addEventListener('click', event => {

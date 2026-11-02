@@ -1,3 +1,7 @@
+Device lifecycle status is checked every two seconds while Dashboard is connected, independently of the slower hardware/Flutter scan. Device cards now offer Turn off device for iOS Simulators and Android AVDs, keeping installed apps and data.
+
+Snapkit Debug Sync 1.3.0 reports active Flutter device sessions to the local agent. A Stop debug button appears on the matching device card and asks the owning IDE to stop that device only, leaving peer sessions and the simulator running. Install the updated VSIX and reload your compatible editor; existing sessions may need restarting. Other IDEs retain their own debug controls. Physical phones cannot be powered off from Snapkit. Session reports expire when the owning extension disconnects; agent failure never stops debug sessions automatically.
+
 Preferences now includes Choose folder buttons for Flutter SDK and Android SDK. Each opens a native folder picker with an English or Vietnamese prompt, keeps existing paths when cancelled, and reminds you to save the selected folder. Saving validates SDK contents; restart Snapkit after changing SDK paths.
 
 The Add device dialog now shows its form immediately while installed models load. iOS no longer waits for Android SDK discovery. Recent catalogs are reused for fast reopening; platform changes, in-progress typing and retry after errors are handled safely.

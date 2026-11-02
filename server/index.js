@@ -4,8 +4,10 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { IDESessions } from './ide-sessions.js';
+import { deviceStatus } from './device-status.js';
 import { discover } from './discovery.js';
-import { bootDevice, deleteDevice } from './devices.js';
+import { bootDevice, deleteDevice, shutdownDevice } from './devices.js';
 import { validateWorkspace, launchPlan, workspaceProfiles, validateBuild } from './workspace.js';
 import { chooseFolder } from './folders.js';
 import { storage, configureStorage, storageStatus } from './storage.js';
@@ -54,12 +56,13 @@ let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: []
 let scanning = null;
 const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
+const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list() }) });
 provisioner.on('jobs', jobs => emit('jobs', jobs));
 provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
 async function persist() { rememberWorkspace(); if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); await writeFile(path.join(store, 'workspaces.json'), JSON.stringify(workspaceSetups, null, 2)); } }
 async function scan() {
   if (demo) { snapshot.scannedAt = new Date().toISOString(); return snapshot; }
-  if (!scanning) scanning = discover().then(result => { snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
+  if (!scanning) scanning = discover().then(async result => { const updates = await deviceStatus(result.devices); for (const d of result.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
   return scanning;
 }
 function device(id) { const d = snapshot.devices.find(d => d.id === id); if (!d) throw new Error('Device not found. Refresh the device list.'); return d; }
@@ -111,7 +114,7 @@ app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.j
 app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
-app.get('/api/state', async (req, res) => res.json({ storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (req, res) => {
@@ -208,6 +211,28 @@ app.get('/api/ide/plan', async (_req, res) => {
   }
   res.json(plan);
 });
+app.post('/api/ide/sessions', (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'IDE session reports require the local extension' });
+  res.json(ideSessions.exchange(req.body));
+});
+app.post('/api/devices/:id/stop-debug', (req, res) => {
+  const d = device(req.params.id);
+  if (!ideSessions.requestStop([d.id, d.flutterId].filter(Boolean))) return res.status(409).json({ error: 'No connected IDE debug session for this device. Update Snapkit Debug Sync and start debug in your IDE.' });
+  res.json({ message: 'Stop requested in your IDE. Other devices keep debugging.' });
+});
+app.post('/api/devices/:id/shutdown', async (req, res) => {
+  const d = device(req.params.id);
+  if (d.group === 'physical') throw new Error('Only simulators and emulators can be turned off. Disconnect physical devices manually.');
+  if (locks.has(d.id)) return res.status(409).json({ error: 'Another operation is running for this device' });
+  locks.add(d.id);
+  try {
+    ideSessions.requestStop([d.id, d.flutterId].filter(Boolean));
+    const result = demo ? { message: 'Device shutdown requested. Device data is kept.' } : await shutdownDevice(d);
+    if (demo || d.platform === 'ios') { d.state = 'offline'; d.flutterId = undefined; const current = snapshot.devices.find(item => item.id === d.id); if (current) Object.assign(current, { state: 'offline', flutterId: undefined }); }
+    emit('devices', snapshot); res.json(result);
+    if (!demo) refreshStatus().catch(e => console.error(e.message));
+  } finally { locks.delete(d.id); }
+});
 app.post('/api/devices/:id/boot', async (req, res) => {
   const d = device(req.params.id);
   if (locks.has(d.id)) return res.status(409).json({ error: 'Another operation is running for this device' });
@@ -258,8 +283,26 @@ const server = app.listen(port, '127.0.0.1', () => {
   if (!demo) scan().catch(e => console.error(e.message));
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
+let statusPending = null;
+function refreshStatus() {
+  if (statusPending || demo) return statusPending;
+  statusPending = deviceStatus(snapshot.devices).then(updates => {
+    let changed = false;
+    for (const d of snapshot.devices) {
+      const update = updates.get(d.id);
+      if (!update || locks.has(d.id)) continue;
+      if (d.state !== update.state || d.flutterId !== update.flutterId) { Object.assign(d, update); changed = true; }
+    }
+    if (changed) { snapshot.scannedAt = new Date().toISOString(); emit('devices', snapshot); }
+  }).finally(() => { statusPending = null; });
+  return statusPending;
+}
+const statusPoll = setInterval(() => {
+  ideSessions.prune();
+  if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
+}, 2000);
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-function stop() { stopCommands(); clearInterval(poll); for (const res of clients) res.end(); server.close(); }
+function stop() { stopCommands(); clearInterval(poll); clearInterval(statusPoll); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
 
 process.parentPort?.on('message', event => { if (event.data?.type === 'shutdown') stop(); });

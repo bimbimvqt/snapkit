@@ -321,3 +321,40 @@ test('SDK folder buttons select local folders, preserve inputs on cancel and exp
   await expect(page.locator('#browse-android-sdk')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('device cards turn off one simulator and request stopping only its IDE debug session', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.device-card')).toHaveCount(6);
+  const initial = await page.request.get('/api/state').then(r => r.json());
+  const headers = { 'X-Snapkit-Token': initial.token };
+  const sessions = [
+    { id: 'first-debug', deviceId: 'demo-ios-1', name: 'First debug' },
+    { id: 'second-debug', deviceId: 'demo-android-1', name: 'Second debug' },
+  ];
+  const report = list => page.request.post('/api/ide/sessions', { headers, data: { ownerId: 'ui-test-ide', sessions: list } });
+  await report(sessions);
+  const first = page.locator('[data-device="demo-ios-1"]');
+  const second = page.locator('[data-device="demo-android-1"]');
+  await expect(first.locator('[data-action="stop-debug"]')).toBeVisible();
+  await first.locator('[data-action="stop-debug"]').click();
+  await expect(first.locator('[data-action="stop-debug"]')).toBeDisabled();
+  await expect(second.locator('[data-action="stop-debug"]')).toBeEnabled();
+  const response = await report(sessions);
+  expect((await response.json()).stopSessionIds).toEqual(['first-debug']);
+  await report(sessions.slice(1));
+  await expect(first.locator('[data-action="stop-debug"]')).toHaveCount(0);
+  await expect(first.locator('[data-action="shutdown"]')).toBeEnabled();
+  let release, requests = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/devices/demo-ios-1/shutdown', async route => {
+    requests++; await gate; await route.fulfill({ response: await route.fetch() });
+  });
+  await first.locator('[data-action="shutdown"]').click();
+  await expect(first.locator('[data-action="shutdown"]')).toBeDisabled();
+  release();
+  await expect(first.locator('[data-action="boot"]')).toBeEnabled();
+  expect(requests).toBe(1);
+  await expect(second.locator('[data-action="shutdown"]')).toBeEnabled();
+  await expect(page.locator('[data-device="demo-physical-1"] [data-action="shutdown"]')).toHaveCount(0);
+  await report([]);
+});
