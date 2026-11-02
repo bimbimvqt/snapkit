@@ -1,17 +1,17 @@
 import express from 'express';
+import { createAccounts } from './accounts.js';
 import { readFile, mkdir, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { secureEqual, subscriptionFromCustomer, revenueCatCustomer, webhookUsers } from './revenuecat.js';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const version = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
-export function createCloud({ env = process.env, fetcher = fetch } = {}) {
+export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle } = {}) {
+  const accounts = createAccounts({ env, fetcher, verifyGoogle });
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 1);
   const key = env.REVENUECAT_SECRET_API_KEY, webhookAuth = env.REVENUECAT_WEBHOOK_AUTH;
-  const configured = !!key && !!webhookAuth && !!env.AUTH_JWKS_URL && !!env.AUTH_ISSUER && !!env.AUTH_AUDIENCE;
-  const jwks = env.AUTH_JWKS_URL && env.AUTH_JWKS_URL.startsWith('https://') ? createRemoteJWKSet(new URL(env.AUTH_JWKS_URL)) : null;
+  const configured = !!key && !!webhookAuth && accounts.config().configured;
   const statePath = path.join(env.SNAPKIT_CLOUD_DATA || path.join(root, 'cloud-data'), 'subscriptions.json');
   let state = { events: {}, customers: {} }, queue = Promise.resolve(), releaseCache, releaseUntil = 0;
   const loaded = readFile(statePath, 'utf8').then(raw => { state = JSON.parse(raw); }).catch(error => { if (error.code !== 'ENOENT') throw error; });
@@ -30,8 +30,11 @@ export function createCloud({ env = process.env, fetcher = fetch } = {}) {
     next();
   });
   app.use(express.json({ limit: '256kb' }));
+  accounts.install(app);
+  app.get('/admin', (req, res, next) => req.path === '/admin' ? res.redirect('/admin/') : next());
+  app.get('/auth/complete', (_req, res) => res.sendFile(path.join(root, 'site/auth/complete.html')));
   app.get('/health', (_req, res) => res.json({ product: 'snapkit-cloud', version, status: 'ok', channel: 'beta' }));
-  app.get('/v1/billing/config', (_req, res) => res.json({ provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false, accountEnabled: !!jwks && !!env.AUTH_ISSUER && !!env.AUTH_AUDIENCE, configured,
+  app.get('/v1/billing/config', (_req, res) => res.json({ provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false, accountEnabled: accounts.config().configured, configured,
     notice: 'All beta features are free. No card is required and no subscription starts automatically.', plans: [{ id: 'free', name: 'Free', price: null, features: ['Local device management', 'Create and start virtual devices', 'Use any editor'] }, { id: 'pro', name: 'Pro', price: null, includedInBeta: true, features: ['Multi-device Flutter debug selection', 'Saved project setups', 'Coordinated editor restart'] }] }));
   app.post('/v1/billing/checkout', (_req, res) => res.status(503).json({ code: 'BETA_FREE', error: 'Subscriptions are not on sale during beta. No payment has been taken.' }));
   app.get('/v1/releases/latest', async (req, res) => {
@@ -44,17 +47,17 @@ export function createCloud({ env = process.env, fetcher = fetch } = {}) {
       } catch { return res.status(503).json({ error: 'Downloads are temporarily unavailable. Please try GitHub Releases.', url: 'https://github.com/bimbimvqt/snapkit/releases' }); }
     }
     const osName = req.query.platform === 'darwin' ? 'mac' : 'win';
-    const release = releaseCache.find(item => !item.draft && item.assets?.some(asset => asset.name === `Snapkit-${item.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`));
+    const publicContent = await accounts.content();
+    const release = releaseCache.find(item => (!publicContent.recommendedVersion || item.tag_name === 'v' + publicContent.recommendedVersion) && !item.draft && item.assets?.some(asset => asset.name === `Snapkit-${item.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`));
     if (!release) return res.json({ version: null, available: false, url: 'https://github.com/bimbimvqt/snapkit/releases', channel: 'beta' });
     const asset = release.assets.find(asset => asset.name === `Snapkit-${release.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`);
     res.json({ version: release.tag_name.replace(/^v/, ''), available: true, url: release.html_url, downloadUrl: asset.browser_download_url, size: asset.size, channel: release.prerelease ? 'beta' : 'stable', signed: false });
   });
   app.get('/v1/me/subscription', async (req, res) => {
-    if (!jwks || !env.AUTH_ISSUER || !env.AUTH_AUDIENCE || !key) return res.status(503).json({ error: 'Account subscriptions are not available during this beta.' });
-    let identity;
-    try { identity = (await jwtVerify((req.headers.authorization || '').replace(/^Bearer /, ''), jwks, { issuer: env.AUTH_ISSUER, audience: env.AUTH_AUDIENCE, algorithms: ['RS256', 'ES256'] })).payload.sub; if (!identity) throw new Error('Missing subject'); }
-    catch { return res.status(401).json({ error: 'Sign in to your Snapkit account again.' }); }
-    try { res.json(subscriptionFromCustomer(await revenueCatCustomer(identity, { apiKey: key, fetcher }), { entitlement: env.REVENUECAT_ENTITLEMENT || 'pro' })); }
+    if (!key || !accounts.config().configured) return res.status(503).json({ error: 'Account subscriptions are not available during this beta.' });
+    const account = await accounts.identity(req);
+    if (!account) return res.status(401).json({ error: 'Sign in to your Snapkit account again.' });
+    try { res.json(subscriptionFromCustomer(await revenueCatCustomer(account.user.id, { apiKey: key, fetcher }), { entitlement: env.REVENUECAT_ENTITLEMENT || 'pro' })); }
     catch { res.status(503).json({ error: 'Could not refresh your subscription. Please try again later.' }); }
   });
   app.post('/v1/webhooks/revenuecat', async (req, res) => {
@@ -86,7 +89,7 @@ export function createCloud({ env = process.env, fetcher = fetch } = {}) {
   app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'site/favicon.svg')));
   app.use(express.static(path.join(root, 'site'), { maxAge: '5m' }));
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
-  app.use((error, _req, res, _next) => res.status(error.status === 413 ? 413 : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));
+  app.use((error, _req, res, _next) => res.status(error.status === 413 ? 413 : error.status === 409 ? 409 : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

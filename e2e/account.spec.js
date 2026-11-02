@@ -1,0 +1,50 @@
+import { test, expect } from '@playwright/test';
+import { createCloud } from '../cloud/index.js';
+import { defaultContent } from '../cloud/accounts.js';
+
+test('login gate hides local dashboard, supports Vietnamese and opens Google flow without exposing poll credentials', async ({page}) => {
+  await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
+  await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl:'https://snapkit.45.119.214.94.sslip.io/auth/google/start?desktop=test',expiresIn:600}}));
+  await page.route('**/api/auth/poll', route => route.fulfill({json:{pending:true}}));
+  await page.addInitScript(() => { window.snapkitDesktop = {openExternal:async url => { window.openedLogin = url; }}; });
+  await page.goto('/');
+  await expect(page.locator('.account-gate')).toBeVisible();
+  await expect(page.locator('.app-shell')).toBeHidden();
+  await page.getByRole('button',{name:'Tiếng Việt',exact:true}).click();
+  await page.getByRole('button',{name:'Tiếp tục với Google',exact:true}).click();
+  await expect(page.locator('#account-message')).toContainText('trình duyệt');
+  expect(await page.evaluate(() => window.openedLogin)).toContain('/auth/google/start');
+});
+
+test('login retry reports unavailable cloud and does not open an untrusted URL', async ({page}) => {
+  await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
+  await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl:'https://example.com/steal',expiresIn:600}}));
+  await page.goto('/');
+  await page.locator('#google-signin').click();
+  await expect(page.locator('#account-message')).toContainText('Invalid sign-in URL');
+  await expect(page.locator('#google-signin')).toBeEnabled();
+});
+
+test('admin edits bilingual content with optimistic revision and renders account text safely', async ({page}) => {
+  const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(r => server.once('listening',r));
+  try {
+    let saved;
+    await page.route('**/v1/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/v1/auth/config') return route.fulfill({json:{configured:true}});
+      if (path === '/v1/account') return route.fulfill({json:{user:{email:'admin@example.com',role:'admin'}}});
+      if (path === '/v1/admin/overview') return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
+      if (path === '/v1/admin/users') return route.fulfill({json:{total:1,users:[{id:'a',name:'<img src=x onerror=alert(1)>',email:'user@example.com',role:'user',disabled:false}]}});
+      if (path === '/v1/admin/content') { saved = route.request().postDataJSON(); return route.fulfill({json:{content:{...saved,revision:1}}}); }
+      return route.fulfill({status:404,json:{error:'Not found'}});
+    });
+    await page.goto('http://127.0.0.1:' + server.address().port + '/admin/');
+    await expect(page.locator('#dashboard')).toBeVisible();
+    await page.locator('[name="headline-vi"]').fill('Snapkit dành cho bạn');
+    await page.getByRole('button',{name:'Lưu và xuất bản'}).click();
+    await expect(page.locator('#save-message')).toContainText('Đã xuất bản');
+    expect(saved.landing.vi.headline).toBe('Snapkit dành cho bạn'); expect(saved.revision).toBe(0);
+    await expect(page.locator('#users img')).toHaveCount(0);
+    await page.screenshot({path:'/tmp/snapkit-admin-beta10.png',fullPage:true});
+  } finally { server.close(); }
+});

@@ -1,0 +1,12 @@
+html.account-locked body > :not(.account-gate) { display:none!important }
+.account-gate { min-height:100vh; display:grid; place-items:center; padding:32px; background:radial-gradient(ellipse at top,#193b31,#101214 65%); color:#eee; }
+.account-card { width:min(100%,480px); padding:40px; border:1px solid #33443b; border-radius:24px; background:#171d1b; box-shadow:0 24px 80px #0004; }
+.account-card h1 { font-size:34px; line-height:1.2; margin:20px 0; }
+.account-copy { color:#b8c4bd; line-height:1.7; margin-bottom:28px }
+.account-card > button { width:100%; justify-content:center; margin:5px 0; min-height:46px }
+.account-card small { color:#aab8b0; line-height:1.7; display:block; margin-top:22px }
+.account-languages { display:flex; gap:8px; margin-top:24px }
+#account-message { line-height:1.6; color:#b7d6c5 }
+.account-profile { display:flex; align-items:center; gap:8px }
+.account-profile > span { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px }
+@media(max-width:700px) { .account-profile > span { display:none } .account-card { padding:24px } }

@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -53,6 +53,23 @@ async function start() {
     const net = require('node:net');
     await new Promise((resolve, reject) => { const probe = net.createServer(); probe.once('error', () => reject(new Error(nativeT("Port 4310 is in use. Close the older Snapkit agent or the application using this port.")))); probe.listen(4310, '127.0.0.1', () => probe.close(resolve)); });
     agent = utilityProcess.fork(path.join(__dirname, '../server/index.js'), process.env.SNAPKIT_DESKTOP_DEMO === '1' ? ['--demo'] : [], { env, serviceName: 'Snapkit local agent', stdio: 'pipe' });
+    agent.on('message', async message => {
+      if (message?.type !== 'account-storage' || typeof message.id !== 'string') return;
+      const file = path.join(app.getPath('userData'), 'account-session.enc');
+      try {
+        if (message.action === 'read') {
+          const value = safeStorage.isEncryptionAvailable() && fs.existsSync(file) ? JSON.parse(safeStorage.decryptString(fs.readFileSync(file))) : null;
+          agent?.postMessage({ type: 'account-storage-result', id: message.id, value });
+        } else if (message.action === 'write') {
+          if (!message.value) { if (fs.existsSync(file)) fs.unlinkSync(file); }
+          else {
+            if (!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.() === 'basic_text') throw Error('Secure storage unavailable');
+            fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, safeStorage.encryptString(JSON.stringify(message.value)), { mode: 0o600 });
+          }
+          agent?.postMessage({ type: 'account-storage-result', id: message.id, value: true });
+        }
+      } catch { agent?.postMessage({ type: 'account-storage-result', id: message.id, error: true }); }
+    });
     let agentError = '';
     agent.stderr?.on('data', chunk => { agentError = (agentError + chunk.toString()).slice(-4096); });
     agent.once('exit', () => { if (!exiting) { dialog.showErrorBox(nativeT("Snapkit needs to restart"), nativeT("The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.")); app.quit(); } });

@@ -1,6 +1,6 @@
 # Snapkit · Desktop Beta
 
-**Snapkit Desktop Beta** là ứng dụng desktop cho macOS 13+ (Apple Silicon/Intel) và Windows x64. Tải bộ cài tại [GitHub Releases](https://github.com/bimbimvqt/snapkit/releases). Bản beta không cần tài khoản hoặc thẻ thanh toán; mở app → **Setup & tools** → chọn project → bật thiết bị. Không cần cài Node.js để mở ứng dụng đã đóng gói.
+**Snapkit Desktop Beta** là ứng dụng desktop cho macOS 13+ (Apple Silicon/Intel) và Windows x64. Tải bộ cài tại [GitHub Releases](https://github.com/bimbimvqt/snapkit/releases). Bản beta yêu cầu đăng nhập Google, không yêu cầu thẻ thanh toán; mở app → đăng nhập Google → **Setup & tools** → chọn project → bật thiết bị. Không cần cài Node.js để mở ứng dụng đã đóng gói.
 
 Bản macOS ký ad-hoc, chưa có Apple Developer ID/notarization; không tự cài cập nhật. Flutter, Android SDK và Xcode là công cụ cài riêng. Windows quản lý Android; iOS Simulator cần macOS + Xcode. Device management dùng cùng mọi editor; group Flutter debug dùng VSIX cho editor tương thích VS Code. Cursor/Antigravity còn beta; chưa có plugin group debug JetBrains hoặc tích hợp React Native/Metro.
 
@@ -127,3 +127,11 @@ Workflow `Build Desktop Beta` tạo DMG/ZIP cho macOS arm64/x64 và NSIS cho Win
 ## Cloud và RevenueCat
 
 Cloud chạy độc lập với device agent; không có API điều khiển thiết bị từ server. Cấu hình ở `cloud/.env.example`; triển khai bằng `cloud/compose.yaml`. Secret RevenueCat chỉ ở server. `/v1/billing/config` trả beta catalog, `/v1/releases/latest` trả bản tải theo OS/CPU, webhook xác thực qua Authorization và reconcile RevenueCat; `/v1/me/subscription` xác thực subject bằng OIDC JWT. Xem điều kiện mở bán trong `docs/desktop-beta.md`.
+
+### Google login và quản trị
+
+Đăng nhập qua trình duyệt hệ thống; source code và lệnh thiết bị vẫn ở máy người dùng. App cần internet để xác thực tài khoản; phiên desktop được mã hóa bằng kho bảo mật hệ điều hành, tối đa 30 ngày. Khi không thể xác thực, mở IDE để debug trực tiếp; phiên debug đang chạy không bị dừng tự động.
+
+Trang quản trị: https://snapkit.45.119.214.94.sslip.io/admin/ (website tĩnh chuyển về địa chỉ này). Admin được cấp theo `SNAPKIT_ADMIN_EMAILS`, chỉ nhận email Google đã xác minh. Quản trị hỗ trợ khóa/mở tài khoản, mở/đóng đăng ký, nội dung landing EN/VN, thông báo trong app, phiên bản đề xuất và lịch sử thao tác. Khóa tài khoản thu hồi các phiên đăng nhập.
+
+Cấu hình server theo `cloud/.env.example`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SNAPKIT_PUBLIC_URL`, `SNAPKIT_ADMIN_EMAILS`. Redirect URI: `https://snapkit.45.119.214.94.sslip.io/auth/google/callback`. Không đưa client secret vào Git hoặc bộ cài. Dữ liệu tài khoản lưu trong `cloud/data/accounts.json` trên server; cần sao lưu volume cùng dữ liệu billing. RevenueCat vẫn ở giai đoạn chuẩn bị, checkout tắt.

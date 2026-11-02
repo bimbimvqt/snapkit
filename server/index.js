@@ -1,4 +1,5 @@
 import express from 'express';
+import { LocalAccount } from './account.js';
 import { randomBytes } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -24,6 +25,7 @@ const port = Number(process.env.PORT || 4310);
 const packageInfo = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const token = randomBytes(32).toString('hex');
 const app = express();
+const account = new LocalAccount();
 let demoPreferences = { flutterSDK: '', androidSDK: '', editor: 'vscode', onboardingComplete: false };
 const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.github.io').origin;
 if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(webOrigin)) throw new Error('Website origin must use HTTPS or loopback HTTP');
@@ -98,7 +100,26 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '16kb' }));
+app.get('/api/auth/status', async (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Open the local app to sign in.' });
+  res.json({ ...(demo ? { required: false, authenticated: false } : await account.status(req.query.fresh === '1')), localToken: token });
+});
+app.post('/api/auth/start', async (req, res) => { if (demo || req.remoteToken) return res.status(403).json({ error: 'Sign-in is available in the local app.' }); res.json(await account.start()); });
+app.post('/api/auth/poll', async (req, res) => { if (demo || req.remoteToken) return res.status(403).json({ error: 'Sign-in is available in the local app.' }); res.json(await account.poll()); });
+app.post('/api/auth/logout', async (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Sign out from the local app.' });
+  await account.logout(); for (const client of clients) client.end(); clients.clear(); pairings.revoke(); res.json({ signedOut: true });
+});
+app.use('/api', async (req, res, next) => {
+  if (demo || req.path === '/health') return next();
+  const status = await account.status(req.method === 'POST');
+  if (status.authenticated) return next();
+  if (req.path === '/state') return res.json({ authRequired: true, devices: [], jobs: [], debugSessions: [], warnings: [], settings: { targetIds: [], ideEnabled: false }, token: req.remoteToken ? undefined : token, platform: process.platform, host: os.hostname(), demo: false });
+  if (req.path === '/ide/plan') return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
+  return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
+});
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
+app.get('/api/account/content', async (_req, res) => res.json(await account.request('/v1/public/content', undefined, '')));
 app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: demo ? demoPreferences : getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
   { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' },
   { id: 'android-studio', name: 'Android Studio', mode: 'device-manager' }, { id: 'intellij', name: 'IntelliJ IDEA', mode: 'device-manager' }, { id: 'other', name: 'Another editor', mode: 'device-manager' }
@@ -301,6 +322,7 @@ function refreshStatus() {
 }
 const statusPoll = setInterval(() => {
   ideSessions.prune();
+  if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);

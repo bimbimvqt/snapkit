@@ -1,0 +1,1 @@
+if (new URLSearchParams(location.search).get('result') === 'failed') { document.querySelector('#title').textContent = 'Chưa thể đăng nhập / Sign-in failed'; document.querySelector('#message').textContent = 'Quay lại Snapkit và thử đăng nhập lại. / Return to Snapkit and try again.'; }
