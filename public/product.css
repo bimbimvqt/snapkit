@@ -32,3 +32,7 @@
 .notice[hidden]{display:none!important}
 #admin-announcement{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:760px){.sidebar-navigation{width:100%;padding-bottom:0}.sidebar-group+.sidebar-group{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}.sidebar-group .nav-item{margin-bottom:4px}.sidebar-bottom{margin-bottom:0}.sidebar .brand{margin-bottom:24px}}
+
+/* Keep keyboard focus inside navigation rows so the scroll container cannot clip it. */
+.sidebar .nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.light .sidebar .nav-item:focus-visible{outline-color:var(--green)}

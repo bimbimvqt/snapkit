@@ -1,5 +1,9 @@
 # Snapkit changelog
 
+## 0.2.0-beta.18 — 2026-11-03
+
+- Đưa viền focus bàn phím vào trong mục sidebar, tránh bị vùng cuộn cắt hai cạnh và chồng lên mục bên cạnh. Giữ phân biệt trạng thái focus và trang đang chọn trong giao diện sáng/tối.
+
 ## 0.2.0-beta.17 — 2026-11-03
 
 - Bộ thiết bị đang chọn cho IDE có viền, nhãn và số thiết bị đã chọn/đang online; lưu theo project và giữ khi mở lại app.
