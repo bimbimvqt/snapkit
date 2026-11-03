@@ -23,9 +23,16 @@ function renderToolDevices() {
   $('#set-devices').innerHTML = `<legend>${toolText('Devices in this set')}</legend>` + (state.devices.length ? state.devices.map(d => `<label><input type="checkbox" value="${escape(d.id)}" ${picked.has(d.id) ? 'checked' : ''}>${escape(d.name)} <small>· ${toolText(d.state === 'online' ? 'Online' : 'Offline')}</small></label>`).join('') : `<p>${toolText('Add or connect a device first.')}</p>`);
 }
 function renderSets() {
-  const setsFingerprint = JSON.stringify([deviceToolsState.sets, state.devices.map(d => [d.id, d.name]), window.SnapkitI18n.language]);
+  const setsFingerprint = JSON.stringify([deviceToolsState.sets, state.devices.map(d => [d.id, d.name, d.state, d.flutterId]), state.settings.targetIds, state.settings.selectedSetId, state.settings.ideEnabled, window.SnapkitI18n.language]);
   if ($('#set-list').dataset.content !== setsFingerprint) { $('#set-list').dataset.content = setsFingerprint;
-  $('#set-list').innerHTML = deviceToolsState.sets.length ? deviceToolsState.sets.map(set => `<article class="tool-card"><h2>${escape(set.name)}</h2><p>${set.deviceIds.map(id => escape(state.devices.find(d => d.id === id)?.name || t('Missing device'))).join(' · ')}</p><div class="tool-buttons"><button class="button primary" data-set-start="${set.id}">${icon('play')}${toolText('Start set')}</button><button class="button" data-set-select="${set.id}">${toolText('Select ready devices for IDE')}</button><button class="button" data-set-edit="${set.id}">${toolText('Edit set')}</button><button class="button" data-set-delete="${set.id}">${toolText('Delete set')}</button></div></article>`).join('') : `<div class="tool-empty">${toolText('No device sets yet. Save the devices you use together for this project.')}</div>`;
+  $('#set-list').innerHTML = deviceToolsState.sets.length ? deviceToolsState.sets.map(set => {
+    const selected = state.settings.selectedSetId === set.id && state.settings.targetIds?.length > 0 && state.settings.targetIds.every(id => set.deviceIds.includes(id));
+    const ready = set.deviceIds.filter(id => state.devices.some(d => d.id === id && d.state === 'online' && d.flutterId));
+    const chosen = selected ? state.settings.targetIds : [];
+    const complete = selected && ready.length === chosen.length && ready.every(id => chosen.includes(id));
+    const online = chosen.filter(id => ready.includes(id)).length;
+    return `<article class="tool-card set-card${selected ? ' is-selected' : ''}" data-set-id="${set.id}"><div class="set-card-heading"><h2>${escape(set.name)}</h2>${selected ? `<span class="set-badge">${icon('check-circle-2')}${toolText('Selected for IDE')}</span>` : ''}</div><p class="set-members">${set.deviceIds.map(id => escape(state.devices.find(d => d.id === id)?.name || t('Missing device'))).join(' · ')}</p>${selected ? `<div class="set-selection"><strong>${escape(t('{0} of {1} devices selected', [chosen.length, set.deviceIds.length]))}</strong><span>${escape(t('{0} selected devices online', [online]))}</span><p>${toolText(state.settings.ideEnabled === false ? 'IDE sync is paused. Enable it in Devices to use this selection.' : 'Applies to your next IDE debug run. Current sessions stay unchanged.')}</p></div>` : ''}<div class="tool-buttons"><button class="button primary" data-set-start="${set.id}">${icon('play')}${toolText('Start set')}</button><button class="button" data-set-select="${set.id}" aria-pressed="${selected}" ${complete ? 'disabled' : ''}>${selected ? icon('check') : ''}${toolText(complete ? 'Selected for IDE' : selected ? 'Update ready devices' : 'Select ready devices for IDE')}</button><button class="button" data-set-edit="${set.id}">${toolText('Edit set')}</button><button class="button" data-set-delete="${set.id}">${toolText('Delete set')}</button></div></article>`;
+  }).join('') : `<div class="tool-empty">${toolText('No device sets yet. Save the devices you use together for this project.')}</div>`;
   }
   const jobsFingerprint = JSON.stringify([deviceToolsState.jobs, window.SnapkitI18n.language]);
   if ($('#set-jobs').dataset.content === jobsFingerprint) { icons(); return; } $('#set-jobs').dataset.content = jobsFingerprint;
@@ -148,7 +155,7 @@ $('#panel-sets').addEventListener('click', event => {
     if (button.dataset.setSelect) {
       const set = deviceToolsState.sets.find(x => x.id === button.dataset.setSelect), targetIds = set.deviceIds.filter(id => state.devices.some(d => d.id === id && d.state === 'online' && d.flutterId));
       if (!targetIds.length) throw new Error(t('Start a device in this set first.'));
-      const result = await api('/api/targets', { ids: targetIds }); state.settings = result.settings; render(); toast('Ready devices selected for the next IDE debug run');
+      const result = await api('/api/targets', { ids: targetIds, setId: set.id }); state.settings = result.settings; render(); toast('Ready devices selected for the next IDE debug run');
     }
   });
 });
@@ -210,6 +217,6 @@ function updateSetEditor() { $('#set-editor-title').textContent = t(editingSetId
 $('#set-cancel').addEventListener('click', () => { editingSetId = ''; $('#set-name').value = ''; $$('#set-devices input').forEach(input => { input.checked = false; }); updateSetEditor(); $('#set-name').focus(); });
 $$('[data-open-project]').forEach(button => button.addEventListener('click', showWorkspace));
 document.addEventListener('snapkit:page', event => { if (['sets', 'logs', 'captures'].includes(event.detail)) { renderToolDevices(); refreshDeviceTools().catch(error => toast(error.message, true)); } if (event.detail !== 'captures') releaseMedia(); });
-document.addEventListener('snapkit:state', renderToolDevices);
+document.addEventListener('snapkit:state', () => { renderToolDevices(); renderSets(); });
 document.addEventListener('snapkit:language', () => { renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
 setInterval(() => { if (!document.hidden && ['sets', 'captures'].includes(activePage)) refreshDeviceTools().catch(() => {}); if (activePage === 'logs') pollLogs(); }, 1500);

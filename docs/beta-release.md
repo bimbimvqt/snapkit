@@ -1,3 +1,5 @@
+New in beta.17: selected device sets have a persistent IDE badge, selected/online counts and a clear update action when readiness changes. Selection is remembered per project and cleared by manual target changes, set edits or deletion. Card spacing and startup-result separation are improved. Selecting targets applies to the next debug run.
+
 New in beta.16: saved screenshots and finalized recordings automatically display thumbnail images. Click a thumbnail to open a large preview dialog, with playback, seeking and fullscreen controls for video, plus download and close actions. Escape closes the viewer and restores focus. Video tiles show a static poster and play icon, with no autoplay in the gallery.
 
 Thumbnails load near the visible gallery area, with at most two generation jobs at a time. Full original video blobs are released after producing small poster images. Requests retain local/paired authentication; captures are never uploaded to the cloud. Loading and retry feedback, EN/VI copy and small-window layouts are included.

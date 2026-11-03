@@ -17,8 +17,20 @@ test('device sets start offline members, then explicitly select ready devices fo
   await expect(set).toBeVisible();
   await set.locator('[data-set-edit]').click(); await expect(page.locator('#set-editor-title')).toHaveText('Edit device set'); await page.locator('#set-cancel').click(); await expect(page.locator('#set-name')).toHaveValue('');
   await set.locator('[data-set-start]').focus(); const original = await set.locator('[data-set-start]').elementHandle(); await page.waitForResponse(response => response.url().endsWith('/api/tools')); expect(await original.evaluate(node => node.isConnected && document.activeElement === node)).toBe(true);
+  await set.locator('[data-set-select]').click(); await expect(set.locator('.set-selection')).toContainText('1 of 2 devices selected');
+  await page.evaluate(async () => { const result = await api('/api/targets', { ids: ['demo-android-1'] }); state.settings = result.settings; render(); });
+  await expect(set.locator('.set-badge')).toHaveCount(0);
+  await set.locator('[data-set-select]').click(); await expect(set.locator('.set-badge')).toBeVisible();
   await set.locator('[data-set-start]').click(); await expect(page.locator('#set-jobs')).toContainText('Finished');
+  await expect(set.locator('[data-set-select]')).toHaveText('Update ready devices');
   await set.locator('[data-set-select]').click(); await expect(page.locator('#stat-selected')).toHaveText('2');
+  await expect(set).toHaveClass(/is-selected/); await expect(set.locator('.set-badge')).toHaveText('Selected for IDE');
+  await expect(set.locator('.set-selection')).toContainText('2 of 2 devices selected'); await expect(set.locator('[data-set-select]')).toBeDisabled();
+  await page.reload(); await page.locator('.sidebar [data-app-page="sets"]').click(); await expect(set.locator('.set-badge')).toBeVisible();
+  await page.screenshot({ path: '/tmp/snapkit-sets-beta17.png', fullPage: true });
+  await page.evaluate(() => window.SnapkitI18n.setLanguage('vi')); await expect(set.locator('.set-selection')).toContainText('Đã chọn 2/2 thiết bị');
+  await page.evaluate(() => window.SnapkitI18n.setLanguage('en'));
+
   page.once('dialog', dialog => dialog.accept()); await set.locator('[data-set-delete]').click(); await expect(set).toHaveCount(0);
 });
 test('device card logs filter and export, screenshots preview and download within current project', async ({ page }) => {

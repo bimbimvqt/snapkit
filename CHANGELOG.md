@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.17 — 2026-11-03
+
+- Bộ thiết bị đang chọn cho IDE có viền, nhãn và số thiết bị đã chọn/đang online; lưu theo project và giữ khi mở lại app.
+- Chọn thủ công, sửa hoặc xoá bộ sẽ xoá trạng thái bộ đang chọn; bộ mới sẵn sàng có nút cập nhật lựa chọn.
+- Thêm khoảng cách giữa tên thiết bị, thao tác và kết quả khởi động; hỗ trợ EN/VN và trạng thái đồng bộ IDE tạm dừng.
+
 ## 0.2.0-beta.16 — 2026-11-03
 
 - Ảnh và video đã lưu tự hiện thumbnail trong thư viện, không cần bấm nút Xem trước để tải từng ảnh.

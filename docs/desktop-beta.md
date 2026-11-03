@@ -2,7 +2,7 @@
 
 ## What ships
 
-Snapkit 0.2.0-beta.16 is a free desktop beta with Google sign-in. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
+Snapkit 0.2.0-beta.17 is a free desktop beta with Google sign-in. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
 
 The dashboard separates Devices, Setup & tools, Preferences, Your plan, Device sets, Device logs, Captures and a full Quick start guide. Onboarding can be hidden and reopened from Setup & tools. No purchase button, price or artificial active subscription is shown. Multi-device Flutter workflows remain available during beta. Signing, production accounts and payments are release gates for commercialization, not beta features silently claimed as complete.
 

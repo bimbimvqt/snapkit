@@ -113,3 +113,22 @@ test('tools enforce mutation token and artifact project scope while exposing sys
   await post('/api/workspace', { path: original.settings.workspace });
   assert.equal((await post(`/api/tools/captures/${image.id}/delete`, {})).status, 200);
 });
+
+test('selected set provenance is scoped, restored and cleared by manual selection and set edits', async () => {
+  const workspace = (await fetch(base + '/api/state').then(r => r.json())).settings.workspace;
+  const set = await post('/api/tools/sets/save', { name: 'IDE set', deviceIds: ['demo-ios-1', 'demo-android-1'] }).then(r => r.json());
+  const select = () => post('/api/targets', { ids: ['demo-ios-1'], setId: set.id }).then(r => r.json());
+  assert.equal((await select()).settings.selectedSetId, set.id);
+  assert.equal((await post('/api/targets', { ids: ['demo-ios-2'], setId: set.id })).status, 400);
+  assert.equal((await post('/api/targets', { ids: [], setId: set.id })).status, 400);
+  await post('/api/workspace', { path: '/other-set-project' });
+  assert.equal((await post('/api/targets', { ids: ['demo-ios-1'], setId: set.id })).status, 400);
+  await post('/api/workspace', { path: workspace });
+  assert.equal((await fetch(base + '/api/state').then(r => r.json())).settings.selectedSetId, set.id);
+  assert.equal((await post('/api/targets', { ids: ['demo-ios-1'] }).then(r => r.json())).settings.selectedSetId, '');
+  await select();
+  await post('/api/tools/sets/save', { id: set.id, name: 'Edited', deviceIds: ['demo-ios-1'] });
+  assert.equal((await fetch(base + '/api/state').then(r => r.json())).settings.selectedSetId, '');
+  await select(); await post(`/api/tools/sets/${set.id}/delete`, {});
+  assert.equal((await fetch(base + '/api/state').then(r => r.json())).settings.selectedSetId, '');
+});

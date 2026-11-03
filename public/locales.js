@@ -2,6 +2,12 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Selected for IDE": "Đang chọn cho IDE",
+    "{0} of {1} devices selected": "Đã chọn {0}/{1} thiết bị",
+    "{0} selected devices online": "{0} thiết bị đã chọn đang online",
+    "Update ready devices": "Cập nhật thiết bị sẵn sàng",
+    "IDE sync is paused. Enable it in Devices to use this selection.": "Đồng bộ IDE đang tạm dừng. Bật lại trong mục Thiết bị để dùng lựa chọn này.",
+    "Applies to your next IDE debug run. Current sessions stay unchanged.": "Áp dụng cho lần debug tiếp theo từ IDE. Các phiên hiện tại tiếp tục chạy.",
     "Device RAM": "RAM thiết bị",
     "Logical CPU cores": "Số lõi CPU logic",
     "Display resolution": "Độ phân giải màn hình",

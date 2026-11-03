@@ -54,7 +54,7 @@ try {
 function rememberWorkspace() {
   if (settings.workspace) workspaceSetups[settings.workspace] = {
     flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '',
-    targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
+    selectedSetId: settings.selectedSetId || '', targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
   };
 }
 rememberWorkspace();
@@ -141,8 +141,12 @@ app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), we
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
 app.get('/api/tools', (_req, res) => res.json(deviceTools.list(settings.workspace)));
-app.post('/api/tools/sets/save', async (req, res) => res.json(await deviceTools.saveSet(requireWorkspace(), req.body, snapshot.devices)));
-app.post('/api/tools/sets/:id/delete', async (req, res) => { await deviceTools.deleteSet(requireWorkspace(), req.params.id); res.json({ ok: true }); });
+app.post('/api/tools/sets/save', async (req, res) => {
+  const set = await deviceTools.saveSet(requireWorkspace(), req.body, snapshot.devices);
+  if (settings.selectedSetId === set.id) { settings.selectedSetId = ''; await persist(); emit('settings', settings); }
+  res.json(set);
+});
+app.post('/api/tools/sets/:id/delete', async (req, res) => { await deviceTools.deleteSet(requireWorkspace(), req.params.id); if (settings.selectedSetId === req.params.id) { settings.selectedSetId = ''; await persist(); emit('settings', settings); } res.json({ ok: true }); });
 app.post('/api/tools/sets/:id/start', (req, res) => res.json(deviceTools.startSet(requireWorkspace(), req.params.id, {
   devices: () => snapshot.devices, locks,
   boot: async d => { if (demo) { d.state = 'online'; d.flutterId ||= d.id; emit('devices', snapshot); } else await bootDevice(d); },
@@ -223,7 +227,8 @@ app.post('/api/workspace', async (req, res) => {
     const previous = workspaceSetups[workspace];
     const targetIds = workspace === settings.workspace ? settings.targetIds : previous?.targetIds || [];
     const ideEnabled = workspace === settings.workspace ? settings.ideEnabled !== false : previous?.ideEnabled !== false;
-    settings = { ...settings, ...build, workspace, targetIds, ideEnabled };
+    const selectedSetId = workspace === settings.workspace ? settings.selectedSetId || '' : previous?.selectedSetId || '';
+    settings = { ...settings, ...build, workspace, targetIds, ideEnabled, selectedSetId };
     await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo IDE setup saved' : 'Antigravity debug setup saved. Select devices, then press F5 in your IDE.' });
   } finally { savingIDE = false; }
 });
@@ -233,6 +238,12 @@ app.post('/api/targets', async (req, res) => {
   try {
     const devices = targetDevices(req.body.ids);
     if (!demo) { const workspace = await validateWorkspace(requireWorkspace()); if (devices.length) await validateBuild(workspace, settings); }
+    const selectedSetId = req.body.setId || '';
+    if (selectedSetId) {
+      const set = deviceTools.list(requireWorkspace()).sets.find(x => x.id === selectedSetId);
+      if (!set || !devices.length || devices.some(d => !set.deviceIds.includes(d.id))) throw new Error('Device set does not match the selected devices.');
+    }
+    settings.selectedSetId = selectedSetId;
     settings.targetIds = devices.map(d => d.id); await persist(); emit('settings', settings);
     res.json({ settings, message: devices.length ? `${devices.length} device(s) selected. Press F5 or Run/Debug in your IDE with the Snapkit extension. Project files are unchanged.` : 'IDE device selection cleared' });
   } finally { savingIDE = false; }
@@ -302,7 +313,7 @@ app.post('/api/devices/:id/delete', async (req, res) => {
     const result = demo ? { message: `Demo: ${d.name} and its data were deleted. Shared OS runtimes were kept.` } : await deleteDevice(d);
     if (scanning) await scanning;
     snapshot.devices = snapshot.devices.filter(item => item.id !== d.id);
-    settings.targetIds = settings.targetIds.filter(id => id !== d.id);
+    settings.targetIds = settings.targetIds.filter(id => id !== d.id); settings.selectedSetId = '';
     // The device is already deleted. Report any settings failure separately so
     // the user is never told a destructive operation failed when it succeeded.
     let warning;
