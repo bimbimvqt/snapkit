@@ -48,3 +48,45 @@ test('admin edits bilingual content with optimistic revision and renders account
     await page.screenshot({path:'/tmp/snapkit-admin-beta10.png',fullPage:true});
   } finally { server.close(); }
 });
+
+test('admin login adapts to mobile, exposes recovery and lets an unauthorized account switch Google account', async ({ page }) => {
+  const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(r => server.once('listening',r));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  let mode = 'ready', logoutCount = 0;
+  try {
+    await page.route('**/v1/**', async route => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/v1/auth/config') {
+        if (mode === 'network') return route.abort();
+        return route.fulfill({json:{configured:true}});
+      }
+      if (pathname === '/v1/account') return mode === 'denied' ? route.fulfill({json:{user:{email:'member@example.com',role:'user'}}}) : route.fulfill({status:401,json:{error:'Sign in'}});
+      if (pathname === '/v1/auth/logout') { logoutCount++; return route.fulfill({json:{signedOut:true}}); }
+      return route.fulfill({status:404,json:{error:'Not found'}});
+    });
+    await page.goto(base + '/admin/');
+    await expect(page.getByRole('link',{name:'Tiếp tục với Google'})).toBeVisible();
+    await expect(page.locator('#auth-status')).toBeHidden();
+    await expect(page.locator('.admin-brand img')).toHaveJSProperty('naturalWidth',40);
+    await page.screenshot({path:'/tmp/snapkit-admin-login-desktop.png',fullPage:true});
+    for (const viewport of [{width:375,height:812},{width:812,height:375}]) {
+      await page.setViewportSize(viewport);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const button = await page.locator('#google-login').boundingBox(); expect(button.height).toBeGreaterThanOrEqual(44);
+      await page.locator('#google-login').focus(); await expect(page.locator('#google-login')).toBeFocused();
+    }
+    await page.setViewportSize({width:375,height:812});
+    await page.screenshot({path:'/tmp/snapkit-admin-login-mobile.png',fullPage:true});
+    mode = 'network'; await page.reload();
+    await expect(page.locator('#auth-status')).toContainText('Chưa thể kết nối');
+    await expect(page.locator('#google-login')).toBeHidden();
+    mode = 'ready'; await page.getByRole('button',{name:'Thử lại',exact:true}).click();
+    await expect(page.locator('#google-login')).toBeVisible();
+    mode = 'denied'; await page.reload();
+    await expect(page.locator('#auth-status')).toContainText('member@example.com');
+    await expect(page.locator('#dashboard')).toBeHidden();
+    await page.route('**/auth/google/start', route => route.fulfill({body:'Google sign-in redirect'}));
+    await page.getByRole('button',{name:'Đổi tài khoản Google'}).click();
+    await expect(page).toHaveURL(base + '/auth/google/start'); expect(logoutCount).toBe(1);
+  } finally { server.close(); }
+});

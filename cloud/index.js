@@ -92,7 +92,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   for (const page of ['demo', 'control', 'preview']) app.get('/' + page + '/', (_req, res) => res.redirect(302, 'https://bimbimvqt.github.io/snapkit/' + page + '/'));
   app.get('/language.css', (_req, res) => res.sendFile(path.join(root, 'public/language.css')));
   app.get('/i18n.js', (_req, res) => res.sendFile(path.join(root, 'public/i18n.js')));
-  app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'site/favicon.svg')));
+  app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'public/favicon.svg'), error => { if (error) res.sendFile(path.join(root, 'site/favicon.svg')); }));
   app.use(express.static(path.join(root, 'site'), { maxAge: '5m' }));
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
   app.use((error, _req, res, _next) => res.status(error.status === 413 ? 413 : error.status === 409 ? 409 : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));

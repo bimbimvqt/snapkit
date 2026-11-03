@@ -80,3 +80,23 @@ test('release lookup includes a published tag while GitHub release list is stale
   const response=await fetch(`http://127.0.0.1:${server.address().port}/v1/releases/latest?platform=darwin&arch=arm64`);
   const result=await response.json();assert.equal(result.version,version);assert.equal(result.available,true);
 });
+
+test('changing the admin allowlist removes old admin privileges from existing sessions', async t => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'snapkit-admin-change-')); t.after(() => rm(dir, {recursive:true,force:true}));
+  const env = {SNAPKIT_CLOUD_DATA:dir,GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'test',SNAPKIT_ADMIN_EMAILS:'old@example.com',SNAPKIT_PUBLIC_URL:'https://snapkit.example.com'};
+  let claims;
+  const options = {env,fetcher:async () => Response.json({id_token:'token'}),verifyGoogle:async () => claims};
+  async function serve(config) { const server = createCloud(config).listen(0,'127.0.0.1'); await new Promise(r=>server.once('listening',r)); t.after(()=>server.close()); return 'http://127.0.0.1:'+server.address().port; }
+  async function login(base,email) {
+    const start=await fetch(base+'/auth/google/start',{redirect:'manual'}); const url=new URL(start.headers.get('location'));
+    claims={sub:email,email,email_verified:true,nonce:url.searchParams.get('nonce')};
+    const response=await fetch(base+'/auth/google/callback?state='+url.searchParams.get('state')+'&code=test',{redirect:'manual',headers:{Cookie:start.headers.get('set-cookie').split(';')[0]}});
+    return response.headers.get('set-cookie').split(';')[0];
+  }
+  const first=await serve(options); const oldSession=await login(first,'old@example.com');
+  const second=await serve({...options,env:{...env,SNAPKIT_ADMIN_EMAILS:'new@example.com'}});
+  const old=await fetch(second+'/v1/account',{headers:{Cookie:oldSession}}); assert.equal((await old.json()).user.role,'user');
+  assert.equal((await fetch(second+'/v1/admin/overview',{headers:{Cookie:oldSession}})).status,403);
+  const newSession=await login(second,'new@example.com');
+  assert.equal((await fetch(second+'/v1/admin/overview',{headers:{Cookie:newSession}})).status,200);
+});

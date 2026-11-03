@@ -3,10 +3,18 @@
   if (location.hostname === 'bimbimvqt.github.io') { location.replace(canonical + '/admin/'); return; }
   const $ = s => document.querySelector(s); let content, offset = 0, total = 0;
   async function api(route, body) {
-    const res = await fetch('/v1/' + route, { credentials: 'same-origin', method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Snapkit-Request': '1' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    const res = await fetch('/v1/' + route, { credentials: 'same-origin', method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Snapkit-Request': '1' }, signal: AbortSignal.timeout(15000), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const data = await res.json(); if (!res.ok) { const e = Error(res.status === 409 ? 'Nội dung đã đổi ở cửa sổ khác. Tải lại trước khi lưu.' : data.error); e.status = res.status; throw e; } return data;
   }
-  const fail = error => { $('#error').textContent = error.message; if (error.status === 401) { $('#dashboard').hidden = true; $('#login').hidden = false; } };
+  function authState(state, message = '') {
+    document.body.dataset.view = 'auth'; $('#login').hidden = false; $('#dashboard').hidden = true;
+    $('#auth-status').hidden = !message; $('#auth-status').dataset.state = state; $('#login-message').textContent = message;
+    $('#auth-spinner').hidden = state !== 'loading';
+    $('#google-login').hidden = !['ready', 'failed'].includes(state);
+    $('#auth-retry').hidden = !['error', 'unavailable'].includes(state);
+    $('#switch-account').hidden = state !== 'denied';
+  }
+  const fail = error => { if (error.status === 401) { authState('ready', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'); } else { $('#error').textContent = error.message; } };
   function fill() { const form = $('#content'); for (const lang of ['en','vi']) { form.elements['headline-' + lang].value = content.landing[lang].headline; form.elements['description-' + lang].value = content.landing[lang].description; form.elements['announcement-' + lang].value = content.announcement[lang]; } form.elements.version.value = content.recommendedVersion; form.elements.registration.checked = content.registrationOpen; }
   async function overview() {
     const data = await api('admin/overview'); content = data.content; fill(); $('#stats').replaceChildren();
@@ -27,5 +35,37 @@
   $('#search').onsubmit = event => { event.preventDefault(); offset = 0; users().catch(fail); };
   $('#previous').onclick = () => { offset = Math.max(0, offset - 50); users().catch(fail); }; $('#next').onclick = () => { offset += 50; users().catch(fail); };
   $('#logout').onclick = () => api('auth/logout', {}).then(() => location.reload()).catch(fail);
-  (async () => { try { const config = await api('auth/config'); const result = new URLSearchParams(location.search).get('auth'); if (!config.configured) { $('#login-message').textContent = 'Google OAuth chưa được cấu hình trên server.'; $('#login a').hidden = true; return; } if (result === 'failed') $('#login-message').textContent = 'Đăng nhập chưa hoàn tất hoặc tài khoản bị khóa. Hãy thử lại.'; const account = await api('account'); if (account.user.role !== 'admin') { $('#login-message').textContent = 'Tài khoản này không có quyền quản trị.'; $('#logout').hidden = false; return; } $('#identity').textContent = account.user.email; $('#logout').hidden = false; await overview(); await users(); $('#login').hidden = true; $('#dashboard').hidden = false; } catch (e) { if (e.status !== 401) fail(e); } })();
+  async function checkSession() {
+    authState('loading', 'Đang kiểm tra phiên đăng nhập…'); $('#error').textContent = '';
+    try {
+      const config = await api('auth/config');
+      if (!config.configured) { authState('unavailable', 'Đăng nhập đang được thiết lập. Vui lòng thử lại sau.'); return; }
+      const result = new URLSearchParams(location.search).get('auth');
+      let account;
+      try { account = await api('account'); } catch (error) {
+        if (error.status !== 401) throw error;
+        authState(result === 'failed' ? 'failed' : 'ready', result === 'failed' ? 'Chưa thể đăng nhập. Vui lòng thử lại với tài khoản được cấp quyền.' : ''); return;
+      }
+      $('#identity').textContent = account.user.email; $('#logout').hidden = false;
+      if (account.user.role !== 'admin') { authState('denied', 'Tài khoản ' + account.user.email + ' chưa được cấp quyền quản trị. Hãy sử dụng tài khoản khác.'); return; }
+      await overview(); await users(); $('#login').hidden = true; $('#dashboard').hidden = false; document.body.dataset.view = 'dashboard';
+    } catch (error) {
+      if (error.status === 401) authState('ready', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      else if (error.status === 403) authState('denied', 'Tài khoản này chưa được cấp quyền quản trị. Hãy sử dụng tài khoản khác.');
+      else authState('error', 'Chưa thể kết nối Snapkit. Kiểm tra kết nối mạng rồi thử lại.');
+    }
+  }
+  $('#auth-retry').onclick = checkSession;
+  $('#switch-account').onclick = async () => {
+    const button = $('#switch-account'); button.disabled = true;
+    try { await api('auth/logout', {}); location.assign('/auth/google/start'); }
+    catch { authState('denied', 'Chưa thể đổi tài khoản. Vui lòng thử lại.'); button.disabled = false; }
+  };
+  $('#google-login').onclick = event => {
+    const link = event.currentTarget;
+    if (link.getAttribute('aria-disabled') === 'true') { event.preventDefault(); return; }
+    link.setAttribute('aria-disabled', 'true'); link.querySelector('span').textContent = 'Đang mở Google…';
+  };
+  window.addEventListener('pageshow', () => { $('#google-login').removeAttribute('aria-disabled'); $('#google-login span').textContent = 'Tiếp tục với Google'; });
+  checkSession();
 })();
