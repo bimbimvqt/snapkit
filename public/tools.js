@@ -3,6 +3,9 @@ let deviceToolsState = { sets: [], jobs: [], captures: [], recordings: [] }, too
 let editingSetId = '', currentLogStatus = 'stopped';
 let logLines = [], logCursor = 0, logDeviceId = '', logClearedAt = 0, logPolling = false;
 const mediaURLs = new Map();
+let thumbnailEpoch = 0, thumbnailActive = 0, thumbnailQueue = [], thumbnailController = new AbortController();
+let captureViewerId = '', viewerURL = '', viewerController = null;
+const thumbnailObserver = new IntersectionObserver(entries => { for (const entry of entries) if (entry.isIntersecting && activePage === 'captures') { thumbnailObserver.unobserve(entry.target); thumbnailQueue.push({ node: entry.target, epoch: thumbnailEpoch }); pumpThumbnails(); } }, { rootMargin: '200px' });
 const toolText = value => escape(t(value));
 function supportedDevices() { return state.devices.filter(d => d.state === 'online' && (d.platform === 'android' || (d.group === 'ios' && (state.platform === 'darwin' || state.demo || window.SNAPKIT_PREVIEW)))); }
 function renderToolDevices() {
@@ -29,21 +32,102 @@ function renderSets() {
   const statuses = { waiting: 'Waiting', starting: 'Starting…', ready: 'Ready', missing: 'Missing device', connect: 'Connect phone first', busy: 'Device is busy', timeout: 'Still starting — refresh Devices', failed: 'Failed' };
   $('#set-jobs').innerHTML = deviceToolsState.jobs.slice(-5).reverse().map(job => `<article class="tool-card"><h2>${escape(job.name)} · ${toolText(job.status === 'running' ? 'Starting…' : 'Finished')}</h2>${job.devices.map(d => `<div class="tool-job-row"><span>${escape(d.name || state.devices.find(x => x.id === d.id)?.name || d.id)}</span><span>${toolText(statuses[d.status] || d.status)}${d.error ? ` · ${escape(d.error)}` : ''}</span></div>`).join('')}</article>`).join(''); icons();
 }
-function releaseMedia() { $('#capture-list').dataset.content = ''; for (const url of mediaURLs.values()) URL.revokeObjectURL(url); mediaURLs.clear(); }
-async function fileBlob(id) {
+function releaseMedia() {
+  $('#capture-list').dataset.content = ''; thumbnailEpoch++; thumbnailController.abort(); thumbnailController = new AbortController(); thumbnailObserver.disconnect(); thumbnailQueue = [];
+  for (const url of mediaURLs.values()) URL.revokeObjectURL(url); mediaURLs.clear();
+  if ($('#capture-viewer').open) $('#capture-viewer').close();
+}
+async function fileBlob(id, signal = AbortSignal.timeout(120000)) {
   const url = `/api/tools/captures/${encodeURIComponent(id)}/file`;
-  const response = await fetch(connection ? connection.base + url : url, { headers: connection ? { Authorization: `Bearer ${connection.token}` } : {}, credentials: 'omit', signal: AbortSignal.timeout(120000) });
+  const response = await fetch(connection ? connection.base + url : url, { headers: connection ? { Authorization: `Bearer ${connection.token}` } : {}, credentials: 'omit', signal: AbortSignal.any([signal, AbortSignal.timeout(120000)]) });
   if (!response.ok) throw new Error(t('Could not load capture. Refresh and try again.'));
   return response.blob();
 }
+function thumbnailBlob(media) {
+  const width = media.videoWidth || media.naturalWidth, height = media.videoHeight || media.naturalHeight;
+  if (!width || !height) throw new Error(t('Could not load preview.'));
+  const scale = Math.min(1, 480 / width, 360 / height), canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
+  canvas.getContext('2d').drawImage(media, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error(t('Could not load preview.'))), 'image/webp', .85));
+}
+async function makeThumbnail(capture, signal) {
+  const blob = await fileBlob(capture.id, signal), url = URL.createObjectURL(blob);
+  const media = document.createElement(capture.kind === 'image' ? 'img' : 'video');
+  try {
+    await new Promise((resolve, reject) => {
+      let timer;
+      const finish = error => { clearTimeout(timer); signal.removeEventListener('abort', abort); media.onload = media.onloadeddata = media.onerror = null; error ? reject(error) : resolve(); };
+      const abort = () => finish(new DOMException('Aborted', 'AbortError'));
+      timer = setTimeout(() => finish(new Error(t('Could not load preview.'))), 20000);
+      signal.addEventListener('abort', abort, { once: true });
+      media.onerror = () => finish(new Error(t('Could not load preview.')));
+      if (capture.kind === 'image') media.onload = () => finish();
+      else { media.muted = true; media.playsInline = true; media.preload = 'auto'; media.onloadeddata = () => finish(); }
+      media.src = url;
+      if (signal.aborted) abort();
+    });
+    return await thumbnailBlob(media);
+  } finally { if (capture.kind !== 'image') { media.pause(); media.removeAttribute('src'); media.load(); } else media.removeAttribute('src'); URL.revokeObjectURL(url); }
+}
+function pumpThumbnails() {
+  while (thumbnailActive < 2 && thumbnailQueue.length) {
+    const { node, epoch } = thumbnailQueue.shift(); if (epoch !== thumbnailEpoch || !node.isConnected) continue;
+    const capture = deviceToolsState.captures.find(x => x.id === node.dataset.media); if (!capture) continue;
+    thumbnailActive++; const signal = thumbnailController.signal;
+    (async () => {
+      try {
+        let url = mediaURLs.get(capture.id);
+        if (!url) { const blob = await makeThumbnail(capture, signal); if (epoch !== thumbnailEpoch || signal.aborted) return; url = URL.createObjectURL(blob); mediaURLs.set(capture.id, url); }
+        if (!node.isConnected || epoch !== thumbnailEpoch) return;
+        const image = document.createElement('img'); image.src = url; image.alt = capture.deviceName; image.decoding = 'async'; node.replaceChildren(image);
+        if (capture.kind === 'video') { const play = document.createElement('span'); play.className = 'capture-play'; play.innerHTML = icon('play'); node.append(play); icons(); }
+        node.classList.add('loaded'); node.removeAttribute('aria-busy');
+      } catch (error) { if (signal.aborted || epoch !== thumbnailEpoch || !node.isConnected) return; node.innerHTML = `${icon('image-off')}<span>${toolText('Preview unavailable · click to retry')}</span>`; node.removeAttribute('aria-busy'); icons(); }
+      finally { thumbnailActive--; pumpThumbnails(); }
+    })();
+  }
+}
+async function showCaptureViewer(capture) {
+  const dialog = $('#capture-viewer');
+  viewerController?.abort(); viewerController = new AbortController(); const controller = viewerController;
+  if (viewerURL) URL.revokeObjectURL(viewerURL); viewerURL = ''; captureViewerId = capture.id;
+  $('#capture-viewer-title').textContent = capture.deviceName;
+  $('#capture-viewer-meta').textContent = `${t(capture.kind === 'image' ? 'Screenshot' : 'Screen recording')} · ${new Date(capture.createdAt).toLocaleString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB')}`;
+  $('#capture-viewer-content').innerHTML = `<p role="status">${toolText('Loading preview…')}</p>`;
+  $('#capture-viewer-retry').hidden = true;
+  if (!dialog.open) dialog.showModal();
+  try {
+    const blob = await fileBlob(capture.id, controller.signal); if (controller.signal.aborted || !dialog.open) return;
+    viewerURL = URL.createObjectURL(blob);
+    const media = document.createElement(capture.kind === 'image' ? 'img' : 'video');
+    if (capture.kind === 'image') media.alt = capture.deviceName;
+    else { media.controls = true; media.playsInline = true; media.preload = 'metadata'; }
+    media.onerror = () => { if (!controller.signal.aborted) { $('#capture-viewer-content').textContent = t('Could not load preview.'); $('#capture-viewer-retry').hidden = false; } };
+    media.src = viewerURL; $('#capture-viewer-content').replaceChildren(media);
+  } catch (error) { if (!controller.signal.aborted) { $('#capture-viewer-content').textContent = t('Could not load preview.'); $('#capture-viewer-retry').hidden = false; } }
+}
+$('#capture-viewer').addEventListener('close', () => {
+  viewerController?.abort(); const video = $('#capture-viewer-content video'); if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+  $('#capture-viewer-content').replaceChildren(); if (viewerURL) URL.revokeObjectURL(viewerURL); viewerURL = '';
+  $(`[data-capture-preview="${captureViewerId}"]`)?.focus({ preventScroll: true }); captureViewerId = '';
+});
+$('#capture-viewer').addEventListener('click', event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.currentTarget.close(); } });
+$('#capture-viewer-retry').addEventListener('click', () => { const capture = deviceToolsState.captures.find(x => x.id === captureViewerId); if (capture) showCaptureViewer(capture); });
+$('#capture-viewer-download').addEventListener('click', event => busy(event.currentTarget, async () => { const capture = deviceToolsState.captures.find(x => x.id === captureViewerId); if (capture) await downloadCapture(capture); }));
+async function downloadCapture(capture) { const blob = await fileBlob(capture.id); saveBlob(blob, `Snapkit-${capture.createdAt.replace(/[:.]/g, '-')}.${capture.kind === 'image' ? 'png' : 'mp4'}`); }
 function saveBlob(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); }
 function renderCaptures() {
   updateLogControls();
   $('#capture-recordings').innerHTML = deviceToolsState.recordings.map(x => `<article class="tool-card"><h2>${escape(x.deviceName)}</h2><p>${toolText(x.status === 'recording' ? 'Recording · stops automatically after 3 minutes' : 'Finalizing video…')}</p>${x.status === 'recording' ? `<button class="button danger" data-record-stop="${x.id}">${icon('square')}${toolText('Stop recording')}</button>` : ''}</article>`).join('');
   const fingerprint = JSON.stringify(deviceToolsState.captures) + window.SnapkitI18n.language;
   if ($('#capture-list').dataset.content === fingerprint) { icons(); return; }
-  releaseMedia(); $('#capture-list').dataset.content = fingerprint;
-  $('#capture-list').innerHTML = deviceToolsState.captures.length ? deviceToolsState.captures.map(x => `<article class="tool-card capture-card"><h2>${escape(x.deviceName)}</h2><p>${toolText(x.kind === 'image' ? 'Screenshot' : 'Screen recording')}</p><time>${escape(new Date(x.createdAt).toLocaleString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB'))}</time>${x.status === 'ready' ? `<div data-media="${x.id}"></div><div class="tool-buttons"><button class="button" data-capture-preview="${x.id}">${toolText('Preview')}</button><button class="button" data-capture-download="${x.id}">${icon('download')}${toolText('Download')}</button>` : `<p role="status">${toolText('Capture failed')}: ${toolText(x.error || '')}</p><div class="tool-buttons">`}<button class="button" data-capture-delete="${x.id}">${toolText('Delete capture')}</button></div></article>`).join('') : `<div class="tool-empty">${toolText('No captures for this project yet. Take a screenshot to get started.')}</div>`;
+  thumbnailObserver.disconnect(); thumbnailQueue = [];
+  const ready = new Set(deviceToolsState.captures.filter(x => x.status === 'ready').map(x => x.id));
+  for (const [id, url] of mediaURLs) if (!ready.has(id)) { URL.revokeObjectURL(url); mediaURLs.delete(id); }
+  if (captureViewerId && !ready.has(captureViewerId)) $('#capture-viewer').close();
+  $('#capture-list').dataset.content = fingerprint;
+  $('#capture-list').innerHTML = deviceToolsState.captures.length ? deviceToolsState.captures.map(x => `<article class="tool-card capture-card"><h2>${escape(x.deviceName)}</h2><p>${toolText(x.kind === 'image' ? 'Screenshot' : 'Screen recording')}</p><time>${escape(new Date(x.createdAt).toLocaleString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB'))}</time>${x.status === 'ready' ? `<button class="capture-thumbnail" data-media="${x.id}" data-capture-preview="${x.id}" aria-label="${escape(t('View {0}', [x.deviceName]))}" aria-haspopup="dialog" aria-busy="true">${icon(x.kind === 'image' ? 'image' : 'video')}<span>${toolText('Loading preview…')}</span></button><div class="tool-buttons"><button class="button" data-capture-download="${x.id}">${icon('download')}${toolText('Download')}</button>` : `<p role="status">${toolText('Capture failed')}: ${toolText(x.error || '')}</p><div class="tool-buttons">`}<button class="button" data-capture-delete="${x.id}">${toolText('Delete capture')}</button></div></article>`).join('') : `<div class="tool-empty">${toolText('No captures for this project yet. Take a screenshot to get started.')}</div>`;
+  $$('#capture-list [data-media]').forEach(node => thumbnailObserver.observe(node));
   icons();
 }
 async function refreshDeviceTools() {
@@ -112,11 +196,8 @@ $('#panel-captures').addEventListener('click', event => {
     if (!id) return;
     const capture = deviceToolsState.captures.find(x => x.id === id); if (!capture) return;
     if (button.dataset.captureDelete) { if (!confirm(t('Delete this capture permanently from Snapkit?'))) return; await api(`/api/tools/captures/${id}/delete`, {}); await refreshDeviceTools(); return; }
-    const blob = await fileBlob(id);
-    if (button.dataset.captureDownload) { saveBlob(blob, `Snapkit-${capture.createdAt.replace(/[:.]/g, '-')}.${capture.kind === 'image' ? 'png' : 'mp4'}`); return; }
-    const node = $(`[data-media="${id}"]`); if (!node) return;
-    if (mediaURLs.has(id)) URL.revokeObjectURL(mediaURLs.get(id)); const url = URL.createObjectURL(blob); mediaURLs.set(id, url);
-    const media = document.createElement(capture.kind === 'image' ? 'img' : 'video'); media.src = url; if (capture.kind === 'image') media.alt = capture.deviceName; else { media.controls = true; media.preload = 'metadata'; } node.replaceChildren(media);
+    if (button.dataset.captureDownload) await downloadCapture(capture);
+    else await showCaptureViewer(capture);
   });
 });
 $('#devices-grid').addEventListener('click', event => {

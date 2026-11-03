@@ -609,3 +609,5 @@ Object.assign(window.SnapkitMessages.translations, { 'Device connection changed.
 Object.assign(window.SnapkitMessages.translations, { 'No matching options': 'Không có kết quả phù hợp', 'Search options…': 'Tìm lựa chọn…', 'Search options': 'Tìm lựa chọn', 'Choose an option': 'Chọn một mục' });
 
 Object.assign(window.SnapkitMessages.translations, { 'Edit device set': 'Chỉnh sửa bộ thiết bị', 'Save changes': 'Lưu thay đổi', 'Cancel editing': 'Hủy chỉnh sửa' });
+
+Object.assign(window.SnapkitMessages.translations, { 'View {0}': 'Xem {0}', 'Loading preview…': 'Đang tải hình xem trước…', 'Could not load preview.': 'Không tải được hình xem trước.', 'Preview unavailable · click to retry': 'Chưa tải được hình · bấm để thử lại', 'Close preview': 'Đóng khung xem trước', 'Try again': 'Thử lại' });

@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.16 — 2026-11-03
+
+- Ảnh và video đã lưu tự hiện thumbnail trong thư viện, không cần bấm nút Xem trước để tải từng ảnh.
+- Bấm thumbnail mở khung xem lớn: ảnh đúng tỷ lệ, video có phát/tạm dừng, tua và toàn màn hình; tải về ngay trong khung xem.
+- Thumbnail video là ảnh tĩnh kèm biểu tượng Play. Chỉ tải các mục gần vùng hiển thị, giới hạn hai tác vụ tạo thumbnail đồng thời và giải phóng video gốc sau khi tạo ảnh đại diện.
+- Có trạng thái tải, thử lại khi lỗi, đóng bằng Escape và trả focus về thumbnail; hỗ trợ EN/VN, sáng/tối và cửa sổ nhỏ.
+
 ## 0.2.0-beta.15 — 2026-11-03
 
 - Thay toàn bộ dropdown hệ điều hành trong app bằng menu đồng bộ sáng/tối: chọn thiết bị, mức log, profile debug, model và runtime.

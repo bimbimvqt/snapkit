@@ -1,3 +1,7 @@
+New in beta.16: saved screenshots and finalized recordings automatically display thumbnail images. Click a thumbnail to open a large preview dialog, with playback, seeking and fullscreen controls for video, plus download and close actions. Escape closes the viewer and restores focus. Video tiles show a static poster and play icon, with no autoplay in the gallery.
+
+Thumbnails load near the visible gallery area, with at most two generation jobs at a time. Full original video blobs are released after producing small poster images. Requests retain local/paired authentication; captures are never uploaded to the cloud. Loading and retry feedback, EN/VI copy and small-window layouts are included.
+
 New in beta.15: all app selects use a shared themed menu instead of OS dropdowns, including device pickers, log level, project profile, device model and runtimes. Flavor suggestions are custom and still accept free text. Long lists support search; menus support keyboard selection, disabled/required feedback, English/Vietnamese and dialog/viewport boundaries in both themes.
 
 The UI review also fixes capture previews after returning to the page, preserves focused device-set controls across background refreshes, adds explicit cancel for device-set editing and keeps Stop logs disabled after stopping. Unavailable capture actions are disabled until the required project/device is selected.
