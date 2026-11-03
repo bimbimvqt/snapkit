@@ -4,9 +4,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const https = require('node:https');
+const { createSplash } = require('./splash.cjs');
 const API = 'https://snapkit.45.119.214.94.sslip.io';
 const origin = 'http://127.0.0.1:4310';
-let agent, mainWindow, exiting = false;
+let agent, mainWindow, bootSplash, exiting = false;
 app.setName('Snapkit');
 if (process.env.SNAPKIT_SMOKE_TEST === '1') app.setPath('userData', path.join(process.env.SNAPKIT_DATA_ROOT || os.tmpdir(), 'snapkit-smoke-profile'));
 const nativeMessages = require('./locales.cjs');
@@ -20,7 +21,7 @@ function nativeT(message) {
 
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
   app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });
-  app.whenReady().then(start).catch(error => { dialog.showErrorBox(nativeT("Snapkit could not start"), `${nativeT(error.message)}\n\n${nativeT('Your projects and device data have not been removed. Close any older Snapkit process and try again.')}`); app.quit(); });
+  app.whenReady().then(start).catch(error => { bootSplash?.destroy(); dialog.showErrorBox(nativeT("Snapkit could not start"), `${nativeT(error.message)}\n\n${nativeT('Your projects and device data have not been removed. Close any older Snapkit process and try again.')}`); app.quit(); });
 }
 function jsonRequest(url) {
   return new Promise((resolve, reject) => {
@@ -41,6 +42,12 @@ function allowedExternal(value) {
 }
 async function start() {
   app.setAppUserModelId('dev.snapkit.desktop');
+  bootSplash = await createSplash({ BrowserWindow, language: desktopLanguage || (app.getLocale().toLowerCase().startsWith('vi') ? 'vi' : 'en'), onCancel: () => app.quit() });
+  let splashVerified = false;
+  if (process.env.SNAPKIT_SMOKE_TEST === '1') {
+    splashVerified = bootSplash.window.isVisible() && await bootSplash.window.webContents.executeJavaScript("document.querySelector('.logo').naturalWidth > 0 && document.querySelector('#loading-label').textContent.length > 0");
+    if (process.env.SNAPKIT_SPLASH_SCREENSHOT) fs.writeFileSync(process.env.SNAPKIT_SPLASH_SCREENSHOT, (await bootSplash.window.webContents.capturePage()).toPNG());
+  }
   const legacy = '/Volumes/SanDiskSSDData/SnapkitData';
   const dataRoot = process.env.SNAPKIT_DATA_ROOT || (process.platform === 'darwin' && fs.existsSync(path.join(legacy, 'state/settings.json')) ? legacy : path.join(app.getPath('appData'), process.platform === 'linux' ? 'snapkit' : 'Snapkit'));
   const extras = ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), 'flutter/bin'), path.join(os.homedir(), 'development/flutter/bin')];
@@ -72,7 +79,7 @@ async function start() {
     });
     let agentError = '';
     agent.stderr?.on('data', chunk => { agentError = (agentError + chunk.toString()).slice(-4096); });
-    agent.once('exit', () => { if (!exiting) { dialog.showErrorBox(nativeT("Snapkit needs to restart"), nativeT("The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.")); app.quit(); } });
+    agent.once('exit', () => { if (!exiting) { bootSplash?.destroy(); dialog.showErrorBox(nativeT("Snapkit needs to restart"), nativeT("The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.")); app.quit(); } });
     const deadline = Date.now() + 20000;
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
@@ -106,8 +113,22 @@ async function start() {
       app.quit();
     })();
   });
-  mainWindow.once('ready-to-show', () => mainWindow.show());
-  await mainWindow.loadURL(origin);
+  const firstPaint = new Promise(resolve => mainWindow.once('ready-to-show', resolve));
+  let resolveReady;
+  const rendererReady = new Promise(resolve => { resolveReady = resolve; });
+  const readyListener = event => { if (fromApp(event)) resolveReady(true); };
+  ipcMain.on('snapkit:ready', readyListener);
+  let readyTimeout;
+  const readyFallback = new Promise(resolve => { readyTimeout = setTimeout(() => resolve(false), 12000); });
+  let readyReported = false;
+  try {
+    await mainWindow.loadURL(origin); await firstPaint;
+    readyReported = await Promise.race([rendererReady, readyFallback]);
+  } finally { clearTimeout(readyTimeout); ipcMain.removeListener('snapkit:ready', readyListener); }
+  await bootSplash.finish();
+  if (exiting || mainWindow.isDestroyed()) return;
+  mainWindow.show();
+  const splashClosed = bootSplash.window.isDestroyed();
   if (process.env.SNAPKIT_SMOKE_TEST === '1') {
     const result = await mainWindow.webContents.executeJavaScript(`(async () => {
       const [p,h] = await Promise.all([fetch('/api/product').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
@@ -119,6 +140,7 @@ async function start() {
       window.SnapkitI18n.setLanguage(initial);
       return {desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
+    result.splash = splashVerified && splashClosed && readyReported;
     fs.writeFileSync(process.env.SNAPKIT_SMOKE_OUTPUT || path.join(os.tmpdir(), 'snapkit-desktop-smoke.json'), JSON.stringify(result));
     app.quit();
   }
@@ -127,6 +149,7 @@ app.on('window-all-closed', () => app.quit());
 app.on('before-quit', event => {
   if (exiting) return;
   exiting = true;
+  bootSplash?.destroy();
   if (agent) {
     event.preventDefault();
     const child = agent; agent = null;

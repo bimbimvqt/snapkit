@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.11 — 2026-11-03
+
+- Splash khi khởi động desktop, dùng logo Snapkit hiện tại, animation nhẹ và nội dung EN/VN.
+- Chuyển sang app khi giao diện đăng nhập sẵn sàng; tôn trọng tùy chọn giảm chuyển động.
+- Thiết kế lại trang đăng nhập quản trị và hỗ trợ đổi tài khoản Google.
+
 ## 0.2.0-beta.10 — 2026-11-02
 
 - Đăng nhập Google qua trình duyệt hệ thống; phiên desktop được mã hóa bằng kho bảo mật hệ điều hành.

@@ -1,0 +1,13 @@
+:root{color-scheme:dark;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#101614;color:#eff5f0}
+*{box-sizing:border-box}body{margin:0;user-select:none;-webkit-app-region:drag}
+.splash{height:100vh;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#b5f5cc0e,transparent 65%);border:1px solid #b5f5cc16;padding:32px;transition:opacity .18s ease}
+.brand{text-align:center;animation:brand-enter .55s cubic-bezier(.2,.7,.3,1) both}
+.logo-wrap{position:relative;width:72px;height:72px;margin:0 auto 18px}.logo{position:relative;display:block;border-radius:22px;box-shadow:0 8px 32px #0003}
+.logo-halo{position:absolute;inset:-14px;border:1px solid #bcf5781a;border-radius:32px;animation:halo 2.2s ease-in-out infinite}
+h1{font-size:30px;font-weight:650;letter-spacing:-1.2px;line-height:1.2;margin:0 0 8px}#tagline{font-size:12px;line-height:1.6;color:#b0bfb5;margin:0}
+.loading{margin-top:32px;width:180px;text-align:center}.loading-track{height:2px;overflow:hidden;background:#b5f5cc12;border-radius:2px}.loading-track span{display:block;height:100%;width:45%;border-radius:2px;background:#bcf578;animation:loading 1.35s ease-in-out infinite}#loading-label{font-size:11px;line-height:1.6;letter-spacing:.1px;color:#9cacA1;margin:14px -24px 0}
+body.leaving .splash{opacity:0}
+@keyframes brand-enter{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes halo{0%,100%{opacity:.4;transform:scale(.97)}50%{opacity:1;transform:scale(1.04)}}
+@keyframes loading{from{transform:translateX(-110%)}to{transform:translateX(330%)}}
+@media(prefers-reduced-motion:reduce){.brand,.logo-halo,.loading-track span{animation:none}.splash{transition:none}.loading-track span{width:100%;opacity:.65}}

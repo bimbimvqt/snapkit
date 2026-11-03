@@ -1,3 +1,7 @@
+Snapkit now opens with an animated logo splash while the local agent and sign-in screen get ready. The splash follows your English/Vietnamese preference and system reduced-motion setting.
+
+Google sign-in is required to use the app. Sessions stay in the operating system encrypted credential store; source code and device commands stay on your computer. Internet is required to verify account access.
+
 Physical device cards no longer show a disabled power button. Missing hardware specifications use a clear availability message instead of empty RAM/CPU/screen indicators. Android values remain visible when reported by adb. The app and website wordmark now reads Snapkit with a capital S.
 
 Snapkit Debug Sync 1.3.1 now includes the shared Snapkit app icon, detailed English and Vietnamese guides, a changelog and support links in its editor Details view. Install the included VSIX and reload your editor to activate the updated extension.
@@ -24,7 +28,7 @@ Downloads:
 - **win-x64.exe**: Windows x64, installed for your user account.
 - **snapkit-debug-sync.vsix**: optional Flutter group-debug integration for compatible VS Code editors.
 
-Open the app, visit **Setup & tools**, choose your project, then start a device. Node.js and a terminal are not required to open the packaged application. Flutter, Android SDK and/or Xcode are separate development tools; Snapkit detects them and guides you through missing setup. iOS Simulator requires macOS and Xcode. Windows supports Android device management.
+Open the app, sign in with Google, visit **Setup & tools**, choose your project, then start a device. Node.js and a terminal are not required to open the packaged application. Flutter, Android SDK and/or Xcode are separate development tools; Snapkit detects them and guides you through missing setup. iOS Simulator requires macOS and Xcode. Windows supports Android device management.
 
 This beta is **ad-hoc signed on macOS, without an Apple Developer ID or notarization**. Bundle signatures are verified during packaging, fixing the invalid signature in beta.1. Gatekeeper may still block downloaded apps. Copy Snapkit.app to a writable Applications folder before opening; try System Settings → Privacy & Security → Open Anyway. Trusted beta testers can remove quarantine only from their installed Snapkit copy (`xattr -dr com.apple.quarantine "/path/to/Snapkit.app"`). Do not disable Gatekeeper globally. Windows installers do not yet have a publisher certificate. If your computer or organization requires a developer-signed application, wait for that release. Published SHA256 checksums detect file changes but are not a substitute for code signing. No automatic update installation is enabled.
 

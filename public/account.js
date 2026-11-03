@@ -1,5 +1,5 @@
 (() => {
-  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) return;
+  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) { window.snapkitDesktop?.ready?.(); return; }
   const cloud = 'https://snapkit.45.119.214.94.sslip.io';
   let token, polling = false, timer;
   const vi = () => window.SnapkitI18n?.language === 'vi';
@@ -46,5 +46,5 @@
       const poll = async () => { try { if (Date.now() > deadline) throw Error(words('Sign-in expired. Try again.', 'Phiên đăng nhập hết hạn. Hãy thử lại.')); const result = await api('poll', {}); if (result.authenticated) { location.reload(); return; } timer = setTimeout(poll, 3000); } catch (e) { polling = false; button.disabled = false; message.textContent = e.message; } }; timer = setTimeout(poll, 3000);
     } catch (e) { button.disabled = false; message.textContent = e.message; }
   };
-  window.addEventListener('pagehide', () => clearTimeout(timer)); check();
+  window.addEventListener('pagehide', () => clearTimeout(timer)); check().finally(() => window.snapkitDesktop?.ready?.());
 })();
