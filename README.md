@@ -14,11 +14,21 @@ Gói Free/Pro được giải thích trong app; các tính năng Pro hiện có 
 
 Các hướng dẫn bên dưới dành cho người chạy từ source.
 
-Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, log và DevTools do IDE quản lý.
+Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, đầu ra Dart và DevTools do IDE quản lý. Snapkit có log hệ thống, bộ thiết bị theo dự án và chụp/quay màn hình.
 
 Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; Debug Sync 1.3+ giữ các phiên trên thiết bị khác tiếp tục chạy.
 
 Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · [Device Manager](https://bimbimvqt.github.io/snapkit/preview/)
+
+## Bộ thiết bị, log và ảnh/video
+
+Mở **Trợ giúp → Hướng dẫn bắt đầu** để xem 8 bước đầy đủ trong app, bằng EN hoặc VN.
+
+- **Bộ thiết bị:** chọn dự án, đặt tên, chọn các máy rồi lưu. Có thể sửa hoặc xóa bộ mà không xóa thiết bị. Bấm khởi động để xem trạng thái từng máy; sau đó chọn các máy sẵn sàng cho lần debug tiếp theo trong IDE. Bộ thiết bị gắn với đường dẫn dự án; khi chuyển thư mục, chọn lại folder và tạo bộ tại vị trí mới.
+- **Log thiết bị:** chọn Android hoặc iOS Simulator đang bật → bắt đầu → tìm theo package/nội dung hoặc lọc cảnh báo/lỗi → xuất các dòng đã lọc. Đây là log hệ thống; Dart print/Flutter Debug Console vẫn xem trong IDE. Xóa nội dung hiển thị không xóa log trên điện thoại. Tối đa 1.000 dòng / 1 MB mỗi luồng; tự dừng sau 60 giây không có người xem.
+- **Ảnh & video:** chụp PNG hoặc quay MP4, bấm dừng để hoàn tất video rồi xem/tải/xóa trong thư viện dự án. Quay không âm thanh, tối đa 3 phút và hai phiên đồng thời. Có lối tắt trên card thiết bị đang bật. Android hỗ trợ máy ảo và điện thoại thật; iOS chỉ hỗ trợ Simulator trên macOS. Với iPhone thật, dùng Xcode/QuickTime.
+
+Dữ liệu lưu trong `device-tools/` thuộc thư mục dữ liệu Snapkit, không nằm trong mã nguồn. Snapkit kiểm tra còn ít nhất 256 MB trước khi chụp/quay; video vẫn cần thêm dung lượng tùy màn hình. Không tự xóa ảnh/video đã lưu. Khi thoát giữa phiên quay, Snapkit yêu cầu xác nhận và dừng phiên do mình tạo; nếu app bị buộc thoát, lần mở sau sẽ báo bản quay bị gián đoạn. Không gửi log hoặc ảnh/video lên server.
 
 ## Chạy agent từ source
 

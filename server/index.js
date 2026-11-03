@@ -1,4 +1,5 @@
 import express from 'express';
+import { DeviceTools } from './device-tools.js';
 import { LocalAccount } from './account.js';
 import { randomBytes } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -36,6 +37,8 @@ if (!demo) await configureStorage();
 const provisioner = new Provisioner();
 if (!demo) await provisioner.restore();
 const store = storage.state;
+const deviceTools = new DeviceTools({ demo });
+await deviceTools.restore();
 let settings = { workspace: process.env.FLUTTER_WORKSPACE || '', targetIds: [], ideEnabled: true };
 try { settings = { ...settings, ...JSON.parse(await readFile(path.join(store, 'settings.json'), 'utf8')) }; } catch {
   try { settings = { ...settings, ...JSON.parse(await readFile(path.join(root, '.snapkit/settings.json'), 'utf8')) }; } catch {}
@@ -93,7 +96,7 @@ app.use((req, res, next) => {
     }
   }
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   if (req.path === '/api/pairing/claim' && origin !== webOrigin) return res.status(403).json({ error: 'Pairing claims must come from the configured website' });
   if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
@@ -108,7 +111,7 @@ app.post('/api/auth/start', async (req, res) => { if (demo || req.remoteToken) r
 app.post('/api/auth/poll', async (req, res) => { if (demo || req.remoteToken) return res.status(403).json({ error: 'Sign-in is available in the local app.' }); res.json(await account.poll()); });
 app.post('/api/auth/logout', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Sign out from the local app.' });
-  await account.logout(); for (const client of clients) client.end(); clients.clear(); pairings.revoke(); res.json({ signedOut: true });
+  await deviceTools.close(); await account.logout(); for (const client of clients) client.end(); clients.clear(); pairings.revoke(); res.json({ signedOut: true });
 });
 app.use('/api', async (req, res, next) => {
   if (demo || req.path === '/health') return next();
@@ -137,7 +140,27 @@ app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.j
 app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
-app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/tools', (_req, res) => res.json(deviceTools.list(settings.workspace)));
+app.post('/api/tools/sets/save', async (req, res) => res.json(await deviceTools.saveSet(requireWorkspace(), req.body, snapshot.devices)));
+app.post('/api/tools/sets/:id/delete', async (req, res) => { await deviceTools.deleteSet(requireWorkspace(), req.params.id); res.json({ ok: true }); });
+app.post('/api/tools/sets/:id/start', (req, res) => res.json(deviceTools.startSet(requireWorkspace(), req.params.id, {
+  devices: () => snapshot.devices, locks,
+  boot: async d => { if (demo) { d.state = 'online'; d.flutterId ||= d.id; emit('devices', snapshot); } else await bootDevice(d); },
+  refresh: async () => { if (demo) return; const updates = await deviceStatus(snapshot.devices); for (const d of snapshot.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); emit('devices', snapshot); }
+})));
+app.post('/api/tools/logs/:id/start', async (req, res) => res.json(await deviceTools.startLog(device(req.params.id))));
+app.post('/api/tools/logs/:id/stop', (req, res) => { deviceTools.stopLog(req.params.id); res.json({ ok: true }); });
+app.get('/api/tools/logs/:id', (req, res) => res.json(deviceTools.log(req.params.id, Math.max(0, Number(req.query.after) || 0))));
+app.post('/api/tools/captures/:id/screenshot', async (req, res) => res.json(await deviceTools.capture(requireWorkspace(), device(req.params.id))));
+app.post('/api/tools/captures/:id/record', async (req, res) => res.json(await deviceTools.record(requireWorkspace(), device(req.params.id))));
+app.post('/api/tools/recordings/:id/stop', async (req, res) => { await deviceTools.stopRecord(req.params.id); res.json({ ok: true }); });
+app.post('/api/tools/captures/:id/delete', async (req, res) => { await deviceTools.deleteCapture(requireWorkspace(), req.params.id); res.json({ ok: true }); });
+app.get('/api/tools/captures/:id/file', (req, res) => {
+  const item = deviceTools.captures.find(x => x.id === req.params.id && x.project === deviceTools.project(requireWorkspace()) && x.status === 'ready');
+  if (!item) return res.status(404).json({ error: 'Capture not found.' });
+  res.download(deviceTools.file(item), `Snapkit-${item.createdAt.replace(/[:.]/g, '-')}.${item.kind === 'image' ? 'png' : 'mp4'}`);
+});
+app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (req, res) => {
@@ -297,7 +320,7 @@ app.get('/api/events', (req, res) => {
   const timer = setInterval(() => res.write(': keepalive\n\n'), 20000);
   req.on('close', () => { clearInterval(timer); clients.delete(res); });
 });
-app.use('/api', (_req, res) => res.status(404).json({ error: 'API not available. Snapkit only creates/starts devices and configures IDE targets.' }));
+app.use('/api', (_req, res) => res.status(404).json({ error: 'API not available. Refresh Snapkit to access the latest device tools.' }));
 app.use('/vendor', express.static(path.join(root, 'node_modules/lucide/dist/umd')));
 app.use(express.static(path.join(root, 'public')));
 app.use((error, _req, res, _next) => { console.error(error.message); res.status(400).json({ error: error.message }); });
@@ -322,11 +345,11 @@ function refreshStatus() {
 }
 const statusPoll = setInterval(() => {
   ideSessions.prune();
-  if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
+  if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-function stop() { stopCommands(); clearInterval(poll); clearInterval(statusPoll); for (const res of clients) res.end(); server.close(); }
+async function stop() { await deviceTools.close(); stopCommands(); clearInterval(poll); clearInterval(statusPoll); for (const res of clients) res.end(); server.close(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
 
 process.parentPort?.on('message', event => { if (event.data?.type === 'shutdown') stop(); });

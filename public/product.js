@@ -9,12 +9,13 @@ const productEditors = [
   ['other', 'Another editor', 'Device management', 'terminal']
 ];
 function showProductPage(page) {
-  if (!['devices', 'setup', 'preferences', 'plan'].includes(page)) return;
+  if (!['devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures'].includes(page)) return;
   activePage = page;
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', button.dataset.appPage === page); button.setAttribute('aria-current', button.dataset.appPage === page ? 'page' : 'false'); });
-  $('#breadcrumb-page').textContent = { devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), plan: t("Your plan") }[page];
+  $('#breadcrumb-page').textContent = { devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
   if (page === 'setup' && !toolState) checkTools();
+  document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
   window.scrollTo({ top: 0, behavior: 'instant' });
   const heading = $(`#panel-${page} h1`); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
 }
@@ -36,7 +37,7 @@ function renderEditors() {
   const extension = ['vscode', 'cursor', 'antigravity'].includes(selected);
   $('#extension-download').classList.toggle('hidden', !extension);
   $('#editor-help').textContent = extension ? t("Install Snapkit Debug Sync, choose a normal Flutter debug profile in your editor, then start Debug. Your selected devices are used for the next run.") : t("Start your devices here, then choose them in your editor’s own device selector. Group debug and coordinated restart are not integrated with this editor yet.");
-  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/tag/v0.2.0-beta.9';
+  if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/latest';
   icons();
 }
 $('#editor-options').addEventListener('click', event => {
@@ -137,7 +138,7 @@ loadProduct();
 
 document.addEventListener('snapkit:language', () => {
   renderEditors(); updateJourney();
-  $('#breadcrumb-page').textContent = t({ devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan' }[activePage]);
+  $('#breadcrumb-page').textContent = t({ devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
 });
 window.snapkitDesktop?.setLanguage?.(window.SnapkitI18n.language).catch(() => {});

@@ -11,9 +11,9 @@ module.exports = {
   'Snapkit needs to restart': 'Snapkit cần khởi động lại',
   'The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.': 'Kết nối thiết bị đã dừng. Khởi động lại Snapkit để kết nối lại. Dữ liệu thiết bị vẫn ở trên máy này.',
   'The device connection did not start in time.': 'Kết nối thiết bị không khởi động kịp thời.',
-  'Device setup is still running': 'Thiết lập thiết bị vẫn đang chạy',
-  'Keep Snapkit open to finish setting up your device.': 'Giữ Snapkit mở để hoàn tất thiết lập thiết bị.',
-  'Quitting may interrupt a download or installation. Your existing devices and project files will be kept.': 'Thoát có thể ngắt tải xuống hoặc cài đặt. Thiết bị và tệp dự án hiện có được giữ nguyên.',
+  'A device task is still running': 'Tác vụ thiết bị vẫn đang chạy',
+  'Keep Snapkit open to finish your device task.': 'Giữ Snapkit mở để hoàn tất tác vụ thiết bị.',
+  'Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept.': 'Thoát sẽ dừng quay màn hình và có thể ngắt tải xuống hoặc cài đặt. Thiết bị và tệp dự án hiện có được giữ nguyên.',
   'Keep Snapkit open': 'Giữ Snapkit mở',
   'Quit Snapkit': 'Thoát Snapkit'
 };

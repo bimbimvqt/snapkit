@@ -97,3 +97,19 @@ test('per-device shutdown preserves registration and debug-stop requires a live 
   assert.deepEqual(commands.stopSessionIds, ['session1']);
   await post('/api/ide/sessions', { ownerId: 'test-ide', sessions: [] });
 });
+test('tools enforce mutation token and artifact project scope while exposing system logs by exact device', async () => {
+  assert.equal((await post('/api/tools/sets/save', { name: 'Bad', deviceIds: ['demo-ios-1'] }, 'invalid')).status, 403);
+  const set = await post('/api/tools/sets/save', { name: 'My devices', deviceIds: ['demo-ios-1'] }).then(r => r.json());
+  assert.ok(set.id);
+  assert.equal((await post('/api/tools/logs/demo-ios-1/start', {})).status, 200);
+  const logs = await fetch(base + '/api/tools/logs/demo-ios-1').then(r => r.json()); assert.ok(logs.lines.length);
+  assert.equal((await post('/api/tools/logs/demo-ios-1/stop', {})).status, 200);
+  const image = await post('/api/tools/captures/demo-ios-1/screenshot', {}).then(r => r.json());
+  const file = await fetch(base + `/api/tools/captures/${image.id}/file`); assert.equal(file.status, 200); assert.match(file.headers.get('content-type'), /image\/png/);
+  const original = await fetch(base + '/api/state').then(r => r.json());
+  await post('/api/workspace', { path: '/different/project' });
+  assert.equal((await fetch(base + `/api/tools/captures/${image.id}/file`)).status, 404);
+  assert.equal((await post(`/api/tools/captures/${image.id}/delete`, {})).status, 400);
+  await post('/api/workspace', { path: original.settings.workspace });
+  assert.equal((await post(`/api/tools/captures/${image.id}/delete`, {})).status, 200);
+});

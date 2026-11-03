@@ -56,8 +56,9 @@ const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
 async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
+    if (url === '/api/tools') return { sets: [], captures: [], recordings: [], jobs: [], demo: true };
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
-    if (url === '/api/product') return { version: '0.2.0-beta.13', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
+    if (url === '/api/product') return { version: '0.2.0-beta.14', channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
     if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
@@ -102,6 +103,7 @@ function deviceCard(d) {
     <div class="card-info"><h3 class="card-name">${escape(d.name)}${d.group === 'physical' ? icon('cable') : ''}</h3><p class="device-os">${escape(d.os)}</p>${specs ? `<div class="device-specs">${specs}</div>` : d.platform === 'ios' ? '' : `<p class="device-specs-empty">${escape(t("Hardware details are not available yet."))}</p>`}</div>
     <p class="device-readiness">${escape(t(readiness))}</p>
     <div class="card-actions">${d.group !== 'physical' ? `<button class="button" data-action="${online ? 'shutdown' : 'boot'}" ${starting || shutting ? 'disabled' : ''} ${starting || shutting ? 'aria-busy="true"' : ''} title="${escape(t(online ? 'Turn off this device and disconnect its debug session. Device data is kept.' : 'Start device'))}">${icon(starting || shutting ? 'loader-circle' : 'power')}${shutting ? t("Turning off…") : starting ? t("Starting…") : online ? t("Turn off device") : t("Start device")}</button>` : ''}<label class="target-action ${active ? 'selected' : ''}"><input type="checkbox" data-action="select" aria-label="${escape(t('Select {0} for IDE debug', [d.name]))}" ${active ? 'checked' : ''} ${targetSaving || starting || shutting || (!active && (!online || !d.flutterId)) ? 'disabled' : ''}>${active ? t("Selected for IDE") : t("Select for IDE")}</label></div>
+    ${online && (d.platform === 'android' || d.group === 'ios') ? `<div class="device-tool-actions"><button class="button" data-tool-action="logs">${icon('terminal')}${t('Logs')}</button><button class="button" data-tool-action="screenshot">${icon('camera')}${t('Screenshot')}</button><button class="button" data-tool-action="record">${icon('video')}${t('Record')}</button></div>` : ''}
     ${debug.length ? `<div class="device-debug"><span>${icon('bug')}${t("Debugging in IDE")}</span><button class="button" data-action="stop-debug" ${debugStopping || shutting ? 'disabled' : ''} ${debugStopping ? 'aria-busy="true"' : ''}>${icon(debugStopping ? 'loader-circle' : 'square')}${debugStopping ? t("Stopping debug…") : t("Stop debug")}</button></div>` : ''}
   </article>`;
 }
@@ -198,7 +200,7 @@ $('#workspace-form').addEventListener('submit', e => {
   });
 });
 ['#workspace-switch', '#settings-button', '#ide-setup'].forEach(id => $(id).addEventListener('click', showWorkspace));
-['#guide-button', '#help-button'].forEach(id => $(id).addEventListener('click', () => $('#guide-dialog').showModal()));
+['#help-button'].forEach(id => $(id).addEventListener('click', () => showProductPage('guide')));
 $$('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $('#theme-toggle').addEventListener('click', () => { document.documentElement.classList.toggle('light'); localStorage.setItem('snapkit-theme', document.documentElement.classList.contains('light') ? 'light' : 'dark'); });
 if (localStorage.getItem('snapkit-theme') === 'light') document.documentElement.classList.add('light');
@@ -244,7 +246,7 @@ $('#devices-grid').addEventListener('click', e => {
   if (e.target.closest('#empty-reset')) { resetFilters(); $('#device-search').focus(); return; }
   if (e.target.closest('#empty-add')) return $('#add-device').click();
   if (e.target.closest('#empty-refresh')) return refresh();
-  if (e.target.closest('#empty-help')) return $('#guide-dialog').showModal();
+  if (e.target.closest('#empty-help')) return showProductPage('guide');
   const remove = e.target.closest('button[data-action="delete"]');
   if (remove && !remove.disabled) {
     const id = remove.closest('[data-device]').dataset.device;

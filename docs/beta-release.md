@@ -1,3 +1,11 @@
+New in beta.14: Quick start guide is now a full, bilingual page with eight chapters, platform requirements, troubleshooting and actions that open the right tool.
+
+Project device sets can be saved, edited, deleted and started with per-device results. Up to two virtual devices boot concurrently. Connected physical devices are included when ready; Snapkit never powers them on remotely. IDE selection is a separate action after startup.
+
+Device logs stream Android logcat or iOS Simulator system logs, with search, warning/error filters, follow/pause and filtered text export. These are system logs; Flutter/Dart debug output stays in your IDE. Buffers retain up to 1,000 lines / 1 MB, with at most four streams. Streams stop after a minute without a viewer.
+
+Captures offers project-specific PNG screenshots and MP4 screen recordings for Android and iOS Simulator, with preview, download and explicit deletion. Recording is limited to three minutes without audio, and at most two simultaneous recordings. Physical iPhone logs and capture require Xcode or QuickTime. Protected content may appear blank. Capture files and device sets stay in Snapkit application data; project source is never modified. Quit asks for confirmation while a recording is active, then stops Snapkit-owned recordings. An abrupt termination is reported as an interrupted capture on the next launch. Android recordings are stopped using only their owned PID and remote filename.
+
 Empty admin announcements no longer leave a blank banner. Sidebar navigation is organized into Workspace, Setup, Account and Support, with Quick start guide available directly under Support.
 
 Desktop sign-in now includes the Google icon and a cleaner layout. Connection retry appears only after a connection or verification error, shows progress and performs a fresh session check.

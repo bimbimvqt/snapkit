@@ -82,7 +82,7 @@ window.SnapkitMessages = {
     "Tải cho Windows": "Download for Windows",
     "Cài cho tài khoản hiện tại.": "Installs for your current user account.",
     "Windows ARM và Linux chưa hỗ trợ trong beta.": "Windows ARM and Linux are not supported in this beta.",
-    "Bản beta 0.2.0-beta.13 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.13 · Choose the installer for your computer.",
+    "Bản beta 0.2.0-beta.14 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.14 · Choose the installer for your computer.",
     "Bản thử nghiệm chưa ký số. macOS có thể chặn mở bộ cài hiện tại; xem": "This beta is not signed with a developer certificate. macOS may block the current installer; read the",
     "hướng dẫn cài beta": "beta installation notes",
     "trước khi tải.": "before downloading.",

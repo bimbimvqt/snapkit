@@ -381,7 +381,7 @@ test('sidebar groups separate workspace, setup, account and support while retain
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('.sidebar-note')).toHaveCount(0);
-  await expect(page.locator('.sidebar-group')).toHaveCount(4);
+  await expect(page.locator('.sidebar-group')).toHaveCount(5);
   await expect(page.locator('#nav-setup')).toHaveText('SETUP');
   await page.locator('.sidebar [data-app-page="preferences"]').click();
   await expect(page.locator('#panel-preferences')).toBeVisible();
@@ -389,8 +389,9 @@ test('sidebar groups separate workspace, setup, account and support while retain
   await expect(page.locator('#panel-plan')).toBeVisible();
   await expect(page.locator('.sidebar [data-app-page].active')).toHaveCount(1);
   await page.locator('#guide-button').click();
-  await expect(page.locator('#guide-dialog')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(page.locator('#panel-guide')).toBeVisible();
+  await expect(page.locator('.guide-chapter')).toHaveCount(8);
+  await expect(page.locator('#guide-dialog')).toHaveCount(0);
   await page.setViewportSize({width:900,height:680});
   const status=await page.locator('.local-status').boundingBox(); expect(status.y+status.height).toBeLessThanOrEqual(680);
   await page.screenshot({path:'/tmp/snapkit-sidebar-beta13.png',fullPage:true});

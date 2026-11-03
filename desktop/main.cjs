@@ -105,8 +105,8 @@ async function start() {
       try {
         const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(2000) });
         const state = await response.json();
-        if (state.jobs?.some(job => job.status === 'running')) {
-          const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT("Device setup is still running"), message: nativeT("Keep Snapkit open to finish setting up your device."), detail: nativeT("Quitting may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
+        if (state.activeRecordings || state.jobs?.some(job => job.status === 'running')) {
+          const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT("A device task is still running"), message: nativeT("Keep Snapkit open to finish your device task."), detail: nativeT("Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
           if (choice.response !== 1) return;
         }
       } catch {}
@@ -153,7 +153,7 @@ app.on('before-quit', event => {
   if (agent) {
     event.preventDefault();
     const child = agent; agent = null;
-    const timer = setTimeout(() => { child.kill(); app.quit(); }, 5000);
+    const timer = setTimeout(() => { child.kill(); app.quit(); }, 15000);
     child.once('exit', () => { clearTimeout(timer); app.quit(); });
     child.postMessage({ type: 'shutdown' });
   }

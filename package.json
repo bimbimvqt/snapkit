@@ -1,6 +1,6 @@
 {
   "name": "snapkit-device-center",
-  "version": "0.2.0-beta.13",
+  "version": "0.2.0-beta.14",
   "private": true,
   "type": "module",
   "description": "Local Flutter device control center",
@@ -9,7 +9,7 @@
     "dev": "node --watch server/index.js",
     "demo": "node server/index.js --demo",
     "test": "node --test test/*.test.js",
-    "check": "node --check server/ide-sessions.js && node --check server/device-status.js && node --check ide-extension/session-control.cjs && node --check server/index.js && node --check server/cli.js && node --check server/discovery.js && node --check server/devices.js && node --check server/workspace.js && node --check public/app.js && node --check server/provision.js && node --check server/storage.js && node --check server/folders.js && node --check server/pairing.js && node --check scripts/migrate-storage.js && node --check ide-extension/extension.cjs && node --check ide-extension/dashboard-debug.cjs && node --check scripts/cleanup-legacy-ide.js && node --check server/paths.js && node --check server/preferences.js && node --check server/diagnostics.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check public/product.js && node --check cloud/index.js && node --check public/i18n.js && node --check public/locales.js && node --check site/locales.js && node --check site/site.js && node --check desktop/locales.cjs && node --check cloud/accounts.js && node --check server/account.js && node --check public/account.js && node --check site/admin/admin.js && node --check desktop/splash.cjs && node --check desktop/splash.js",
+    "check": "node --check server/ide-sessions.js && node --check server/device-status.js && node --check ide-extension/session-control.cjs && node --check server/index.js && node --check server/cli.js && node --check server/discovery.js && node --check server/devices.js && node --check server/workspace.js && node --check public/app.js && node --check server/provision.js && node --check server/storage.js && node --check server/folders.js && node --check server/pairing.js && node --check scripts/migrate-storage.js && node --check ide-extension/extension.cjs && node --check ide-extension/dashboard-debug.cjs && node --check scripts/cleanup-legacy-ide.js && node --check server/paths.js && node --check server/preferences.js && node --check server/diagnostics.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check public/product.js && node --check cloud/index.js && node --check public/i18n.js && node --check public/locales.js && node --check site/locales.js && node --check site/site.js && node --check desktop/locales.cjs && node --check cloud/accounts.js && node --check server/account.js && node --check public/account.js && node --check site/admin/admin.js && node --check desktop/splash.cjs && node --check desktop/splash.js && node --check server/device-tools.js && node --check public/tools.js",
     "test:ui": "playwright test",
     "build:pages": "node scripts/build-pages.js",
     "test:pages": "playwright test --config playwright.pages.config.js",
