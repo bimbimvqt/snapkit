@@ -4,9 +4,14 @@ html.account-locked body > :not(.account-gate) { display:none!important }
 .account-card h1 { font-size:34px; line-height:1.2; margin:20px 0; }
 .account-copy { color:#b8c4bd; line-height:1.7; margin-bottom:28px }
 .account-card > button { width:100%; justify-content:center; margin:5px 0; min-height:46px }
-.account-card small { color:#aab8b0; line-height:1.7; display:block; margin-top:22px }
 .account-languages { display:flex; gap:8px; margin-top:24px }
 #account-message { line-height:1.6; color:#b7d6c5 }
 .account-profile { display:flex; align-items:center; gap:8px }
 .account-profile > span { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px }
 @media(max-width:700px) { .account-profile > span { display:none } .account-card { padding:24px } }
+
+.account-gate [hidden] { display:none!important }
+.account-card #google-signin { display:flex; align-items:center; gap:12px; background:#fff; color:#1f1f1f; border:1px solid #dadce0; font-weight:550 }
+.account-card #google-signin:not(:disabled):hover { background:#edf3ef; border-color:#c3d5c9 }
+#google-signin svg { width:20px; height:20px; flex-shrink:0 }
+#account-message:empty { display:none }

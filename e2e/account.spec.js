@@ -90,3 +90,34 @@ test('admin login adapts to mobile, exposes recovery and lets an unauthorized ac
     await expect(page).toHaveURL(base + '/auth/google/start'); expect(logoutCount).toBe(1);
   } finally { server.close(); }
 });
+
+test('desktop login hides retry when healthy, keeps Google icon in both languages, and retries failed status with feedback', async ({page}) => {
+  let recover, initialFailure = true, freshChecks = 0;
+  await page.route('**/api/auth/status*', async route => {
+    if (route.request().url().includes('fresh=1')) {
+      freshChecks++;
+      await new Promise(resolve => { recover = resolve; });
+      return route.fulfill({json:{required:true,authenticated:false,localToken:'local'}});
+    }
+    if (initialFailure) return route.abort();
+    return route.fulfill({json:{required:true,authenticated:false,localToken:'local'}});
+  });
+  await page.goto('/');
+  await expect(page.locator('#account-retry')).toBeVisible();
+  await expect(page.locator('#google-signin')).toBeDisabled();
+  await page.locator('#account-retry').click();
+  await expect(page.locator('#account-retry')).toBeDisabled();
+  await expect(page.locator('#account-retry')).toHaveText('Checking connection…');
+  expect(freshChecks).toBe(1); recover();
+  await expect(page.locator('#account-retry')).toBeHidden();
+  await expect(page.locator('#google-signin')).toBeEnabled();
+  await expect(page.locator('#google-signin svg')).toBeVisible();
+  await page.getByRole('button',{name:'Tiếng Việt',exact:true}).click();
+  await expect(page.locator('#google-signin')).toHaveText('Tiếp tục với Google');
+  await expect(page.locator('#google-signin svg')).toBeVisible();
+  await expect(page.locator('.account-card small')).toHaveCount(0);
+  await page.screenshot({path:'/tmp/snapkit-login-beta12-vi.png'});
+  initialFailure = false; await page.reload();
+  await expect(page.locator('#google-signin')).toBeEnabled();
+  await expect(page.locator('#account-retry')).toBeHidden();
+});

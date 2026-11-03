@@ -1,5 +1,10 @@
 # Snapkit changelog
 
+## 0.2.0-beta.12 — 2026-11-03
+
+- Thêm icon Google nhiều màu và làm gọn màn đăng nhập desktop.
+- Nút kiểm tra kết nối chỉ hiện khi có lỗi, kiểm tra lại phiên với phản hồi đang tải và chặn bấm lặp.
+
 ## 0.2.0-beta.11 — 2026-11-03
 
 - Splash khi khởi động desktop, dùng logo Snapkit hiện tại, animation nhẹ và nội dung EN/VN.

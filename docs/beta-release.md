@@ -1,3 +1,5 @@
+Desktop sign-in now includes the Google icon and a cleaner layout. Connection retry appears only after a connection or verification error, shows progress and performs a fresh session check.
+
 Snapkit now opens with an animated logo splash while the local agent and sign-in screen get ready. The splash follows your English/Vietnamese preference and system reduced-motion setting.
 
 Google sign-in is required to use the app. Sessions stay in the operating system encrypted credential store; source code and device commands stay on your computer. Internet is required to verify account access.
