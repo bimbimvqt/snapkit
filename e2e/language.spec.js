@@ -34,7 +34,7 @@ test('app switches language without losing search, workspace input or cached too
   await expect(page.locator('#add-device')).toHaveText('Thêm thiết bị');
   await page.locator('#add-device').click();
   await expect(page.locator('#create-title')).toHaveText('Một màn hình mới cho ý tưởng của bạn.');
-  await expect(page.locator('#create-model')).toBeVisible();
+  await expect(page.locator('#create-model-trigger')).toBeVisible();
   await page.locator('#model-search').fill('iPhone');
   await page.locator('#create-name').fill('My test device');
   await page.evaluate(() => window.SnapkitI18n.setLanguage('en'));

@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.15 — 2026-11-03
+
+- Thay toàn bộ dropdown hệ điều hành trong app bằng menu đồng bộ sáng/tối: chọn thiết bị, mức log, profile debug, model và runtime.
+- Flavor dùng gợi ý tùy chỉnh, vẫn cho nhập tên riêng. Danh sách dài có tìm kiếm; hỗ trợ bàn phím, trạng thái disabled/required, EN/VN và menu không bị cắt trong dialog/cửa sổ nhỏ.
+- Giữ focus khi bộ thiết bị đồng bộ, thêm trạng thái chỉnh sửa và nút hủy.
+- Sửa ảnh xem trước khi quay lại tab, nút dừng log sau khi dừng; vô hiệu hóa thao tác khi chưa có dự án/thiết bị phù hợp.
+- Menu theo vị trí trường khi nội dung cuộn và không bị đóng bởi log tự cuộn.
+
 ## 0.2.0-beta.14 — 2026-11-03
 
 - Hướng dẫn bắt đầu thành trang đầy đủ gồm 8 bước, mục lục, xử lý sự cố và nút đi tới chức năng; hỗ trợ EN/VN.

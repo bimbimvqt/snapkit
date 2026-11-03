@@ -1,3 +1,4 @@
+import { choose } from './choices.js';
 import { test, expect } from '@playwright/test';
 
 test('device manager boots devices and saves one or two IDE selections; app controls are absent', async ({ page }) => {
@@ -62,11 +63,11 @@ test('workspace folder chooser fills path; model selector enforces iOS runtime c
   await expect(page.locator('#workspace-path')).toHaveValue('/Volumes/SanDiskSSDData/flutter_projects/demo_app');
   await page.locator('#workspace-dialog .close-dialog').first().click();
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
-  await expect(page.locator('#create-model')).toBeVisible();
-  await page.locator('#create-model').selectOption('legacy:iphone-5');
+  await expect(page.locator('#create-model-trigger')).toBeVisible();
+  await choose(page, 'create-model', 'legacy:iphone-5');
   await expect(page.locator('#compatibility-note')).toContainText('32-bit');
   await expect(page.getByRole('button', { name: 'Create device', exact: true })).toBeDisabled();
-  await page.locator('#create-model').selectOption('demo:iphone17');
+  await choose(page, 'create-model', 'demo:iphone17');
   await expect(page.locator('#create-runtime option')).toHaveCount(1);
   await expect(page.locator('#create-runtime')).toHaveValue('demo:ios26');
   await page.locator('#create-name').fill('My iPhone Test');
@@ -90,9 +91,9 @@ test('workspace folder chooser fills path; model selector enforces iOS runtime c
 test('Android image must be installed before creating a device and modal fits mobile', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
-  await expect(page.locator('#create-model')).toBeVisible();
+  await expect(page.locator('#create-model-trigger')).toBeVisible();
   await page.locator('[data-create-platform="android"]').click();
-  await page.locator('#create-runtime').selectOption('system-images;android-34;google_apis;arm64-v8a');
+  await choose(page, 'create-runtime', 'system-images;android-34;google_apis;arm64-v8a');
   await expect(page.locator('#create-device-submit')).toBeDisabled();
   await page.getByRole('button', { name: 'Install image', exact: true }).click();
   await expect(page.locator('#create-device-submit')).toBeEnabled();
@@ -102,7 +103,7 @@ test('Android image must be installed before creating a device and modal fits mo
 test('missing iOS runtime opens recovery tools, filters Apple versions and blocks legacy downloads', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
-  await page.locator('#create-model').selectOption('demo:iphone8');
+  await choose(page, 'create-model', 'demo:iphone8');
   await expect(page.locator('#runtime-downloads')).toHaveAttribute('open', '');
   await expect(page.locator('#ios-model-help')).toContainText('11.0.0–16.9.0');
   await page.getByRole('button', { name: 'Load Apple iOS versions' }).click();
@@ -113,7 +114,7 @@ test('missing iOS runtime opens recovery tools, filters Apple versions and block
   await expect(page.locator('#download-ios-runtime')).toBeDisabled();
   await page.getByRole('button', { name: 'Open Xcode', exact: true }).click();
   await expect(page.locator('.toast').last()).toContainText('Components');
-  await page.locator('#create-model').selectOption('legacy:iphone-5');
+  await choose(page, 'create-model', 'legacy:iphone-5');
   await expect(page.locator('#download-ios-runtime')).toBeDisabled();
   await expect(page.locator('#load-ios-versions')).toBeDisabled();
   await page.getByRole('button', { name: 'Choose a supported model' }).click();
@@ -141,7 +142,7 @@ test('workspace imports a debug profile and submits flavor, entrypoint and defin
   await page.locator('#settings-button').click();
   await page.locator('#workspace-path').fill('/Projects/merchant');
   await page.locator('#workspace-path').dispatchEvent('change');
-  await page.locator('#workspace-profile').selectOption({ label: 'Merchant dev' });
+  await choose(page, 'workspace-profile', { label: 'Merchant dev' });
   await expect(page.locator('#workspace-flavor')).toHaveValue('dev');
   await expect(page.locator('#workspace-target')).toHaveValue('lib/main_dev.dart');
   await expect(page.locator('#workspace-defines')).toHaveValue('../dashboard/dev.json');

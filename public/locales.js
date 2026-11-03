@@ -605,3 +605,7 @@ Object.assign(window.SnapkitMessages.translations, {
 });
 
 Object.assign(window.SnapkitMessages.translations, { 'Device connection changed. Refresh devices before trying again.': 'Kết nối thiết bị đã thay đổi. Hãy làm mới danh sách trước khi thử lại.' });
+
+Object.assign(window.SnapkitMessages.translations, { 'No matching options': 'Không có kết quả phù hợp', 'Search options…': 'Tìm lựa chọn…', 'Search options': 'Tìm lựa chọn', 'Choose an option': 'Chọn một mục' });
+
+Object.assign(window.SnapkitMessages.translations, { 'Edit device set': 'Chỉnh sửa bộ thiết bị', 'Save changes': 'Lưu thay đổi', 'Cancel editing': 'Hủy chỉnh sửa' });

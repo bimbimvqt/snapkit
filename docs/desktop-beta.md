@@ -2,7 +2,7 @@
 
 ## What ships
 
-Snapkit 0.2.0-beta.14 is a free desktop beta with Google sign-in. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
+Snapkit 0.2.0-beta.15 is a free desktop beta with Google sign-in. The Electron app includes its Node runtime and local device agent. The renderer is sandboxed with no Node access. A narrow preload bridge handles version checks, opening allowlisted HTTPS setup links, and restarting the application. Device commands stay on loopback and retain Host/Origin checks, mutation tokens, pairing expiry and exact-device delete confirmation.
 
 The dashboard separates Devices, Setup & tools, Preferences, Your plan, Device sets, Device logs, Captures and a full Quick start guide. Onboarding can be hidden and reopened from Setup & tools. No purchase button, price or artificial active subscription is shown. Multi-device Flutter workflows remain available during beta. Signing, production accounts and payments are release gates for commercialization, not beta features silently claimed as complete.
 
@@ -91,3 +91,7 @@ Device sets persist under application data and are keyed by the selected project
 Android and macOS iOS Simulator support system log streaming, PNG screenshots and silent MP4 recording. Physical iOS has no capture/log buttons. Logs are bounded to 1,000 lines / 1 MB with a 60-second viewer lease; recordings stop after 3 minutes, with at most two active. Files are stored under `device-tools/<project-hash>` with opaque IDs. File APIs resolve only registered artifacts for the current project, including paired browser requests with Bearer authentication.
 
 Local validation includes native screenshot, recording and log smoke on a booted iOS Simulator. Android command ownership and artifact isolation have automated tests; connected Android hardware and clean Windows QA remain required before general availability.
+
+## Consistent controls in beta.15
+
+All select and flavor suggestion popups use the shared custom menu component, including forms inside native HTML dialogs. Underlying select values remain the source for form validation and existing actions. Menus provide keyboard navigation, searchable long lists, viewport positioning and light/dark theme parity. Project tools retain focused controls during background refresh, expose cancel editing and recreate capture preview URLs when returning to the page.
