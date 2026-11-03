@@ -34,7 +34,18 @@
     out.onclick = async () => { out.disabled = true; try { await api('logout', {}); location.reload(); } catch (e) { out.disabled = false; alert(e.message); } }; profile.append(out);
     document.querySelector('.topbar-right')?.append(profile);
     const avatar = document.querySelector('.avatar'); if (avatar) { avatar.textContent = data.user.name.slice(0, 1).toUpperCase(); avatar.setAttribute('aria-label', data.user.email); }
-    fetch('/api/account/content').then(r => r.ok ? r.json() : null).then(content => { if (!content) return; const notice = document.createElement('div'); notice.className = 'notice'; const paint = () => { notice.textContent = content.announcement[vi() ? 'vi' : 'en']; notice.hidden = !notice.textContent; }; paint(); document.addEventListener('snapkit:language', paint); document.querySelector('main')?.prepend(notice); }).catch(() => {});
+    fetch('/api/account/content').then(r => r.ok ? r.json() : null).then(content => {
+      if (!content) return;
+      const notice = document.createElement('div'); notice.id = 'admin-announcement'; notice.className = 'notice'; notice.setAttribute('role', 'status');
+      const paint = () => {
+        const raw = content.announcement?.[vi() ? 'vi' : 'en'];
+        const text = typeof raw === 'string' ? raw.trim() : '';
+        if (!text) { notice.remove(); return; }
+        notice.textContent = text;
+        if (!notice.isConnected) document.querySelector('main')?.prepend(notice);
+      };
+      paint(); document.addEventListener('snapkit:language', paint);
+    }).catch(() => {});
   }
   async function openBrowser(raw) { const url = new URL(raw); if (url.origin !== cloud || !['/auth/google/start', '/admin/'].includes(url.pathname)) throw Error('Invalid sign-in URL'); if (window.snapkitDesktop) await window.snapkitDesktop.openExternal(url.href); else { const win = window.open(url.href, '_blank', 'noopener,noreferrer'); void win; } }
   async function check(fresh = false) {

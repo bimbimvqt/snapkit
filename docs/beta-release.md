@@ -1,3 +1,5 @@
+Empty admin announcements no longer leave a blank banner. Sidebar navigation is organized into Workspace, Setup, Account and Support, with Quick start guide available directly under Support.
+
 Desktop sign-in now includes the Google icon and a cleaner layout. Connection retry appears only after a connection or verification error, shows progress and performs a fresh session check.
 
 Snapkit now opens with an animated logo splash while the local agent and sign-in screen get ready. The splash follows your English/Vietnamese preference and system reduced-motion setting.

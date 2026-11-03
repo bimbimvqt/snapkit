@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.13 — 2026-11-03
+
+- Không tạo banner khi thông báo admin ở ngôn ngữ hiện tại trống hoặc chỉ có khoảng trắng.
+- Bỏ thẻ quảng bá ở sidebar; chia menu thành Không gian làm việc, Thiết lập, Tài khoản và Trợ giúp.
+- Giữ hướng dẫn bắt đầu ở mục Trợ giúp và cho phép cuộn menu khi cửa sổ thấp.
+
 ## 0.2.0-beta.12 — 2026-11-03
 
 - Thêm icon Google nhiều màu và làm gọn màn đăng nhập desktop.

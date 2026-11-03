@@ -11,15 +11,24 @@
   <aside class="sidebar">
     <a class="brand" href="/" aria-label="Snapkit home"><span class="brand-mark"><i data-lucide="scan-line"></i></span>Snapkit<span class="beta">BETA</span></a>
     <button class="workspace-switch" id="workspace-switch"><span class="workspace-icon"><i data-lucide="folder-code"></i></span><span><strong id="workspace-name">Select workspace</strong><small>Flutter workspace</small></span><i data-lucide="chevrons-up-down"></i></button>
-    <div class="nav-label">WORKSPACE</div>
-    <nav aria-label="Main navigation">
-      <button class="nav-item active" data-page="devices" data-app-page="devices"><i data-lucide="panels-top-left"></i>Devices<span id="nav-device-count">0</span></button>
-      <button class="nav-item" data-app-page="setup" aria-label="Setup and tools"><i data-lucide="circle-check-big"></i>Setup & tools</button>
-      <button class="nav-item" data-app-page="preferences" aria-label="Preferences"><i data-lucide="sliders-horizontal"></i>Preferences</button>
-      <button class="nav-item" data-app-page="plan" aria-label="Your plan"><i data-lucide="gem"></i>Your plan<span>BETA</span></button>
+    <nav class="sidebar-navigation" aria-label="Main navigation">
+      <section class="sidebar-group" aria-labelledby="nav-workspace"><h2 class="nav-label" id="nav-workspace">WORKSPACE</h2>
+        <button class="nav-item active" data-page="devices" data-app-page="devices" title="Devices"><i data-lucide="panels-top-left"></i>Devices<span id="nav-device-count">0</span></button>
+      </section>
+      <section class="sidebar-group" aria-labelledby="nav-setup"><h2 class="nav-label" id="nav-setup">SETUP</h2>
+        <button class="nav-item" data-app-page="setup" aria-label="Setup and tools" title="Setup and tools"><i data-lucide="circle-check-big"></i>Setup & tools</button>
+        <button class="nav-item" id="settings-button" aria-label="IDE debug setup" title="IDE debug setup"><i data-lucide="code-xml"></i>IDE debug setup</button>
+        <button class="nav-item" data-app-page="preferences" aria-label="Preferences" title="Preferences"><i data-lucide="sliders-horizontal"></i>Preferences</button>
+      </section>
+      <section class="sidebar-group" aria-labelledby="nav-account"><h2 class="nav-label" id="nav-account">ACCOUNT</h2>
+        <button class="nav-item" data-app-page="plan" aria-label="Your plan" title="Your plan"><i data-lucide="gem"></i>Your plan<span>BETA</span></button>
+      </section>
+      <section class="sidebar-group" aria-labelledby="nav-support"><h2 class="nav-label" id="nav-support">SUPPORT</h2>
+        <button class="nav-item" id="guide-button" aria-label="Quick start guide" title="Quick start guide"><i data-lucide="circle-help"></i>Quick start guide</button>
+        <button class="nav-item" id="theme-toggle" aria-label="Switch appearance" title="Switch appearance"><i data-lucide="sun"></i>Switch appearance</button>
+      </section>
     </nav>
-    <div class="sidebar-note"><span class="tiny-label">A LITTLE LESS SETUP</span><i data-lucide="workflow"></i><strong>More building.<br>Less switching.</strong><p>Bring your test devices together. Keep working in the editor you love.</p><button id="guide-button">Quick start guide <i data-lucide="arrow-up-right"></i></button></div>
-    <div class="sidebar-bottom"><button class="nav-item" id="settings-button" aria-label="IDE debug setup" title="IDE debug setup"><i data-lucide="settings-2"></i>IDE debug setup</button><button class="nav-item" id="theme-toggle" aria-label="Switch appearance" title="Switch appearance"><i data-lucide="sun"></i>Switch appearance</button><div class="local-status"><span class="dot green"></span><span id="server-status">Local server connected</span><span class="version">v1.0</span></div></div>
+    <div class="sidebar-bottom"><div class="local-status"><span class="dot green"></span><span id="server-status">Local server connected</span><span class="version">v1.0</span></div></div>
   </aside>
   <div class="app-shell">
     <header class="topbar"><div class="breadcrumbs"><i data-lucide="folder-open"></i><span>Workspace</span><span>/</span><strong id="breadcrumb-page">Device manager</strong></div><div class="topbar-right"><div class="language-picker"><button type="button" class="language-trigger" data-language-select data-language-current="en" aria-label="Language / Ngôn ngữ" aria-haspopup="menu" aria-expanded="false" aria-controls="language-menu"><span data-language-label>EN</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="language-menu" class="language-menu" role="menu" aria-label="Language / Ngôn ngữ" hidden><button type="button" role="menuitemradio" data-language="en" aria-checked="true"><span>English</span><span class="language-code" lang="en">EN</span></button><button type="button" role="menuitemradio" data-language="vi" aria-checked="false"><span lang="vi">Tiếng Việt</span><span class="language-code" lang="vi">VN</span></button></div></div><button class="button" id="connection-button">Connect website</button><span id="mode-badge" class="local-badge"><span class="dot green"></span>LOCAL ENVIRONMENT</span><button class="icon-button" id="help-button" aria-label="Open help"><i data-lucide="circle-help"></i></button><span class="avatar" aria-label="Local workspace"><i data-lucide="laptop"></i></span></div></header>

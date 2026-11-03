@@ -376,3 +376,23 @@ test('device cards turn off one simulator and request stopping only its IDE debu
   await expect(page.locator('[data-device="demo-physical-1"] [data-action="shutdown"]')).toHaveCount(0);
   await report([]);
 });
+
+test('sidebar groups separate workspace, setup, account and support while retaining navigation and help', async ({page}) => {
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('.sidebar-note')).toHaveCount(0);
+  await expect(page.locator('.sidebar-group')).toHaveCount(4);
+  await expect(page.locator('#nav-setup')).toHaveText('SETUP');
+  await page.locator('.sidebar [data-app-page="preferences"]').click();
+  await expect(page.locator('#panel-preferences')).toBeVisible();
+  await page.locator('.sidebar [data-app-page="plan"]').click();
+  await expect(page.locator('#panel-plan')).toBeVisible();
+  await expect(page.locator('.sidebar [data-app-page].active')).toHaveCount(1);
+  await page.locator('#guide-button').click();
+  await expect(page.locator('#guide-dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({width:900,height:680});
+  const status=await page.locator('.local-status').boundingBox(); expect(status.y+status.height).toBeLessThanOrEqual(680);
+  await page.screenshot({path:'/tmp/snapkit-sidebar-beta13.png',fullPage:true});
+  expect(errors).toEqual([]);
+});

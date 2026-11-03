@@ -121,3 +121,18 @@ test('desktop login hides retry when healthy, keeps Google icon in both language
   await expect(page.locator('#google-signin')).toBeEnabled();
   await expect(page.locator('#account-retry')).toBeHidden();
 });
+
+test('admin announcement is absent for blank localized content and returns only for the language with text', async ({page}) => {
+  await page.route('**/api/auth/status*',route=>route.fulfill({json:{required:true,authenticated:true,localToken:'local',user:{name:'Tester',email:'test@example.com',role:'user'}}}));
+  await page.route('**/api/account/content',route=>route.fulfill({json:{announcement:{en:'  ',vi:'  Thông báo thử nghiệm  '}}}));
+  await page.goto('/?lang=en');
+  await expect(page.locator('.account-gate')).toHaveCount(0);
+  await expect(page.locator('#admin-announcement')).toHaveCount(0);
+  await page.locator('[data-language-select]').click();
+  await page.getByRole('menuitemradio',{name:/Tiếng Việt/}).click();
+  await expect(page.locator('#admin-announcement')).toBeVisible();
+  await expect(page.locator('#admin-announcement')).toHaveText('Thông báo thử nghiệm');
+  await page.locator('[data-language-select]').click();
+  await page.getByRole('menuitemradio',{name:/English/}).click();
+  await expect(page.locator('#admin-announcement')).toHaveCount(0);
+});
