@@ -12,13 +12,15 @@ test('in-app update controls show progress, separate install action and cache fe
       testReady: () => state = { status: 'ready', version: '0.2.0-beta.20' }
     };
   });
-  await page.goto('/?lang=en'); await page.locator('[data-app-page="preferences"]').click();
+  await page.goto('/?lang=en'); await page.locator('[data-app-page="updates"]').click();
   await page.locator('#check-updates').click(); await expect(page.locator('#update-download')).toBeVisible(); await expect(page.locator('#update-install')).toBeHidden();
   await page.locator('#update-download').click(); await expect(page.locator('#update-progress')).toHaveAttribute('value', '50'); await expect(page.locator('#update-cancel')).toBeVisible();
   await page.locator('#update-cancel').click(); await expect(page.locator('#update-download')).toBeVisible();
   await page.evaluate(() => window.snapkitDesktop.testReady()); await expect(page.locator('#update-install')).toBeVisible();
   await page.locator('#update-install').click(); await expect(page.locator('#update-detail')).toContainText('Finish builds');
+  await page.locator('[data-app-page="preferences"]').click();
   await page.locator('#clear-app-cache').click(); await expect(page.locator('#cache-result')).toHaveText('Temporary app cache cleared.');
+  await page.locator('[data-app-page="updates"]').click();
   await page.evaluate(() => window.SnapkitI18n.setLanguage('vi')); await expect(page.locator('#update-install')).toHaveText('Khởi động lại và cài đặt');
   await expect(page.locator('#update-status')).toContainText('đã sẵn sàng để cài');
 });
@@ -41,7 +43,7 @@ test('restart/install paints a blocking loading screen, recovers on cancel/error
     };
   });
   await page.goto('/?lang=en');
-  await page.locator('[data-app-page="preferences"]').click();
+  await page.locator('[data-app-page="updates"]').click();
   const loading = page.locator('#update-loading');
   await expect(page.locator('#update-install')).toBeVisible();
   await page.locator('#update-install').click();
@@ -74,4 +76,35 @@ test('restart/install paints a blocking loading screen, recovers on cancel/error
   expect(await loading.locator('.update-loading-track span').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
   await page.screenshot({ path: '/tmp/snapkit-update-loading-vi.png', animations: 'disabled' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('dedicated Updates page shows background availability everywhere without forced downloads and dismisses only that version', async ({page}) => {
+  await page.addInitScript(()=>{
+    let state={status:'available',current:'0.2.0-beta.26',version:'0.2.0-beta.27',lastCheckedAt:1793764800000};
+    window.snapkitDesktop={ready:()=>{},setLanguage:async()=>{},updateState:async()=>state,
+      testUpdate:next=>state={...state,...next}, downloadUpdate:async()=>{window.downloaded=true;return state;},installUpdate:async()=>{window.installed=true;return state;}};
+  });
+  await page.goto('/?lang=en');
+  await expect(page.locator('#update-banner')).toBeVisible();await expect(page.locator('#update-banner')).toContainText('0.2.0-beta.27');
+  await expect(page.locator('#update-indicator')).toHaveCount(1);await expect(page.locator('#update-indicator')).toBeVisible();
+  await expect(page.locator('#panel-preferences #check-updates')).toHaveCount(0);
+  await page.locator('#update-dismiss').click();await expect(page.locator('#update-banner')).toBeHidden();await expect(page.locator('#update-indicator')).toBeVisible();
+  await page.evaluate(()=>window.snapkitDesktop.testUpdate({version:'0.2.0-beta.28'}));
+  await expect(page.locator('#update-banner')).toBeVisible();
+  await page.locator('#update-view').click();await expect(page.locator('#panel-updates')).toBeVisible();await expect(page.locator('#update-banner')).toBeHidden();
+  await expect(page.locator('#breadcrumb-page')).toHaveText('Updates');await expect(page.locator('#update-last-checked')).toContainText('Last checked:');
+  await expect(page.locator('#product-version')).toHaveText('0.2.0-beta.26');
+  await expect(page.locator('#update-download')).toBeVisible();
+  await page.screenshot({path:'/tmp/snapkit-updates-page-en.png',animations:'disabled'});
+  await page.evaluate(()=>window.snapkitDesktop.testUpdate({status:'ready'}));await expect(page.locator('#update-install')).toBeVisible();await expect(page.locator('#update-indicator')).toHaveText('Ready');
+  await page.locator('[data-app-page="devices"]').click();await expect(page.locator('#update-banner')).toContainText('ready to install');
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
+  await page.locator('#update-view').click();await expect(page.locator('#updates-title')).toHaveText('Cập nhật');await expect(page.locator('#breadcrumb-page')).toHaveText('Cập nhật');
+  await expect(page.locator('#panel-updates')).toContainText('Tự động kiểm tra mỗi 10 phút');
+  await page.locator('#theme-toggle').click();await page.setViewportSize({width:900,height:680});
+  await page.screenshot({path:'/tmp/snapkit-updates-page-vi.png',fullPage:true,animations:'disabled'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const pinned = await page.locator('.sidebar-bottom [data-app-page="updates"]').boundingBox();
+  expect(pinned.y + pinned.height).toBeLessThanOrEqual(680);
+  expect(await page.evaluate(()=>!!window.downloaded||!!window.installed)).toBe(false);
 });

@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.27 — 2026-11-04
+
+- Tách Cập nhật khỏi Tùy chọn, ghim thành mục riêng ở đáy sidebar với badge bản mới/đã sẵn sàng/tiến độ tải.
+- Thay lịch kiểm tra 6 giờ bằng kiểm tra khi mở và mỗi 10 phút trong tiến trình desktop; kiểm tra bù khi focus hoặc thức dậy sau sleep nếu đã tới hạn.
+- Thông báo gọn ở các màn hình có nút Xem cập nhật và ẩn theo phiên bản; không tự chuyển trang, tải hoặc khởi động lại.
+- Trang cập nhật có phiên bản đang dùng, lần kiểm tra gần nhất, link release notes và giữ luồng tải/xác minh/cài có xác nhận.
+- Giữ bản cập nhật đã tìm thấy khi kiểm tra lại mất mạng, tránh kiểm tra chồng hoặc thay bản đang tải/chờ cài.
+- Hỗ trợ EN/VI, theme sáng/tối và cửa sổ nhỏ; sửa trùng ID badge cập nhật trong phần trợ giúp.
+
 ## 0.2.0-beta.26 — 2026-11-04
 
 - Chạy Release trực tiếp trên điện thoại Android/iPhone thật kết nối USB hoặc Wi-Fi, từ card thiết bị hoặc trang Build & phát hành.

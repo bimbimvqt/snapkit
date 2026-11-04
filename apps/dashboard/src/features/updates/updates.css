@@ -13,3 +13,15 @@
 .update-loading-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 @keyframes update-wait{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
 @media(prefers-reduced-motion:reduce){.update-loading-track span{animation:none;width:100%}}
+
+.updates-page{max-width:900px}.updates-page .update-card{border:1px solid var(--border);padding:32px;border-radius:16px;background:var(--surface)}
+.updates-brand{display:flex;align-items:center;gap:16px;margin-bottom:28px}.updates-brand img{width:56px;height:56px}.updates-brand .release-tag{color:var(--muted)}
+.updates-page .update-card[data-status=available],.updates-page .update-card[data-status=ready]{border-color:var(--accent)}
+.updates-page .setup-overview{gap:24px;flex-wrap:wrap}.updates-page .setup-overview>div{min-width:0;flex:1 1 260px}.updates-page .setup-overview h2{font-size:26px;overflow-wrap:anywhere}.updates-page .preferences-actions{flex-wrap:wrap}
+.updates-notes{margin:24px 0}.updates-schedule{display:flex;align-items:flex-start;gap:16px;padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--surface-subtle)}
+.updates-schedule>svg{margin-top:3px;color:var(--muted)}.updates-schedule h2{font-size:15px;margin-bottom:8px}.updates-schedule p{font-size:13px;line-height:1.7;color:var(--muted)}#update-last-checked{margin-top:12px;font-size:12px}
+.update-banner{display:flex;align-items:center;gap:12px;padding:12px 36px;border-bottom:1px solid var(--border);background:var(--surface-subtle)}.update-banner>svg{color:var(--accent)}.light .update-banner>svg{color:var(--green)}.update-banner p{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.update-banner .button{min-height:44px}.update-banner .icon-button{flex-shrink:0;width:44px;height:44px}
+#update-indicator{margin-left:auto;flex-shrink:0;max-width:56px;overflow:hidden;text-overflow:ellipsis;font-size:10px;background:var(--accent);color:var(--accent-ink);padding:2px 6px;border-radius:5px}
+@media(max-width:600px){.updates-page .update-card{padding:20px}.update-banner{padding:12px 16px;flex-wrap:wrap}.update-banner p{flex-basis:calc(100% - 40px)}.update-banner #update-view{margin-left:30px}.updates-schedule{padding:20px}}
+
+.sidebar-bottom>[data-app-page="updates"]{margin:8px 0;min-height:44px;font-size:12px}

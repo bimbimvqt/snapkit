@@ -1,6 +1,10 @@
 # Cập nhật Snapkit trong ứng dụng
 
-Từ **0.2.0-beta.19**, vào **Preferences / Tùy chọn → Cập nhật ứng dụng**. App kiểm tra sau khi mở và mỗi 6 giờ; chỉ tải khi người dùng bấm **Tải bản cập nhật**. Có tiến độ tải và nút hủy. Sau khi xác minh xong, bấm **Khởi động lại và cài đặt** rồi xác nhận. Đăng nhập, workspace, cấu hình, thiết bị, ảnh/video và lịch sử build được giữ nguyên.
+Từ **0.2.0-beta.27**, mở mục **Updates / Cập nhật** được ghim ở đáy sidebar. App kiểm tra khi mở và mỗi **10 phút** trong tiến trình Electron chính, kể cả khi cửa sổ thu nhỏ. Khi máy thức dậy hoặc cửa sổ được focus, kiểm tra bù nếu lần thử gần nhất đã quá 10 phút. Không tạo lượt kiểm tra chồng nhau hoặc đổi bản đang tải, xác minh, chờ cài hay đang cài.
+
+Khi tìm thấy bản mới, sidebar có badge và màn hình hiện thông báo **Xem cập nhật**. Có thể ẩn thông báo của phiên bản đó trong phiên app hiện tại; badge vẫn giữ. Bản mới hơn hoặc bản đã tải sẵn để cài sẽ có thông báo riêng. Không tự chuyển trang, tải file hoặc khởi động lại. Trang Cập nhật hiển thị version đang dùng, trạng thái/tiến độ, lần kiểm tra thành công gần nhất và link release notes.
+
+Chỉ tải khi người dùng bấm **Tải bản cập nhật**. Có tiến độ tải và nút hủy. Sau khi xác minh xong, bấm **Khởi động lại và cài đặt** rồi xác nhận. Mất mạng vẫn giữ bản đã biết có thể tải, báo lỗi và thử lại ở chu kỳ tiếp theo. Đăng nhập, workspace, cấu hình, thiết bị, ảnh/video và lịch sử build được giữ nguyên. Bản trước beta.27 vẫn có mục cập nhật trong Tùy chọn và lịch kiểm tra cũ cho đến khi nâng cấp.
 
 Đây là bản desktop production (agent thật, Google login và dữ liệu thật); sản phẩm vẫn thuộc kênh beta miễn phí. Bản cài trước beta.19 cần được thay một lần để có bộ cập nhật mới. Không nạp JavaScript từ xa vào app đang chạy.
 

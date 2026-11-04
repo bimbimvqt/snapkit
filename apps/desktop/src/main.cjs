@@ -1,17 +1,18 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { createSplash } = require('./splash/splash.cjs');
 const { DesktopUpdater } = require('./updates/updater.cjs');
+const { startUpdateChecks } = require('./updates/schedule.cjs');
 const development = !app.isPackaged && process.env.SNAPKIT_DEV === '1';
 const port = development ? Number(process.env.SNAPKIT_DEV_PORT || 4311) : process.env.SNAPKIT_SMOKE_TEST === '1' ? Number(process.env.SNAPKIT_SMOKE_PORT || 14328) : 4310;
 if (!Number.isInteger(port) || port < 1024 || port > 65535 || (development && port === 4310)) throw new Error('Invalid Dev port');
 const origin = `http://127.0.0.1:${port}`;
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const devRoot = path.resolve(process.env.SNAPKIT_DEV_DATA_ROOT || path.join(repositoryRoot, '.snapkit-dev', process.env.SNAPKIT_DESKTOP_DEMO === '1' ? 'demo' : 'local'));
-let stopWatching;
+let stopWatching, updateChecks;
 let agent, mainWindow, bootSplash, exiting = false;
 app.setName(development ? 'Snapkit Dev' : 'Snapkit');
 if (development) app.setPath('userData', path.join(devRoot, 'profile'));
@@ -170,8 +171,9 @@ async function start() {
   if (readyReported) await updater.acknowledge(updateToken, true);
   if (!updateToken) await updater.cleanup();
   if (app.isPackaged && process.env.SNAPKIT_SMOKE_TEST !== '1') {
-    const checkTimer = setTimeout(() => updater.check(), 20000); checkTimer.unref();
-    const interval = setInterval(() => updater.check(), 6 * 60 * 60 * 1000); interval.unref();
+    updateChecks = startUpdateChecks(updater);
+    mainWindow.on('focus', () => { void updateChecks?.wake(); });
+    powerMonitor.on('resume', () => { void updateChecks?.wake(); });
   }
   const splashClosed = bootSplash.window.isDestroyed();
   if (process.env.SNAPKIT_SMOKE_TEST === '1') {
@@ -194,7 +196,7 @@ app.on('window-all-closed', () => app.quit());
 app.on('before-quit', event => {
   if (exiting) return;
   exiting = true;
-  stopWatching?.();
+  stopWatching?.(); updateChecks?.stop();
   bootSplash?.destroy();
   event.preventDefault();
   (async () => {

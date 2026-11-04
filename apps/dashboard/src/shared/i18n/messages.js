@@ -2,6 +2,20 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Updates": "Cập nhật",
+    "New": "Mới",
+    "KEEP MOVING FORWARD": "LUÔN SẴN SÀNG CHO BƯỚC TIẾP THEO",
+    "The latest Snapkit, on your terms.": "Snapkit mới nhất, cập nhật khi bạn sẵn sàng.",
+    "Checked automatically every 10 minutes": "Tự động kiểm tra mỗi 10 phút",
+    "Checks run in the background while Snapkit is open. Downloads and restarts always need your action.": "Kiểm tra nền khi Snapkit đang mở. Bạn chủ động chọn tải về và khởi động lại.",
+    "Automatic checks are available in the installed macOS and Windows app.": "Tự động kiểm tra khả dụng trong ứng dụng đã cài trên macOS và Windows.",
+    "Last checked: {0}": "Kiểm tra gần nhất: {0}",
+    "No completed check yet.": "Chưa có lần kiểm tra hoàn tất.",
+    "Snapkit {0} is available.": "Đã có Snapkit {0}.",
+    "Dismiss update notice": "Ẩn thông báo cập nhật",
+    "App update": "Bản cập nhật ứng dụng",
+    "Release notes": "Nội dung cập nhật",
+
     "ON YOUR DEVICE": "TRÊN THIẾT BỊ CỦA BẠN",
     "Run Release on a real device": "Chạy Release trên thiết bị thật",
     "Build, install and open the app with the flavor, entrypoint and defines above. Run Release uses the version in pubspec.yaml; file format and version overrides apply only to file builds.": "Build, cài đặt và mở app với flavor, entrypoint và defines bên trên. Chạy Release dùng phiên bản trong pubspec.yaml; định dạng file và phiên bản chỉnh sửa chỉ áp dụng khi tạo file build.",

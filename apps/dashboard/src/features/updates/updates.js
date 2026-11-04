@@ -1,7 +1,7 @@
 /* The desktop main process owns metadata, downloads and installation. */
 (() => {
   const bridge = window.snapkitDesktop;
-  let state = { status: bridge ? 'idle' : 'web' }, polling = false, action = false, installing = false;
+  let state = { status: bridge ? 'idle' : 'web' }, polling = false, action = false, installing = false, dismissedNotice = '';
   const statuses = {
     idle: 'Check, download and install updates right here.', checking: 'Checking for updates…', latest: 'You’re using the latest version.',
     available: 'Snapkit {0} is ready to download.', downloading: 'Downloading Snapkit {0}…', verifying: 'Verifying and preparing the update…',
@@ -10,7 +10,25 @@
   };
   const loading = $('#update-loading');
   loading.addEventListener('cancel', event => event.preventDefault());
+  function updateText(id, value) { const node = $('#' + id); if (node.textContent !== value) node.textContent = value; }
+  function renderNotice() {
+    const available = !!state.version && (['available', 'ready', 'downloading', 'verifying', 'installing', 'checking'].includes(state.status) || state.status === 'error' && state.retry === 'download');
+    const badge = $('#update-indicator');
+    badge.classList.toggle('hidden', !available);
+    updateText('update-indicator', t(state.status === 'ready' ? 'Ready' : state.status === 'downloading' ? '{0}%' : 'New', [state.percent || 0]));
+    const noticeKey = state.version + ':' + (state.status === 'ready' ? 'ready' : 'available');
+    const show = available && ['available', 'ready', 'checking'].includes(state.status) && activePage !== 'updates' && dismissedNotice !== noticeKey;
+    $('#update-banner').classList.toggle('hidden', !show);
+    updateText('update-banner-text', available ? t(state.status === 'ready' ? 'Snapkit {0} is ready to install.' : 'Snapkit {0} is available.', [state.version]) : '');
+    $('#update-dismiss').dataset.notice = noticeKey;
+    const last = Number(state.lastCheckedAt);
+    updateText('update-last-checked', last > 0 ? t('Last checked: {0}', [new Date(last).toLocaleString(window.SnapkitI18n.language)]) : t('No completed check yet.'));
+    updateText('update-schedule-note', t(bridge && state.status !== 'unsupported' ? 'Checks run in the background while Snapkit is open. Downloads and restarts always need your action.' : 'Automatic checks are available in the installed macOS and Windows app.'));
+    if (state.current) updateText('product-version', state.current);
+    $('#panel-updates .update-card').dataset.status = state.status;
+  }
   function render() {
+    renderNotice();
     const busy = installing || state.status === 'installing';
     $('#update-loading-title').textContent = t('Preparing to restart…');
     $('#update-loading-note').textContent = t('Snapkit will close to install the update. Please keep your computer on.');
@@ -30,7 +48,6 @@
     $('#update-install').classList.toggle('hidden', state.status !== 'ready');
     $('#update-cancel').classList.toggle('hidden', state.status !== 'downloading');
     for (const id of ['update-download', 'update-install', 'update-cancel']) $('#' + id).disabled = action;
-    $('#update-indicator')?.classList.toggle('hidden', !['available', 'ready'].includes(state.status));
     $('#clear-app-cache').disabled = !bridge || action;
     if (restoreFocus) $('#update-install').focus();
   }
@@ -64,7 +81,11 @@
     finally { event.currentTarget.disabled = false; }
   });
   document.addEventListener('snapkit:language', render);
-  document.addEventListener('snapkit:page', refresh);
+  $('#update-view').addEventListener('click', () => showProductPage('updates'));
+  $('#update-dismiss').addEventListener('click', () => { dismissedNotice = $('#update-dismiss').dataset.notice; renderNotice(); });
+  document.addEventListener('snapkit:page', () => { renderNotice(); refresh(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  window.addEventListener('focus', refresh);
   setInterval(() => { if (!document.hidden) refresh(); }, 1000);
   render(); refresh();
 })();

@@ -75,3 +75,29 @@ test('update preparation failures stay retryable even when temporary-file cleanu
     assert.equal(updater.pending, null); assert.equal(updater.controller, null);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('desktop checks immediately and every ten minutes, catches up after sleep and stops on quit', async t => {
+  const { CHECK_INTERVAL, startUpdateChecks } = require('../../apps/desktop/src/updates/schedule.cjs');
+  const root=await mkdtemp(path.join(os.tmpdir(),'snapkit-update-schedule-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let clock=1000, calls=0, tick, cleared=false;
+  const updater=new DesktopUpdater({version:'0.2.0-beta.19',platform:'win32',arch:'x64',packaged:true,userData:root,now:()=>clock,releases:async()=>{calls++;return [release('0.2.0-beta.20','win','x64')];}});
+  const scheduler=startUpdateChecks(updater,{now:()=>clock,every:(fn,ms)=>{tick=fn;assert.equal(ms,600000);return 1;},clear:()=>{cleared=true;}});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);assert.equal(updater.snapshot().lastCheckedAt,1000);
+  clock+=CHECK_INTERVAL-1;await scheduler.wake();assert.equal(calls,1);
+  clock++;await scheduler.wake();assert.equal(calls,2);
+  clock+=CHECK_INTERVAL;await tick();assert.equal(calls,3);
+  for(const status of ['downloading','verifying','ready','installing']){updater.set(status);clock+=CHECK_INTERVAL;await tick();assert.equal(calls,3);}
+  scheduler.stop();await scheduler.wake();await tick();assert.equal(cleared,true);assert.equal(calls,3);
+  let timers=0;
+  const dev=new DesktopUpdater({version:'0.2.0-beta.19',platform:'darwin',arch:'arm64',packaged:false,userData:root,releases:()=>{throw Error('No network in development');}});
+  startUpdateChecks(dev,{every:()=>{timers++;}}).stop();assert.equal(timers,0);
+});
+test('concurrent background/manual checks share the checking state and offline rechecks retain the known update', async t => {
+  const root=await mkdtemp(path.join(os.tmpdir(),'snapkit-update-recheck-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  let complete, calls=0, clock=1000;
+  const updater=new DesktopUpdater({version:'0.2.0-beta.19',platform:'win32',arch:'x64',packaged:true,userData:root,now:()=>clock,releases:()=>{calls++;return new Promise(resolve=>{complete=resolve;});}});
+  const check=updater.check();assert.equal((await updater.check()).status,'checking');assert.equal(calls,1);
+  complete([release('0.2.0-beta.20','win','x64')]);await check;
+  updater.releases=async()=>{throw Error('offline');};clock+=600000;
+  const state=await updater.check();assert.equal(state.status,'available');assert.equal(state.version,'0.2.0-beta.20');assert.equal(state.error,'offline');assert.equal(state.lastCheckedAt,1000);assert.equal(state.lastAttemptAt,601000);
+});

@@ -6,19 +6,22 @@ const { selectRelease } = require('./policy.cjs');
 const network = require('./network.cjs');
 const installer = require('./install.cjs');
 class DesktopUpdater {
-  constructor({ version, platform, arch, packaged, executable, userData, releases = network.releaseList, download = network.download, prepare = installer.prepareMac, install = installer.startInstaller }) {
-    Object.assign(this, { version, platform, arch, packaged, executable, releases, transfer: download, prepare, install });
+  constructor({ version, platform, arch, packaged, executable, userData, releases = network.releaseList, download = network.download, prepare = installer.prepareMac, install = installer.startInstaller, now = Date.now }) {
+    Object.assign(this, { version, platform, arch, packaged, executable, releases, transfer: download, prepare, install, now });
     this.cache = path.join(userData, 'updates'); this.state = { status: packaged && ['darwin', 'win32'].includes(platform) ? 'idle' : 'unsupported', current: version }; this.asset = null; this.controller = null; this.paths = null;
   }
-  snapshot() { return { ...this.state }; }
+  snapshot() { return { ...this.state, lastCheckedAt: this.lastCheckedAt ?? null, lastAttemptAt: this.lastAttemptAt ?? null }; }
   set(status, extra = {}) { this.state = { current: this.version, version: this.asset?.version, ...extra, status }; return this.snapshot(); }
   async check() {
     if (['unsupported', 'checking', 'downloading', 'verifying', 'ready', 'installing'].includes(this.state.status)) return this.snapshot();
+    const previous = this.state;
+    this.lastAttemptAt = this.now();
     this.set('checking');
     try {
       this.asset = selectRelease(await this.releases(AbortSignal.timeout(15000)), this.version, this.platform, this.arch);
+      this.lastCheckedAt = this.now();
       return this.set(this.asset ? 'available' : 'latest', this.asset ? { size: this.asset.size } : {});
-    } catch (error) { return this.set('error', { error: error.message, retry: 'check' }); }
+    } catch (error) { return previous.status === 'available' && this.asset ? this.set('available', { size: this.asset.size, error: error.message }) : this.set('error', { error: error.message, retry: 'check' }); }
   }
   async download() {
     if (!['available', 'error'].includes(this.state.status) || !this.asset || this.controller) throw Error('Check for an available update first.');

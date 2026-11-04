@@ -9,11 +9,11 @@ const productEditors = [
   ['other', 'Another editor', 'Device management', 'terminal']
 ];
 function showProductPage(page) {
-  if (!['devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases'].includes(page)) return;
+  if (!['devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases', 'updates'].includes(page)) return;
   activePage = page;
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', button.dataset.appPage === page); button.setAttribute('aria-current', button.dataset.appPage === page ? 'page' : 'false'); });
-  $('#breadcrumb-page').textContent = { releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
+  $('#breadcrumb-page').textContent = { updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
   if (page === 'setup' && !toolState) checkTools();
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -125,7 +125,7 @@ loadProduct();
 
 document.addEventListener('snapkit:language', () => {
   renderEditors(); updateJourney();
-  $('#breadcrumb-page').textContent = t({ releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
+  $('#breadcrumb-page').textContent = t({ updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
 });
 window.snapkitDesktop?.setLanguage?.(window.SnapkitI18n.language).catch(() => {});
