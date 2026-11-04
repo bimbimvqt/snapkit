@@ -25,7 +25,7 @@ export class AppleTeams {
   slot(workspace, flavor = '') { if (!workspace) throw Error('Choose a Flutter workspace first.'); if (typeof flavor !== 'string' || flavor.length > 128) throw Error('Invalid flavor name'); return createHash('sha256').update(path.resolve(workspace)).digest('hex') + ':' + flavor; }
   catalog(workspace) { const prefix = this.slot(workspace).split(':')[0] + ':'; return { teams: Object.values(this.teams).map(({ identity, ...team }) => team), selections: Object.fromEntries(Object.entries(this.selections).filter(([key]) => key.startsWith(prefix)).map(([key, value]) => [key.slice(prefix.length), value])), demo: this.demo }; }
   async connect(input) {
-    const teamId = String(input.teamId || '').trim().toUpperCase(), name = String(input.name || '').trim();
+    const teamId = String(input.teamId || '').trim().toUpperCase(), name = String(input.name || '').trim() || `Apple Team ${teamId}`;
     if (!/^[A-Z0-9]{10}$/.test(teamId) || !name || name.length > 100 || /[\x00-\x1f]/.test(name)) throw Error('Enter an Apple team name and its 10-character Team ID.');
     if (this.pending.has(teamId)) throw Error('This Apple team is being refreshed. Try again shortly.');
     if (!this.teams[teamId] && Object.keys(this.teams).length >= 30) throw Error('Remove an unused Apple team before adding another.');

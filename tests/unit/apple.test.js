@@ -54,7 +54,7 @@ test('failed Apple refresh preserves the connected key and cached apps; app chan
 async function signingFixture(t, { bundleId = app.bundleId, team = teamId, style = 'Automatic' } = {}) {
   const root = await fixture(t); let profile = { TeamIdentifier: [teamId], Entitlements: { 'application-identifier': `${teamId}.${app.bundleId}`, 'get-task-allow': false } }, info = { CFBundleIdentifier: app.bundleId, CFBundleShortVersionString: '1.2.0', CFBundleVersion: '7' };
   const signing = new AppleSigning({ platform: 'darwin', run: async (name, args, options) => {
-    if (args[0] === 'xcodebuild') { assert.equal(await readFile(options.env.XCODE_XCCONFIG_FILE, 'utf8'), `// Snapkit build only. The project is not modified.\nDEVELOPMENT_TEAM = ${teamId}\n`); return { stdout: JSON.stringify([{ buildSettings: { PRODUCT_TYPE: 'com.apple.product-type.application', PRODUCT_BUNDLE_IDENTIFIER: bundleId, DEVELOPMENT_TEAM: team, CODE_SIGN_STYLE: style } }]) }; }
+    if (args[0] === 'xcodebuild') { if (options.env.XCODE_XCCONFIG_FILE) assert.equal(await readFile(options.env.XCODE_XCCONFIG_FILE, 'utf8'), `// Snapkit build only. The project is not modified.\nDEVELOPMENT_TEAM = ${teamId}\n`); return { stdout: JSON.stringify([{ buildSettings: { PRODUCT_TYPE: 'com.apple.product-type.application', PRODUCT_BUNDLE_IDENTIFIER: bundleId, DEVELOPMENT_TEAM: team, CODE_SIGN_STYLE: style } }]) }; }
     if (args[0] === '-Z1') return { stdout: 'Payload/Example.app/Info.plist\nPayload/Example.app/embedded.mobileprovision\n' };
     if (args[0] === '-p' || args[0] === 'cms') return { stdout: Buffer.from('plist fixture') };
     if (args[0] === '-extract') { const source = args.at(-1).endsWith('Info.plist') ? info : profile; const value = args[1].split('.').reduce((value, key) => value?.[key], source); if (value === undefined) throw Error('No value'); return { stdout: args[2] === 'raw' && typeof value === 'string' ? value : JSON.stringify(value) }; }
@@ -86,14 +86,14 @@ test('IPA jobs bind their destination permanently; switching flavor selections c
   const root = await fixture(t), keyPath = path.join(root, `AuthKey_${identity.keyId}.p8`); await writeFile(keyPath, 'fixture');
   const checked = [], api = { apps: async () => [app, { ...app, id: '1234567891', bundleId: 'com.example.prod' }], readApp: async (_key, id) => { checked.push(id); return id === app.id ? app : { ...app, id, bundleId: 'com.example.prod' }; } };
   let inspections = 0;
-  const apple = new AppleTeams({ root, api, signing: { prepare: async () => ({ env: process.env, exportOptions: '/generated.plist' }), inspectIPA: async (_file, snapshot) => { inspections++; assert.equal(snapshot.appId, app.id); return { teamId, bundleId: app.bundleId }; } } });
+  const apple = new AppleTeams({ root, api, signing: { prepare: async () => ({ env: process.env, exportOptions: '/generated.plist', teamId, bundleId: app.bundleId }), inspectIPA: async (_file, snapshot) => { inspections++; assert.equal(snapshot.bundleId, app.bundleId); return { teamId, bundleId: app.bundleId }; } } });
   await apple.connect({ teamId, name: 'Studio', ...identity, keyPath }); await apple.select(root, { teamId, appId: app.id, flavor: 'dev' });
   let uploads = 0;
   const runner = new ReleaseBuilds({ root: path.join(root, 'data'), platform: 'darwin', apple, validate: async (workspace, input) => ({ workspace, ...releasePlan(input, 'darwin') }), execute: async (name, args, options) => {
     if (name === 'xcrun') { uploads++; assert.equal(args[0], 'altool'); assert.ok(args.includes(keyPath) === false); return; }
     assert.equal(args.at(-1), '/generated.plist'); assert.ok(options.env); const file = path.join(root, 'build/ios/ipa/example.ipa'); await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, 'signed IPA fixture');
   } });
-  const job = await runner.start(root, { format: 'ipa', flavor: 'dev' }); await runner.active.done; assert.equal(runner.find(root, job.id).status, 'succeeded');
+  const job = await runner.start(root, { format: 'ipa', flavor: 'dev', apple: apple.snapshot(root, 'dev') }); await runner.active.done; assert.equal(runner.find(root, job.id).status, 'succeeded');
   await apple.select(root, { teamId, appId: '1234567891', flavor: 'dev' });
   await runner.upload(root, job.id, job.id); await runner.active.done;
   assert.equal(uploads, 1); assert.equal(inspections, 2); assert.deepEqual(checked, [app.id, app.id]); assert.equal(runner.find(root, job.id).apple.bundleId, app.bundleId);
@@ -121,4 +121,25 @@ test('real macOS plutil extracts signing fields despite Date/Data entries in a p
   await assert.rejects(run('/usr/bin/plutil',['-convert','json','-o','-','--',file]));
   const result=await new AppleSigning().fields(file,{TeamIdentifier:'array','Entitlements.application-identifier':'string','Entitlements.get-task-allow':'bool',ProvisionedDevices:'array'});
   assert.deepEqual(result,{TeamIdentifier:[teamId],'Entitlements.application-identifier':`${teamId}.${app.bundleId}`,'Entitlements.get-task-allow':false});
+});
+test('IPA creation reads the project team without an API key; upload binds only to its verified team and bundle', async t => {
+  const root=await fixture(t);let keyReads=0,builds=0;
+  const apple=new AppleTeams({root,api:{apps:async()=>[app],readApp:async()=>{keyReads++;return app;}},signing:{prepare:async(_workspace,selected)=>{assert.equal(selected,undefined);return {teamId,bundleId:app.bundleId,env:process.env,exportOptions:'/local.plist'};},inspectIPA:async()=>({teamId,bundleId:app.bundleId})}});
+  const runner=new ReleaseBuilds({root:path.join(root,'data'),platform:'darwin',apple,validate:async(workspace,input)=>({workspace,...releasePlan(input,'darwin')}),execute:async name=>{if(name!=='flutter')return;builds++;const file=path.join(root,'build/ios/ipa/app.ipa');await mkdir(path.dirname(file),{recursive:true});await writeFile(file,'IPA '+builds);}});
+  for(const purpose of ['ipa','testflight']){const job=await runner.start(root,{format:'ipa',purpose});await runner.active.done;const saved=runner.find(root,job.id);assert.equal(saved.status,'succeeded');assert.equal(saved.apple,undefined);assert.deepEqual(saved.signing,{teamId,bundleId:app.bundleId});assert.equal(saved.plan.purpose,purpose);}
+  assert.equal(keyReads,0);assert.equal(builds,2);
+  const job=runner.jobs[0];await assert.rejects(runner.upload(root,job.id,job.id),/Choose an Apple/);
+  const keyPath=path.join(root,`AuthKey_${identity.keyId}.p8`);await writeFile(keyPath,'fixture');await apple.connect({teamId,name:'Studio',...identity,keyPath});await apple.select(root,{teamId,appId:app.id,flavor:''});
+  await runner.upload(root,job.id,job.id);await runner.active.done;assert.equal(runner.find(root,job.id).uploadStatus,'uploaded');assert.equal(keyReads,1);assert.equal(builds,2);
+});
+test('Key ID is inferred from the downloaded .p8 filename but Issuer ID remains required', async()=>{
+  const {testFlightIdentity}=await import('../../apps/agent/src/domain/release-plan.js');
+  assert.equal(testFlightIdentity({issuerId:identity.issuerId,keyPath:'/private/AuthKey_AB12CD34EF.p8'}).keyId,identity.keyId);
+  assert.equal(testFlightIdentity({issuerId:identity.issuerId,keyPath:'C:\\keys\\AuthKey_AB12CD34EF.p8'}).keyId,identity.keyId);
+  assert.throws(()=>testFlightIdentity({keyPath:'/private/AuthKey_AB12CD34EF.p8'}),/Issuer ID/);
+});
+
+test('Xcode signing preflight automatically reads its existing team when no Apple connection is supplied',async t=>{
+  const {root,signing}=await signingFixture(t);const prepared=await signing.prepare('/project',undefined,{flavor:'prod'},root);assert.equal(prepared.teamId,teamId);assert.equal(prepared.bundleId,app.bundleId);assert.equal(prepared.env.XCODE_XCCONFIG_FILE,process.env.XCODE_XCCONFIG_FILE);
+  const options=JSON.parse(await readFile(prepared.exportOptions,'utf8'));assert.equal(options.teamID,teamId);
 });

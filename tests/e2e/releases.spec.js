@@ -17,11 +17,11 @@ test('release screen applies workspace profiles, builds APK and AAB with downloa
 });
 test('TestFlight builds IPA first and requires a separate configured and confirmed upload', async ({page})=>{
   await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();
-  await page.locator('[name="release-format"][value="ipa"]').check();await expect(page.locator('#release-submit')).toBeDisabled();
+  await page.locator('[name="release-format"][value="ipa"]').check();await expect(page.locator('#release-submit')).toBeEnabled();await page.locator('#release-use-apple').check();await expect(page.locator('#release-testflight-build')).toBeDisabled();
   await choose(page,'release-apple-team','ABCDE12345');await choose(page,'release-apple-app','1234567890');
   await expect(page.locator('#release-apple-binding')).toContainText('Saved for dev · com.snapkit.demo.dev');
-  await page.locator('#release-submit').click();await expect(page.locator('#release-status')).toHaveText('Build complete');
-  await choose(page,'release-profile','1');await expect(page.locator('#release-apple-team')).toHaveValue('');await expect(page.locator('#release-submit')).toBeDisabled();
+  await page.locator('#release-testflight-build').click();await expect(page.locator('#release-status')).toHaveText('Build complete');
+  await choose(page,'release-profile','1');await expect(page.locator('#release-apple-team')).toHaveValue('');await expect(page.locator('#release-testflight-build')).toBeDisabled();await expect(page.locator('#release-submit')).toBeEnabled();
   await choose(page,'release-apple-team','ABCDE12345');await choose(page,'release-apple-app','1234567891');
   await expect(page.locator('#release-apple-binding')).toContainText('Saved for prod · com.snapkit.demo');
   await page.locator('[data-release-upload]').click();await expect(page.locator('#release-upload-dialog')).toBeVisible();await expect(page.locator('#release-status')).toHaveText('Build complete');
@@ -47,13 +47,23 @@ test('release job controls cancel active builds and keep project history after n
 });
 test('Apple setup explains local discovery, reports key errors and uses custom bilingual selectors', async ({page}) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();
-  await page.locator('[name="release-format"][value="ipa"]').check();await page.locator('#release-apple-connect').click();
+  await page.locator('[name="release-format"][value="ipa"]').check();await page.locator('#release-use-apple').check();await page.locator('#release-apple-connect').click();
   await expect(page.locator('#release-team-suggestions')).toContainText('Detected on this Mac:');await page.locator('[data-apple-suggest]').click();await expect(page.locator('#release-team-id')).toHaveValue('ABCDE12345');
   await page.locator('#release-key-id').fill('AB12CD34EF');await page.locator('#release-issuer').fill('12345678-1234-1234-1234-123456789012');await page.locator('#release-key-path').fill('/demo/AuthKey_AB12CD34EF.p8');
   await page.route('**/api/apple/teams',route=>route.request().method()==='POST'?route.fulfill({status:400,json:{error:'Apple rejected this API key. Check the Key ID, Issuer ID and private key.'}}):route.continue());
   await page.locator('#release-key-form button[type="submit"]').click();await expect(page.locator('#release-key-error')).toContainText('Apple rejected this API key.');
-  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#release-apple-title')).toHaveText('Bản build này dành cho app nào?');await expect(page.locator('#release-key-error')).toContainText('Apple từ chối API key.');
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#release-apple-title')).toHaveText('Ký IPA & TestFlight');await expect(page.locator('#release-key-error')).toContainText('Apple từ chối API key.');
   await page.setViewportSize({width:900,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(page.locator('#release-apple-team')).toHaveClass(/choice-source/);await expect(page.locator('#release-apple-app')).toHaveClass(/choice-source/);
   await page.screenshot({path:'/tmp/snapkit-apple-teams-vi.png',fullPage:true});expect(errors).toEqual([]);
+});
+test('create IPA and prepare TestFlight are separate keyless actions, with connection requested only for upload',async({page})=>{
+  await page.route('**/api/apple/teams',route=>route.fulfill({json:{teams:[],selections:{}}}));
+  await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();await page.locator('[name="release-format"][value="ipa"]').check();
+  await expect(page.locator('#release-use-apple')).not.toBeChecked();await expect(page.locator('#release-submit')).toBeEnabled();await expect(page.locator('#release-testflight-build')).toBeEnabled();await expect(page.locator('#release-connected-options')).toBeHidden();
+  let request;page.on('request',r=>{if(r.url().endsWith('/api/releases/build'))request=r.postDataJSON();});
+  await page.locator('#release-submit').click();await expect(page.locator('#release-status')).toHaveText('Build complete');expect(request.purpose).toBe('ipa');expect(request.apple).toBeUndefined();
+  await page.locator('#release-testflight-build').click();await expect(page.locator('#release-status')).toHaveText('Build complete');expect(request.purpose).toBe('testflight');expect(request.apple).toBeUndefined();
+  await page.locator('[data-release-upload]').click();await expect(page.locator('#release-credentials')).toHaveAttribute('open','');await expect(page.locator('#release-upload-dialog')).not.toBeVisible();
+  await page.locator('#release-key-path').fill('/local/AuthKey_AB12CD34EF.p8');await expect(page.locator('#release-key-id')).toHaveValue('AB12CD34EF');
 });

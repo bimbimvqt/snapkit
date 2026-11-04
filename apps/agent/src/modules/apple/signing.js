@@ -39,11 +39,14 @@ export class AppleSigning {
   }
   async prepare(workspace, apple, plan, directory, signal) {
     if (this.platform !== 'darwin') throw Error('TestFlight builds require macOS and Xcode.');
-    if (!teamPattern.test(apple.teamId)) throw Error('Enter a valid 10-character Apple Team ID.');
+    if (apple && !teamPattern.test(apple.teamId)) throw Error('Enter a valid 10-character Apple Team ID.');
     await mkdir(directory, { recursive: true });
-    const config = path.join(directory, 'SnapkitSigning.xcconfig');
-    await writeFile(config, `// Snapkit build only. The project is not modified.\nDEVELOPMENT_TEAM = ${apple.teamId}\n`, { mode: 0o600 });
-    const env = { ...process.env, XCODE_XCCONFIG_FILE: config };
+    const env = { ...process.env };
+    if (apple) {
+      const config = path.join(directory, 'SnapkitSigning.xcconfig');
+      await writeFile(config, `// Snapkit build only. The project is not modified.\nDEVELOPMENT_TEAM = ${apple.teamId}\n`, { mode: 0o600 });
+      env.XCODE_XCCONFIG_FILE = config;
+    }
     const workspaceFile = path.join(workspace, 'ios/Runner.xcworkspace');
     const container = (await stat(workspaceFile).catch(() => null))?.isDirectory() ? ['-workspace', workspaceFile] : ['-project', path.join(workspace, 'ios/Runner.xcodeproj')];
     let settings;
@@ -52,14 +55,16 @@ export class AppleSigning {
       const applications = JSON.parse(stdout).filter(entry => entry.buildSettings?.PRODUCT_TYPE === 'com.apple.product-type.application' || entry.buildSettings?.WRAPPER_EXTENSION === 'app');
       if (applications.length !== 1) throw Error('Ambiguous app target'); settings = applications[0].buildSettings;
     } catch { throw Error(signal?.aborted ? 'Task cancelled.' : 'Could not inspect Xcode signing. Open the iOS workspace in Xcode, check the selected scheme and resolve project dependencies.'); }
-    if (settings.DEVELOPMENT_TEAM !== apple.teamId) throw Error('The Xcode signing team does not match the selected Apple team.');
-    if (settings.PRODUCT_BUNDLE_IDENTIFIER !== apple.bundleId) throw Error('The selected Apple app does not match this flavor’s bundle ID. Choose the matching app or fix the project in Xcode.');
-    let options = { method: 'app-store-connect', destination: 'export', teamID: apple.teamId, signingStyle: 'automatic' };
+    if (apple && settings.DEVELOPMENT_TEAM !== apple.teamId) throw Error('The Xcode signing team does not match the selected Apple team.');
+    if (apple && settings.PRODUCT_BUNDLE_IDENTIFIER !== apple.bundleId) throw Error('The selected Apple app does not match this flavor’s bundle ID. Choose the matching app or fix the project in Xcode.');
+    if (!teamPattern.test(settings.DEVELOPMENT_TEAM || '') || !settings.PRODUCT_BUNDLE_IDENTIFIER) throw Error('Configure the signing team and bundle ID in Xcode before creating an IPA.');
+    const teamId = settings.DEVELOPMENT_TEAM;
+    let options = { method: 'app-store-connect', destination: 'export', teamID: teamId, signingStyle: 'automatic' };
     if (plan.exportOptions) {
       options = await this.json(plan.exportOptions, signal);
       if (!['app-store', 'app-store-connect'].includes(options.method) || options.destination === 'upload') throw Error('Choose ExportOptions.plist for a local App Store export. Upload is a separate action.');
-      if (options.teamID && options.teamID !== apple.teamId) throw Error('ExportOptions.plist uses a different Apple team.');
-      options = { ...options, teamID: apple.teamId, destination: 'export' };
+      if (options.teamID && options.teamID !== teamId) throw Error('ExportOptions.plist uses a different Apple team.');
+      options = { ...options, teamID: teamId, destination: 'export' };
     } else if (settings.CODE_SIGN_STYLE === 'Manual') throw Error('This project uses manual signing. Choose its App Store ExportOptions.plist before building.');
     const exportOptions = path.join(directory, 'SnapkitExportOptions.plist');
     await writeFile(exportOptions, JSON.stringify(options), { mode: 0o600 });

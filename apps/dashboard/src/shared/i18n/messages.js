@@ -820,3 +820,21 @@ Object.assign(window.SnapkitMessages.translations, {
 Object.assign(window.SnapkitMessages.translations, { 'Upload blocked': 'Upload bị chặn', 'Upload was not started. ': 'Chưa bắt đầu upload. ' });
 
 Object.assign(window.SnapkitMessages.translations, { 'Disconnect team': 'Gỡ kết nối team' });
+
+Object.assign(window.SnapkitMessages.translations, {
+  "Signing & TestFlight": "Ký IPA & TestFlight",
+  "Export a signed file on this Mac": "Xuất file IPA đã ký trên máy Mac",
+  "IPA creation uses your Xcode signing team automatically. App Store Connect credentials are needed only for upload.": "Tạo IPA tự dùng team ký đã cấu hình trong Xcode. Chỉ cần API key App Store Connect khi upload.",
+  "Use a connected team for TestFlight preparation": "Dùng team đã kết nối để build cho TestFlight",
+  "Optional. Leave this off to use the project’s signing configuration.": "Không bắt buộc. Tắt để dùng cấu hình ký của project.",
+  "Create IPA": "Tạo file IPA",
+  "Build for TestFlight": "Build cho TestFlight",
+  "Both actions create an App Store-signed IPA locally. TestFlight preparation highlights the upload workflow; uploading is always a separate confirmation. No API key is required to build.": "Cả hai thao tác tạo IPA ký App Store trên máy. Build cho TestFlight chuẩn bị file để gửi Apple; upload luôn cần xác nhận riêng. Không cần API key để build.",
+  "Read from AuthKey_….p8": "Tự đọc từ AuthKey_….p8",
+  "Key ID is read from the standard .p8 filename. Issuer ID comes from App Store Connect, not Xcode. Apple Team ID suggestions come from this Mac.": "Key ID tự đọc từ tên file .p8 chuẩn. Issuer ID lấy từ App Store Connect, không có trong Xcode. Team ID được gợi ý từ máy Mac này.",
+  "Uses your Xcode signing configuration. An Apple Developer membership and App Store distribution signing are required. This IPA is distributed through TestFlight or the App Store, not installed directly on arbitrary devices.": "Dùng cấu hình ký trong Xcode. Cần Apple Developer và chứng chỉ phân phối App Store. IPA này phân phối qua TestFlight hoặc App Store, không cài trực tiếp lên thiết bị bất kỳ.",
+  "Configure the signing team and bundle ID in Xcode before creating an IPA.": "Cấu hình team ký và bundle ID trong Xcode trước khi tạo IPA.",
+  "Choose the Apple team and app matching this saved IPA.": "Chọn team Apple và app khớp với IPA đã lưu này.",
+  "Choose a team and app for managed signing or upload.": "Chọn team và app để ký theo team đã kết nối hoặc upload.",
+  "Choose IPA or TestFlight preparation.": "Chọn tạo IPA hoặc build cho TestFlight."
+});

@@ -18,19 +18,24 @@ Project không có flavor dùng bản mặc định. Các cấu hình Gradle t�
 - Cả hai thêm `--flavor`, `--target`, `--dart-define-from-file` theo cấu hình đã xem lại. Phiên bản/số build để trống sẽ dùng `pubspec.yaml`; nhập giá trị để truyền `--build-name`/`--build-number`.
 - Snapkit sử dụng cấu hình ký Android hiện có. Chữ ký release hợp lệ để publish cần được cấu hình trong project; tạo file thành công không có nghĩa Google Play đã chấp nhận bản build. Snapkit không tự tạo keystore.
 
-## IPA dành cho TestFlight
+## Tạo IPA và chuẩn bị TestFlight (beta.23)
 
-Yêu cầu macOS, Flutter/Xcode cùng command-line tools, Apple Developer membership, distribution signing hợp lệ và ứng dụng có bundle ID tương ứng trên App Store Connect. Mỗi flavor dùng scheme/bundle ID/signing đã cấu hình trong project; tên `dev` không thay thế các điều kiện này.
+Chọn **IPA**, sau đó có hai nút riêng:
 
-Chọn **IPA TestFlight**, chọn profile/flavor dev hoặc prod rồi bấm **Build IPA TestFlight · flavor**. Chọn team và app tương ứng như hướng dẫn bên dưới. Snapkit chạy `flutter build ipa --release --export-options-plist <plist-riêng-cho-job>` cùng các đối số workspace. Mỗi job có xcconfig riêng chỉ đặt `DEVELOPMENT_TEAM`; không sửa project, bundle ID hoặc cấu hình Pod/extension. Trước build, Snapkit đọc effective build settings của scheme và yêu cầu bundle ID khớp app đã chọn. Project ký thủ công phải cung cấp ExportOptions.plist với provisioning profiles tương ứng. Có thể chọn ExportOptions.plist riêng; file phải dùng `app-store` hoặc `app-store-connect` và xuất local. Snapkit từ chối plist có `destination=upload` để build không tự upload.
+- **Tạo file IPA:** xuất IPA ký App Store bằng team/bundle ID của project Xcode. Không cần kết nối API key.
+- **Build cho TestFlight:** chuẩn bị IPA ký App Store và lưu mục đích TestFlight trong lịch sử. Không tự upload; cũng không cần API key để build. Chỉ bật **Dùng team đã kết nối** nếu muốn chọn team/app quản lý qua App Store Connect.
 
-Bản IPA đã ký được lưu lại trước khi hiện thao tác upload. Nếu Flutter chỉ tạo archive mà export IPA thất bại, tác vụ được báo thất bại; archive/file IPA cũ không được lấy làm kết quả mới.
+Cả hai hiện tạo cùng loại App Store IPA ở release mode, theo flavor/entrypoint/defines/version đã chọn. App Store IPA phân phối qua TestFlight/App Store; không phải file có thể cài lên mọi iPhone. Cần macOS, Flutter/Xcode, Apple Developer membership và cấu hình distribution signing hợp lệ. Chưa có API key vẫn có thể dùng Xcode Organizer để upload archive (ở `build/ios/archive`) bằng tài khoản Apple đã đăng nhập.
+
+Snapkit đọc effective Xcode build settings để tự lấy Team ID và bundle ID cho đúng scheme/flavor. Không chọn team từ kết nối thì không tạo xcconfig override team. Chọn team quản lý thì team/bundle ID được kiểm tra với app đã chọn và có xcconfig riêng cho job; không sửa source project. ExportOptions.plist được tạo riêng để export local. Project ký thủ công cần plist của project với provisioning profiles tương ứng. Từ chối `destination=upload` để không vô tình gửi Apple trong bước build.
+
+IPA được sao chép và kiểm tra team/bundle/version/build cùng loại ký App Store trước khi báo thành công. Nếu chỉ tạo archive nhưng export thất bại, Snapkit báo build thất bại và không nhận IPA cũ làm kết quả.
 
 ## Upload riêng lên TestFlight
 
 Trong **App Store Connect**, nhập tên team, Apple Team ID gồm 10 ký tự, Key ID, Issuer ID và chọn team API key `.p8` có quyền upload ứng dụng. File phải có tên `AuthKey_KEYID.p8` khớp Key ID. Snapkit lưu ID và đường dẫn trong dữ liệu local có quyền file 0600; không sao chép nội dung khoá, không đưa vào URL hay cloud. Chuyển/xoá file khoá thì cần cấu hình lại. Không hỗ trợ individual API key thiếu Issuer ID.
 
-Kết nối key sẽ gọi API Apple với JWT ES256 có hạn 5 phút, tải danh sách app mà key được cấp quyền truy cập. Chọn **Team Apple → Ứng dụng trên App Store Connect**; lựa chọn được nhớ riêng theo workspace và flavor. Team ID là ID ký của Apple Developer, **khác Issuer ID**. Danh sách app xác nhận quyền của key; Team ID nhập tay được đối chiếu với build và IPA, không được suy ra từ Issuer ID.
+Kết nối key sẽ gọi API Apple với JWT ES256 có hạn 5 phút, tải danh sách app mà key được cấp quyền truy cập. Chỉ khi cần upload trong Snapkit hoặc chủ động dùng team quản lý, chọn **Team Apple → Ứng dụng trên App Store Connect**; lựa chọn được nhớ riêng theo workspace và flavor. Team ID là ID ký của Apple Developer, **khác Issuer ID**. Danh sách app xác nhận quyền của key; Team ID nhập tay được đối chiếu với build và IPA, không được suy ra từ Issuer ID.
 
 Gợi ý team lấy từ project Xcode và chứng chỉ codesigning trong Keychain. Đây không phải danh sách tất cả team của một Apple account. Đăng nhập tại **Xcode → Settings → Accounts** để quản lý chứng chỉ/provisioning; không nhập mật khẩu Apple trong Snapkit. Email hoặc Sign in with Apple không cung cấp API công khai để đọc các developer team. API key cần là team key có quyền đọc app và upload; App Manager là lựa chọn thông dụng, cần được admin Apple cấp quyền phù hợp.
 
@@ -72,3 +77,9 @@ Snapkit gộp cấu hình trùng theo flavor + đường dẫn entrypoint + đư
 Phiên bản và số build được điền từ `version:` trong `pubspec.yaml` (ví dụ `1.2.118+190` thành `1.2.118` và `190`). Có thể sửa riêng cho lần build qua `--build-name`/`--build-number`, không ghi lại pubspec hay thay đổi cấu hình debug. Refresh giữ giá trị đã sửa; **Dùng phiên bản dự án** khôi phục metadata vừa đọc. Nếu bỏ trống, backend lấy giá trị project hiện tại khi bắt đầu và ghi vào snapshot của job. Không tự tăng build number hoặc truy vấn số build mới nhất của App Store Connect.
 
 IPA TestFlight là bản release có ký distribution. Flavor dev/prod quyết định cấu hình app, không phải hai môi trường TestFlight riêng do Snapkit tạo. Nếu dev/prod dùng bundle ID khác nhau thì cần hai app tương ứng trên App Store Connect. Sau khi build IPA, upload là thao tác riêng bằng team API key. Apple xử lý/kiểm tra file trước khi chọn nhóm tester; external testing có thể cần Beta App Review, khai báo mã hóa có thể cần hoàn tất, và build hết hạn sau 90 ngày. Upload thành công không đồng nghĩa app đã được phát hành lên App Store. Apple Developer team/ký iOS app là cấu hình của workspace; độc lập với Developer ID/notarization của desktop Snapkit.
+
+## Có phải nhập Team ID, Key ID, Issuer ID?
+
+Không cần ba trường này để build IPA bằng Xcode signing hiện có. Khi upload qua Snapkit, cần team API key và Issuer ID của App Store Connect một lần; Team ID tự gợi ý từ project và điền từ metadata IPA khi upload, Key ID tự đọc từ tên chuẩn `AuthKey_KEYID.p8`. Issuer ID không có trong cấu hình ký Xcode hoặc nội dung `.p8`, phải lấy từ App Store Connect. Không đọc private account database, không lấy mật khẩu Apple. Sau khi kết nối, Snapkit lưu ID/đường dẫn local cho lần sau.
+
+Với IPA tạo chưa kết nối Apple, thao tác upload yêu cầu chọn app có bundle ID và team khớp metadata đã lưu của IPA; chỉ sau đó mới gắn đích upload, xác thực lại với Apple và yêu cầu xác nhận gửi. Đổi môi trường không chuyển IPA sang team khác.

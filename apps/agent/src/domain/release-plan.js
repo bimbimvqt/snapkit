@@ -15,6 +15,8 @@ export function releasePlan(input, platform) {
     return value.trim();
   };
   const flavor = text('flavor'), target = text('target') || 'lib/main.dart', defineFile = text('defineFile');
+  const purpose = text('purpose') || 'ipa';
+  if (!['ipa', 'testflight'].includes(purpose)) throw Error('Choose IPA or TestFlight preparation.');
   const buildName = text('buildName'), buildNumber = text('buildNumber'), exportOptions = text('exportOptions');
   if (flavor && !/^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,127}$/.test(flavor)) throw new Error('Invalid flavor name');
   if (buildName && !/^\d+\.\d+\.\d+$/.test(buildName)) throw new Error('Use a version such as 1.2.0.');
@@ -24,10 +26,11 @@ export function releasePlan(input, platform) {
     ...(defineFile ? ['--dart-define-from-file', defineFile] : []),
     ...(buildName ? ['--build-name', buildName] : []), ...(buildNumber ? ['--build-number', buildNumber] : []),
     ...(format === 'ipa' ? exportOptions ? ['--export-options-plist', exportOptions] : ['--export-method', 'app-store'] : [])];
-  return { format, flavor, target, defineFile, buildName, buildNumber, exportOptions: format === 'ipa' ? exportOptions : '', command: 'flutter', args };
+  return { format, purpose: format === 'ipa' ? purpose : '', flavor, target, defineFile, buildName, buildNumber, exportOptions: format === 'ipa' ? exportOptions : '', command: 'flutter', args };
 }
 export function testFlightIdentity(input) {
-  const keyId = typeof input.keyId === 'string' ? input.keyId.trim() : '';
+  const keyPathName = String(input.keyPath || '').split(/[\\/]/).at(-1);
+  const keyId = (typeof input.keyId === 'string' ? input.keyId.trim() : '') || /^AuthKey_([A-Z0-9]{10})\.p8$/.exec(keyPathName)?.[1] || '';
   const issuerId = typeof input.issuerId === 'string' ? input.issuerId.trim() : '';
   const keyPath = typeof input.keyPath === 'string' ? input.keyPath.trim() : '';
   if (!/^[A-Z0-9]{10}$/.test(keyId) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(issuerId)) throw new Error('Enter a valid App Store Connect Key ID and Issuer ID.');

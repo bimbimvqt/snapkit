@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.23 — 2026-11-04
+
+- Tách nút Tạo file IPA và Build cho TestFlight; không yêu cầu API key để build bằng Xcode signing.
+- Tự đọc Team ID/bundle ID từ cấu hình thực của scheme; lựa chọn team kết nối trở thành tùy chọn.
+- Chỉ yêu cầu kết nối App Store Connect khi upload; đối chiếu team/app với IPA đã lưu trước khi gắn đích upload.
+- Tự điền Key ID từ tên file AuthKey_KEYID.p8, gợi ý/điền Team ID từ project và IPA; Issuer ID vẫn lấy từ App Store Connect.
+
 ## 0.2.0-beta.22 — 2026-11-04
 
 - Kết nối nhiều team Apple qua team API key local, tải danh sách app từ Apple và nhớ team/app riêng theo workspace/flavor.
