@@ -2,6 +2,10 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Preparing to restart…": "Đang chuẩn bị khởi động lại…",
+    "Snapkit will close to install the update. Please keep your computer on.": "Snapkit sẽ đóng để cài đặt bản cập nhật. Vui lòng giữ máy tính bật.",
+    "Installing update": "Đang cài đặt bản cập nhật",
+    "Your projects, devices and account will be kept.": "Dự án, thiết bị và tài khoản của bạn sẽ được giữ nguyên.",
     "Open Snapkit Desktop to build this workspace.": "Mở Snapkit Desktop để build workspace này.",
     "DELIVERY": "PHÁT HÀNH",
     "Build & release": "Build & phát hành",

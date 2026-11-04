@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101214"><title>Snapkit — Device Control Center</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/src/features/releases/releases.css"><link rel="stylesheet" href="/src/features/workspace/product.css"><link rel="stylesheet" href="/language.css"><link rel="stylesheet" href="/src/features/account/account.css"><link rel="stylesheet" href="/src/features/device-tools/tools.css"><link rel="stylesheet" href="/src/shared/controls/dropdowns.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/src/features/updates/updates.css"><link rel="stylesheet" href="/src/features/releases/releases.css"><link rel="stylesheet" href="/src/features/workspace/product.css"><link rel="stylesheet" href="/language.css"><link rel="stylesheet" href="/src/features/account/account.css"><link rel="stylesheet" href="/src/features/device-tools/tools.css"><link rel="stylesheet" href="/src/shared/controls/dropdowns.css">
   <script src="/vendor/lucide.min.js" defer></script><script src="/src/shared/i18n/messages.js" defer></script><script src="/i18n.js" defer></script><script src="/src/shared/controls/dropdowns.js" defer></script><script src="/src/app.js" defer></script><script src="/src/features/workspace/product.js" defer></script><script src="/src/features/device-tools/tools.js" defer></script><script src="/src/features/account/account.js" defer></script><script src="/src/features/releases/releases.js" defer></script><script src="/src/features/releases/apple-guide.js" defer></script><script src="/src/features/updates/updates.js" defer></script>
 </head>
 <body>
@@ -182,6 +182,17 @@
     <form id="delete-device-form"><p id="delete-device-error" class="field-error" role="alert"></p><div class="dialog-footer"><button type="button" class="button close-dialog" autofocus>Cancel</button><button type="submit" class="button danger" id="delete-device-submit"><i data-lucide="trash-2"></i>Delete device &amp; data</button></div></form>
   </dialog>
   <dialog id="capture-viewer" aria-labelledby="capture-viewer-title" aria-describedby="capture-viewer-meta"><header class="capture-viewer-heading"><div><h2 id="capture-viewer-title"></h2><p id="capture-viewer-meta"></p></div><button type="button" class="icon-button close-dialog" aria-label="Close preview"><i data-lucide="x"></i></button></header><div id="capture-viewer-content" class="capture-viewer-content"></div><footer class="capture-viewer-footer"><button type="button" class="button" id="capture-viewer-retry" hidden>Try again</button><button type="button" class="button" id="capture-viewer-download"><i data-lucide="download"></i>Download</button><button type="button" class="button close-dialog">Close</button></footer></dialog>
+  <dialog id="update-loading" aria-labelledby="update-loading-title" aria-describedby="update-loading-note" tabindex="-1">
+    <div class="update-loading-content">
+      <img src="/favicon.svg" width="72" height="72" alt="">
+      <span class="update-loading-brand">Snapkit</span>
+      <h2 id="update-loading-title">Preparing to restart…</h2>
+      <p id="update-loading-note">Snapkit will close to install the update. Please keep your computer on.</p>
+      <div class="update-loading-track" role="progressbar" aria-label="Installing update"><span></span></div>
+      <p class="update-loading-hint">Your projects, devices and account will be kept.</p>
+      <span class="update-loading-status" role="status" aria-live="polite"></span>
+    </div>
+  </dialog>
   <div id="toast-region" class="toasts" aria-live="polite"></div>
 </body>
 </html>

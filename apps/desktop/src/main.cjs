@@ -109,13 +109,12 @@ async function start() {
     if (!fromApp(event)) throw new Error('Invalid caller');
     const result = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT('Install update'), message: nativeT('Restart Snapkit to install the downloaded update?'), detail: nativeT('Your projects, devices and account will be kept. Finish active tasks before continuing.'), buttons: [nativeT('Not now'), nativeT('Restart and install')], defaultId: 0, cancelId: 0 });
     if (result.response !== 1) return updater.snapshot();
-    mainWindow.setEnabled(false);
-    try { await updater.apply(async () => {
+    await updater.apply(async () => {
       const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(3000) });
       if (!response.ok) throw Error(nativeT('Could not check active tasks. Try again.'));
       const state = await response.json();
       if (state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) throw Error(nativeT('Finish builds, uploads, recordings and debugging before installing the update.'));
-    }); } catch (error) { mainWindow.setEnabled(true); throw error; }
+    });
     setImmediate(() => app.quit()); return updater.snapshot();
   });
   ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });

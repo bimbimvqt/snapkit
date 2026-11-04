@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.25 — 2026-11-04
+
+- Thêm màn hình chờ toàn cửa sổ với logo Snapkit và thanh loading khi khởi động lại để cài bản cập nhật.
+- Hiển thị trước khi mở xác nhận native; che trạng thái mất kết nối của agent trong lúc thoát app.
+- Bỏ vô hiệu hóa cửa sổ gây tối UI; khôi phục thao tác và focus khi hủy xác nhận hoặc cài đặt lỗi.
+- Hỗ trợ EN/VI, theme sáng/tối, bàn phím và giảm chuyển động; giữ nguyên xác nhận cài đặt và kiểm tra tác vụ đang chạy.
+
 ## 0.2.0-beta.24 — 2026-11-04
 
 - Thiết kế hướng dẫn TestFlight thành hai luồng: upload trong Snapkit bằng Team API key hoặc build/upload qua tài khoản Xcode.

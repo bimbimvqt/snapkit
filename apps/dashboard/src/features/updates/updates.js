@@ -1,14 +1,26 @@
 /* The desktop main process owns metadata, downloads and installation. */
 (() => {
   const bridge = window.snapkitDesktop;
-  let state = { status: bridge ? 'idle' : 'web' }, polling = false, action = false;
+  let state = { status: bridge ? 'idle' : 'web' }, polling = false, action = false, installing = false;
   const statuses = {
     idle: 'Check, download and install updates right here.', checking: 'Checking for updates…', latest: 'You’re using the latest version.',
     available: 'Snapkit {0} is ready to download.', downloading: 'Downloading Snapkit {0}…', verifying: 'Verifying and preparing the update…',
     ready: 'Snapkit {0} is ready to install.', installing: 'Restarting to install the update…', error: 'Could not finish the update. Try again.',
     unsupported: 'In-app updates are available in the installed macOS and Windows app.', web: 'Open Snapkit Desktop to update the app.'
   };
+  const loading = $('#update-loading');
+  loading.addEventListener('cancel', event => event.preventDefault());
   function render() {
+    const busy = installing || state.status === 'installing';
+    $('#update-loading-title').textContent = t('Preparing to restart…');
+    $('#update-loading-note').textContent = t('Snapkit will close to install the update. Please keep your computer on.');
+    loading.querySelector('.update-loading-hint').textContent = t('Your projects, devices and account will be kept.');
+    loading.querySelector('[role="progressbar"]').setAttribute('aria-label', t('Installing update'));
+    loading.querySelector('[role="status"]').textContent = busy ? t('Preparing to restart…') : '';
+    if (busy && !loading.open) { loading.showModal(); loading.focus(); }
+    const restoreFocus = !busy && loading.open;
+    if (restoreFocus) loading.close();
+
     $('#update-status').textContent = t(statuses[state.status] || statuses.error, [state.version || '']);
     $('#update-detail').textContent = state.error ? t(state.error) : state.status === 'downloading' ? `${state.percent || 0}% · ${(state.received / 1024 ** 2).toFixed(1)} / ${(state.size / 1024 ** 2).toFixed(1)} MB` : '';
     $('#update-progress').classList.toggle('hidden', !['downloading', 'verifying'].includes(state.status));
@@ -20,6 +32,7 @@
     for (const id of ['update-download', 'update-install', 'update-cancel']) $('#' + id).disabled = action;
     $('#update-indicator')?.classList.toggle('hidden', !['available', 'ready'].includes(state.status));
     $('#clear-app-cache').disabled = !bridge || action;
+    if (restoreFocus) $('#update-install').focus();
   }
   async function refresh() {
     if (!bridge?.updateState || polling || action) return;
@@ -34,7 +47,16 @@
   $('#check-updates').addEventListener('click', () => perform(() => bridge.checkUpdates()));
   $('#update-download').addEventListener('click', () => perform(() => bridge.downloadUpdate()));
   $('#update-cancel').addEventListener('click', () => perform(() => bridge.cancelUpdate()));
-  $('#update-install').addEventListener('click', () => perform(() => bridge.installUpdate()));
+  $('#update-install').addEventListener('click', async () => {
+    if (action || installing || state.status !== 'ready') return;
+    installing = true;
+    await perform(async () => {
+      // Paint the waiting screen before opening the native confirmation or stopping the agent.
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      try { return await bridge.installUpdate(); }
+      finally { installing = false; }
+    });
+  });
   $('#clear-app-cache').addEventListener('click', async event => {
     event.currentTarget.disabled = true;
     try { await bridge.clearCache(); $('#cache-result').textContent = t('Temporary app cache cleared.'); }
