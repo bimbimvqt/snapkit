@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.24 — 2026-11-04
+
+- Thiết kế hướng dẫn TestFlight thành hai luồng: upload trong Snapkit bằng Team API key hoặc build/upload qua tài khoản Xcode.
+- Bốn bước lấy key, trợ giúp từng trường Team ID/Key ID/Issuer ID, link Apple chính thức và hướng dẫn cho thành viên được mời.
+- FAQ cho trường hợp không thấy Issuer ID, mất file .p8 hoặc dùng Individual key chưa được hỗ trợ.
+- Hướng dẫn Xcode Accounts → scheme/flavor → Archive → Organizer → Upload và nút Mở Xcode trên desktop macOS.
+- Nội dung EN/VI, hỗ trợ bàn phím, hai theme và bố cục nhỏ; giữ nguyên luồng build/upload cần xác nhận.
+
 ## 0.2.0-beta.23 — 2026-11-04
 
 - Tách nút Tạo file IPA và Build cho TestFlight; không yêu cầu API key để build bằng Xcode signing.

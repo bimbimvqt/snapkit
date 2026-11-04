@@ -67,3 +67,27 @@ test('create IPA and prepare TestFlight are separate keyless actions, with conne
   await page.locator('[data-release-upload]').click();await expect(page.locator('#release-credentials')).toHaveAttribute('open','');await expect(page.locator('#release-upload-dialog')).not.toBeVisible();
   await page.locator('#release-key-path').fill('/local/AuthKey_AB12CD34EF.p8');await expect(page.locator('#release-key-id')).toHaveValue('AB12CD34EF');
 });
+test('Apple key guide explains both roles, retains form edits and never starts a release action',async({page})=>{
+  const errors=[],mutations=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',r=>{if(r.method()==='POST' && /\/api\/(releases|apple)/.test(r.url()))mutations.push(r.url());});
+  await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();await page.locator('[name="release-format"][value="ipa"]').check();
+  await page.locator('[data-apple-help="keys"]').first().click();await expect(page.locator('#apple-setup-title')).toBeFocused();await expect(page.locator('#apple-route-keys')).toBeVisible();
+  await expect(page.locator('#apple-route-keys .apple-guide-steps li')).toHaveCount(4);await expect(page.locator('#apple-route-keys')).toContainText('Account Holder');await expect(page.locator('#apple-issuer-help')).toContainText('Team Keys');await expect(page.locator('#apple-team-help')).toContainText('This is not Issuer ID.');
+  await expect(page.locator('#apple-route-keys a').first()).toHaveAttribute('href','https://appstoreconnect.apple.com/');
+  await page.locator('#release-issuer').fill('12345678-1234-1234-1234-123456789012');
+  await page.locator('[data-apple-route="xcode"]').click();await expect(page.locator('#apple-route-keys')).toBeHidden();await expect(page.locator('#apple-route-xcode')).toBeVisible();await expect(page.locator('#apple-route-xcode')).toContainText('No API key or Issuer ID is needed');await expect(page.locator('#apple-route-xcode')).toContainText('Product → Archive');await expect(page.locator('#apple-route-xcode')).toContainText('Window → Organizer');
+  await page.locator('[data-apple-route="keys"]').focus();await page.keyboard.press('Enter');await expect(page.locator('#release-issuer')).toHaveValue('12345678-1234-1234-1234-123456789012');
+  const individual=page.locator('.apple-setup-faq details').nth(2);await individual.locator('summary').click();await expect(individual).toContainText('This Snapkit version supports Team API keys');
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#apple-setup-title')).toHaveText('Từ bản build trên máy đến người kiểm thử.');await expect(individual).toContainText('đừng nhập Team ID');
+  await page.setViewportSize({width:900,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('#release-credentials').screenshot({path:'/tmp/snapkit-apple-guide-vi.png',animations:'disabled'});
+  await page.locator('#theme-toggle').click();await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.SnapkitI18n.setLanguage('en'));await page.locator('#release-credentials').screenshot({path:'/tmp/snapkit-apple-guide-light.png',animations:'disabled'});
+  await page.setViewportSize({width:480,height:800});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(mutations).toEqual([]);expect(errors).toEqual([]);
+});
+test('Xcode launch is explicit, reports failure and is hidden on Windows',async({page})=>{
+  await page.addInitScript(()=>{window.__xcodeCalls=0;window.snapkitDesktop={openXcode:async()=>{window.__xcodeCalls++;throw Error('not installed');}};});
+  await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();await page.locator('[name="release-format"][value="ipa"]').check();await page.locator('[data-apple-help="xcode"]').first().click();
+  await expect(page.locator('#apple-open-xcode')).toBeVisible();expect(await page.evaluate(()=>window.__xcodeCalls)).toBe(0);await page.locator('#apple-open-xcode').click();await expect(page.locator('#apple-xcode-error')).toContainText('Could not open Xcode');expect(await page.evaluate(()=>window.__xcodeCalls)).toBe(1);
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#apple-xcode-error')).toContainText('Không mở được Xcode');
+  await page.route('**/api/state',async route=>{const response=await route.fetch();await route.fulfill({response,json:{...await response.json(),platform:'win32'}});});
+  await page.reload();await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();await page.locator('#release-credentials summary').first().click();await page.locator('[data-apple-route="xcode"]').click();await expect(page.locator('#apple-open-xcode')).toBeHidden();
+});

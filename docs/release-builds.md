@@ -83,3 +83,16 @@ IPA TestFlight là bản release có ký distribution. Flavor dev/prod quyết �
 Không cần ba trường này để build IPA bằng Xcode signing hiện có. Khi upload qua Snapkit, cần team API key và Issuer ID của App Store Connect một lần; Team ID tự gợi ý từ project và điền từ metadata IPA khi upload, Key ID tự đọc từ tên chuẩn `AuthKey_KEYID.p8`. Issuer ID không có trong cấu hình ký Xcode hoặc nội dung `.p8`, phải lấy từ App Store Connect. Không đọc private account database, không lấy mật khẩu Apple. Sau khi kết nối, Snapkit lưu ID/đường dẫn local cho lần sau.
 
 Với IPA tạo chưa kết nối Apple, thao tác upload yêu cầu chọn app có bundle ID và team khớp metadata đã lưu của IPA; chỉ sau đó mới gắn đích upload, xác thực lại với Apple và yêu cầu xác nhận gửi. Đổi môi trường không chuyển IPA sang team khác.
+
+## Hướng dẫn lấy key và lựa chọn Xcode (beta.24)
+
+Trong **Thiết lập TestFlight & hướng dẫn lấy key**, chọn một trong hai cách:
+
+- **Upload trong Snapkit**: bốn bước dành cho Account Holder/Admin để bật API, tạo Team API key có role upload, tải `.p8` một lần và điền các ID. Hướng dẫn từng trường nằm ngay dưới ô nhập; Key ID vẫn tự đọc từ filename và Team ID được gợi ý từ máy. Issuer ID lấy từ App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys. Team key có phạm vi các app trong tổ chức theo role, không phải key chỉ giới hạn vào một app.
+- **Upload bằng Xcode**: dành cho thành viên được mời hoặc không có quyền API. Hướng dẫn đăng nhập Accounts, kiểm tra quyền truy cập app/upload và signing, chọn scheme/flavor, Product → Archive, Window → Organizer → Archives → Distribute App → App Store Connect/TestFlight & App Store → Upload. Có thể dùng lại `.xcarchive` trong `build/ios/archive/` do Flutter/Snapkit tạo; cần chọn đúng phiên bản vì các build sau có thể thay output trong workspace.
+
+**Mở Xcode** chỉ có trên desktop macOS, gọi hành động cố định `open -a Xcode` sau khi người dùng bấm. Nút không tự mở Organizer, build archive, chọn team hoặc upload. Nếu không mở được Xcode, app báo lỗi có thể xử lý. Không đọc phiên đăng nhập hay database tài khoản riêng tư của Xcode.
+
+FAQ giải thích quyền API, download một lần, mất file và Individual API key. Individual key chưa được hỗ trợ để upload trong Snapkit; không yêu cầu người dùng nhập Issuer ID giả hoặc xin key Admin. Chuyển luồng hướng dẫn/đổi ngôn ngữ giữ nguyên dữ liệu form và không bắt đầu tác vụ release.
+
+Tham khảo Apple: [Quản lý API access và key](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/), [Tạo API keys](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api). Nội dung/quyền hiện trên Apple có thể khác theo role và trạng thái tổ chức.

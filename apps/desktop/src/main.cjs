@@ -34,7 +34,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
 function allowedExternal(value) {
   const url = new URL(value);
   if (url.protocol !== 'https:' || url.username || url.password) throw new Error(nativeT("Only trusted HTTPS links can be opened."));
-  if (!['github.com', 'docs.flutter.dev', 'developer.android.com', 'developer.apple.com', 'code.visualstudio.com', 'cursor.com', 'www.revenuecat.com', 'snapkit.45.119.214.94.sslip.io', 'bimbimvqt.github.io'].includes(url.hostname)) throw new Error(nativeT("This link is not part of Snapkit setup."));
+  if (!['github.com', 'docs.flutter.dev', 'developer.android.com', 'developer.apple.com', 'appstoreconnect.apple.com', 'code.visualstudio.com', 'cursor.com', 'www.revenuecat.com', 'snapkit.45.119.214.94.sslip.io', 'bimbimvqt.github.io'].includes(url.hostname)) throw new Error(nativeT("This link is not part of Snapkit setup."));
   return url.href;
 }
 async function start() {
@@ -92,6 +92,11 @@ async function start() {
     if (!fromApp(event) || !['private-key', 'export-options'].includes(kind)) throw new Error('Invalid caller');
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: [{ name: kind === 'private-key' ? 'App Store Connect key' : 'Export options', extensions: [kind === 'private-key' ? 'p8' : 'plist'] }] });
     return result.canceled ? '' : result.filePaths[0] || '';
+  });
+  ipcMain.handle('snapkit:open-xcode', async event => {
+    if (!fromApp(event) || process.platform !== 'darwin') throw new Error('Invalid caller');
+    await new Promise((resolve, reject) => require('node:child_process').execFile('/usr/bin/open', ['-a', 'Xcode'], { timeout: 15000 }, error => error ? reject(new Error('Could not open Xcode. Install Xcode and open it from Applications.')) : resolve()));
+    return { ok: true };
   });
   ipcMain.handle('snapkit:version', event => { if (!fromApp(event)) throw new Error('Invalid caller'); return { version: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged }; });
   ipcMain.handle('snapkit:external', async (event, value) => { if (!fromApp(event)) throw new Error('Invalid caller'); await shell.openExternal(allowedExternal(value)); });

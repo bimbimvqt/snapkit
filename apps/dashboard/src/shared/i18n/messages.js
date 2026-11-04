@@ -838,3 +838,65 @@ Object.assign(window.SnapkitMessages.translations, {
   "Choose a team and app for managed signing or upload.": "Chọn team và app để ký theo team đã kết nối hoặc upload.",
   "Choose IPA or TestFlight preparation.": "Chọn tạo IPA hoặc build cho TestFlight."
 });
+
+Object.assign(window.SnapkitMessages.translations, {
+  "Check your account access": "Kiểm tra quyền tài khoản",
+  "Team keys are created by the Account Holder or an Admin. If API access has not been enabled, the Account Holder must request it and wait for Apple’s approval.": "Team key do Account Holder hoặc Admin tạo. Nếu team chưa bật quyền API, Account Holder cần yêu cầu quyền truy cập và chờ Apple duyệt.",
+  "Generate a team API key": "Tạo Team API key",
+  "Open Users and Access → Integrations → App Store Connect API → Team Keys. Choose Generate API Key (or +), give it a name and select a role that can upload builds, such as Developer or App Manager.": "Mở Users and Access → Integrations → App Store Connect API → Team Keys. Chọn Generate API Key (hoặc +), đặt tên và chọn role có quyền upload bản build, như Developer hoặc App Manager.",
+  "Download the private key once": "Tải file khóa riêng tư một lần",
+  "Choose Download API Key and keep the original AuthKey_KEYID.p8 filename. Apple offers this download only once. If the file was lost, an authorized team admin must revoke the old key and create a replacement.": "Chọn Download API Key và giữ nguyên tên AuthKey_KEYID.p8. Apple chỉ cho tải một lần. Nếu mất file, người quản lý có quyền cần thu hồi key cũ và tạo key thay thế.",
+  "Copy the IDs, then connect": "Sao chép các ID rồi kết nối",
+  "Copy Issuer ID from the Team Keys page, then choose your .p8 file in the form. Snapkit fills Key ID from its filename and suggests Team ID from your project. After connecting, select the matching app before uploading.": "Sao chép Issuer ID trên trang Team Keys, rồi chọn file .p8 trong biểu mẫu. Snapkit tự điền Key ID từ tên file và gợi ý Team ID từ project. Kết nối xong, chọn đúng app trước khi upload.",
+  "Sign in with your own Apple account": "Đăng nhập bằng tài khoản Apple của bạn",
+  "In Xcode → Settings → Accounts, add the account invited to the team. In App Store Connect, check that this account can access the app and upload builds. Signing certificates and provisioning must also be available.": "Trong Xcode → Settings → Accounts, thêm tài khoản được mời vào team. Trong App Store Connect, kiểm tra tài khoản có quyền truy cập app và upload bản build. Máy cũng cần chứng chỉ ký và provisioning phù hợp.",
+  "Create an archive for the right environment": "Tạo archive đúng môi trường",
+  "Open ios/Runner.xcworkspace in Xcode. Choose the dev/prod scheme, select a generic iOS device destination and use Product → Archive. If you already built an IPA in Snapkit, open the matching .xcarchive under build/ios/archive/ instead.": "Mở ios/Runner.xcworkspace trong Xcode. Chọn scheme dev/prod, chọn đích iOS device chung và dùng Product → Archive. Nếu đã build IPA trong Snapkit, mở đúng file .xcarchive trong build/ios/archive/ để dùng lại.",
+  "Upload from Organizer": "Upload từ Organizer",
+  "Open Window → Organizer → Archives. Check the app, version and build number, then choose Distribute App → App Store Connect (or TestFlight & App Store) → Upload. Select the correct team and review Apple’s confirmation screens.": "Mở Window → Organizer → Archives. Kiểm tra app, version và build number, rồi chọn Distribute App → App Store Connect (hoặc TestFlight & App Store) → Upload. Chọn đúng team và xem lại các bước xác nhận của Apple.",
+  "Wait for processing, then invite testers": "Chờ xử lý rồi mời người kiểm thử",
+  "After upload, open the app’s TestFlight tab in App Store Connect. Resolve validation or export-compliance questions, then assign the build to a test group. External testing may require Apple review.": "Sau upload, mở tab TestFlight của app trong App Store Connect. Xử lý lỗi xác thực hoặc câu hỏi về mã hóa, rồi gán bản build cho nhóm kiểm thử. Kiểm thử bên ngoài có thể cần Apple duyệt.",
+  "I cannot see Integrations or Issuer ID": "Tôi không thấy Integrations hoặc Issuer ID",
+  "Check that you selected the correct organization and Team Keys tab. API access may not be enabled, or your role may not manage team keys. Use the Xcode route if you are an invited member without API access.": "Kiểm tra bạn đang chọn đúng tổ chức và tab Team Keys. Team có thể chưa bật quyền API hoặc role của bạn không quản lý được team key. Nếu được mời và không có quyền API, dùng cách upload qua Xcode.",
+  "There is no Download API Key button": "Không có nút Download API Key",
+  "A team key can only be downloaded once. An invitation does not include its private key, and a key already downloaded cannot be downloaded again from Apple. Use a replacement key you are authorized to manage, or upload with Xcode.": "Team key chỉ tải được một lần. Lời mời vào team không kèm file khóa riêng tư, và Apple không cho tải lại key đã tải. Dùng key thay thế mà bạn được quyền quản lý hoặc upload bằng Xcode.",
+  "I have an Individual API key": "Tôi có Individual API key",
+  "Individual keys use a different authentication flow and do not have a team Issuer ID. This Snapkit version supports Team API keys for in-app upload. Use Xcode for now; do not put Team ID into the Issuer ID field.": "Individual key dùng luồng xác thực khác và không có Issuer ID của team. Bản Snapkit này hỗ trợ Team API key để upload trong app. Hiện tại hãy dùng Xcode; đừng nhập Team ID vào ô Issuer ID.",
+  "Will this change my build or publish my app?": "Thao tác này có đổi bản build hoặc phát hành app không?",
+  "Opening this guide or connecting a key does not build or upload anything. IPA builds still run locally. Snapkit uploads only after you confirm a saved IPA; Apple processing and test groups remain in App Store Connect.": "Mở hướng dẫn hoặc kết nối key không tự build hay upload. IPA vẫn được build trên máy. Snapkit chỉ upload sau khi bạn xác nhận một IPA đã lưu; việc xử lý và nhóm kiểm thử nằm trên App Store Connect.",
+  "YOUR CONNECTION": "THÔNG TIN KẾT NỐI",
+  "Connect your team": "Kết nối team của bạn",
+  "One-time setup for uploading inside Snapkit. You can build an IPA without completing this form.": "Thiết lập một lần để upload trong Snapkit. Bạn vẫn tạo được IPA khi chưa điền biểu mẫu này.",
+  "Team name (optional)": "Tên team (không bắt buộc)",
+  "10 characters. Suggested from Xcode; also available in Apple Developer → Account → Membership details. This is not Issuer ID.": "Gồm 10 ký tự. Gợi ý từ Xcode; cũng có tại Apple Developer → Account → Membership details. Đây không phải Issuer ID.",
+  "Choose the Team API key downloaded in step 3. The .p8 file remains on this computer; Snapkit saves only its location and IDs.": "Chọn Team API key tải ở bước 3. File .p8 giữ trên máy; Snapkit chỉ lưu đường dẫn và các ID.",
+  "Filled from AuthKey_KEYID.p8. You can also copy Key ID from the key’s row on the Team Keys page.": "Tự điền từ AuthKey_KEYID.p8. Bạn cũng có thể sao chép Key ID tại dòng key trong trang Team Keys.",
+  "Copy the UUID shown on App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys. It is not stored in Xcode or inside .p8.": "Sao chép UUID tại App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys. ID này không nằm trong Xcode hoặc file .p8.",
+  "Verify key & load apps": "Xác minh key & tải danh sách app",
+  "TestFlight setup & key guide": "Thiết lập TestFlight & hướng dẫn lấy key",
+  "CHOOSE YOUR UPLOAD ROUTE": "CHỌN CÁCH UPLOAD PHÙ HỢP",
+  "From a local build to your testers.": "Từ bản build trên máy đến người kiểm thử.",
+  "Keep building with your Xcode signing. Choose how you want to send the finished build to Apple.": "Tiếp tục build bằng cấu hình ký Xcode của bạn. Chọn cách gửi bản build đã hoàn tất lên Apple.",
+  "TestFlight upload method": "Cách upload lên TestFlight",
+  "Upload inside Snapkit": "Upload trong Snapkit",
+  "I can manage a Team API key": "Tôi có quyền quản lý Team API key",
+  "Upload with Xcode": "Upload bằng Xcode",
+  "I am invited to a team, or have no API key": "Tôi được mời vào team hoặc không có API key",
+  "Get a Team API key in four steps": "Lấy Team API key qua bốn bước",
+  "Team keys may access all apps in the organization according to their assigned role. Use only a key you are authorized to manage and keep it out of source control.": "Team key có thể truy cập các app trong tổ chức theo role được cấp. Chỉ dùng key mà bạn có quyền quản lý và không đưa key vào source control.",
+  "Open App Store Connect": "Mở App Store Connect",
+  "Apple’s key guide": "Hướng dẫn key của Apple",
+  "Use your own Apple account": "Dùng tài khoản Apple của chính bạn",
+  "A team invitation does not provide a .p8 file or permission to manage team keys. You can upload with Xcode when your account has the required app access and upload role. No API key or Issuer ID is needed for this route.": "Lời mời vào team không cấp file .p8 hoặc quyền quản lý team key. Bạn có thể upload bằng Xcode khi tài khoản có quyền truy cập app và role upload phù hợp. Cách này không cần API key hoặc Issuer ID.",
+  "Open Xcode": "Mở Xcode",
+  "Opening Xcode does not start an archive or upload. You choose and confirm those actions in Xcode.": "Mở Xcode không tự tạo archive hoặc upload. Bạn chọn và xác nhận các thao tác đó trong Xcode.",
+  "Stuck on a step?": "Bạn đang vướng ở bước nào?",
+  "How do I get the keys?": "Lấy các key ở đâu?",
+  "I use Xcode or have no API key": "Tôi dùng Xcode hoặc chưa có API key"
+});
+
+Object.assign(window.SnapkitMessages.translations, {'Could not open Xcode. Install Xcode and open it from Applications.':'Không mở được Xcode. Hãy cài Xcode và mở từ Applications.'});
+
+Object.assign(window.SnapkitMessages.translations, {'Xcode instructions':'Hướng dẫn dùng Xcode'});
+
+Object.assign(window.SnapkitMessages.translations, {"Team keys are created by the Account Holder or an Admin. If API access is not enabled, the Account Holder opens Users and Access → Integrations → App Store Connect API, chooses Request Access, accepts the terms and clicks Submit. Wait for Apple’s approval before generating a key.": "Team key do Account Holder hoặc Admin tạo. Nếu chưa bật API, Account Holder mở Users and Access → Integrations → App Store Connect API, chọn Request Access, đồng ý điều khoản rồi bấm Submit. Chờ Apple duyệt trước khi tạo key."});

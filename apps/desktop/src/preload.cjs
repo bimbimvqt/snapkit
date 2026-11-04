@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
+  openXcode: () => ipcRenderer.invoke('snapkit:open-xcode'),
   chooseReleaseFile: kind => ipcRenderer.invoke('snapkit:release-file', kind),
   ready: () => ipcRenderer.send('snapkit:ready'),
   setLanguage: language => ipcRenderer.invoke('snapkit:language', language),
