@@ -27,7 +27,7 @@
     el('release-run-submit').disabled = !target || !catalog || catalogLoading || !localOnly() || !!window.SNAPKIT_PREVIEW || formBusy || releaseState.busy || unsupported || debugging || !(target.platform === 'ios' ? catalog.ios : catalog.android);
     el('release-run-submit').querySelector('span').textContent = t('Run Release') + (optionsInput.flavor ? ' · ' + optionsInput.flavor : '');
     el('release-run-note').textContent = t(!localOnly() ? 'Run Release is available in the local app only.' : !devices.length ? 'Connect and unlock your phone, approve USB debugging or trust, then refresh Devices. Paired Wi-Fi devices also work.' : unsupported ? 'Running on iPhone requires macOS and Xcode.' : debugging ? 'Stop debugging this device before running Release.' : 'Choose the phone that should receive this release build.');
-    el('release-run-summary').textContent = target ? [target.name, optionsInput.flavor || t('Default (no flavor)'), optionsInput.target].join(' · ') : '';
+    el('release-run-summary').textContent = target ? [target.name, optionsInput.flavor || t('Default (no flavor)')].join(' · ') : '';
     el('release-run-command').hidden = !target;
     if (target) el('release-run-command').textContent = ['flutter', 'run', '--release', '--no-resident', '--device-id', target.flutterId, ...(optionsInput.flavor ? ['--flavor', optionsInput.flavor] : []), '--target', optionsInput.target, ...(optionsInput.defineFile ? ['--dart-define-from-file', optionsInput.defineFile] : [])].map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(' ');
   }
@@ -46,7 +46,7 @@
     el('release-key-status').textContent = apple.teams.length ? `${apple.teams.length} ${t('connected teams')}` : t('Not configured');
     el('release-key-form').querySelector('button[type=submit]').disabled = !state.settings.workspace || !localOnly() || !!window.SNAPKIT_PREVIEW;
     document.querySelectorAll('[data-release-file]').forEach(button => { button.hidden = !window.snapkitDesktop?.chooseReleaseFile; });
-    const options = input(), pieces = [title(kind), options.flavor || t('Default (no flavor)'), options.target];
+    const options = input(), pieces = [title(kind), options.flavor || t('Default (no flavor)')];
     el('release-summary').textContent = [...pieces, ...(kind === 'ipa' && options.apple ? [options.apple.teamName, options.apple.bundleId] : [])].join(' · ');
     const args = ['flutter', 'build', { apk: 'apk', aab: 'appbundle', ipa: 'ipa' }[kind], '--release', ...(options.flavor ? ['--flavor', options.flavor] : []), '--target', options.target, ...(options.defineFile ? ['--dart-define-from-file', options.defineFile] : []), ...(options.buildName ? ['--build-name', options.buildName] : []), ...(options.buildNumber ? ['--build-number', options.buildNumber] : []), ...(kind === 'ipa' ? options.exportOptions ? ['--export-options-plist', options.exportOptions] : ['--export-method', 'app-store'] : [])];
     el('release-command').textContent = args.map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(' ');
@@ -102,6 +102,8 @@
     const job = selectedJob(), activeStatus = job?.uploadStatus || job?.status;
     el('release-monitor-title').textContent = job ? `${jobTitle(job)} · ${job.plan.flavor || t('Default (no flavor)')}` : t('Ready when you are.');
     el('release-status').textContent = t(job ? jobStatus(job) : 'No build selected'); el('release-status').dataset.status = activeStatus || '';
+    el('release-build-details').hidden = !job;
+    el('release-monitor-overview').textContent = job ? [job.plan.device?.name, job.plan.buildName, job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : '';
     el('release-monitor-detail').textContent = job ? [new Date(job.startedAt).toLocaleString(window.SnapkitI18n.language), job.apple ? `${job.apple.teamName} · ${job.apple.bundleId} · ${job.apple.teamId}` : job.signing ? `${job.signing.bundleId} · ${job.signing.teamId}` : '', job.plan.device?.name || '', job.plan.target, job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : t('Start a build to follow its progress and download the result.');
     el('release-active-error').textContent = t(job?.uploadError || job?.error || '');
     const active = job && releaseState.active?.id === job.id;

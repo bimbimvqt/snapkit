@@ -5,6 +5,9 @@ test('release screen applies workspace profiles, builds APK and AAB with downloa
   await expect(page.locator('#release-profile')).toBeEnabled(); await expect(page.locator('#release-target')).toHaveValue('lib/main_dev.dart');
   await expect(page.locator('#release-version')).toHaveValue('1.0.0'); await expect(page.locator('#release-number')).toHaveValue('1');
   await choose(page,'release-profile','1');await expect(page.locator('#release-target')).toHaveValue('lib/main_prod.dart');await expect(page.locator('#release-flavor')).toHaveValue('prod');
+  await expect(page.locator('#release-command')).toBeHidden();
+  await page.locator('#release-command').locator('..').locator('..').locator('summary').click();
+  await expect(page.locator('#release-command')).toBeVisible();
   await expect(page.locator('#release-command')).toContainText('--flavor prod');
   await page.locator('#release-submit').click();await expect(page.locator('#release-status')).toHaveText('Build complete');await expect(page.locator('#release-log')).toContainText('Demo build only');
   const download=page.waitForEvent('download');await page.locator('[data-release-download]').first().click();expect((await download).suggestedFilename()).toContain('.apk');
@@ -98,8 +101,10 @@ test('Run Release uses the chosen flavor and real phone, displays progress/histo
   await expect(page.locator('#release-run-submit')).toBeDisabled();
   await choose(page,'release-profile','1');
   await choose(page,'release-run-device','demo-physical-1');
-  await expect(page.locator('#release-run-summary')).toContainText('iPhone 15 · prod · lib/main_prod.dart');
+  await expect(page.locator('#release-run-summary')).toHaveText('iPhone 15 · prod');
+  await expect(page.locator('#release-run-command')).toBeHidden();
   await expect(page.locator('#release-run-command')).toContainText('--release --no-resident --device-id demo-physical-1 --flavor prod');
+  await expect(page.locator('#release-run-command')).toContainText('--target lib/main_prod.dart');
   await expect(page.locator('#release-run-command')).not.toContainText('--export-method');
   await page.locator('#release-version').fill('2.0.0');await page.locator('#release-number').fill('42');
   await expect(page.locator('#release-run-command')).not.toContainText('--build-number');

@@ -38,3 +38,17 @@
 .light .sidebar .nav-item:focus-visible{outline-color:var(--green)}
 
 .update-card h2{margin-top:6px}.update-card progress{display:block;width:100%;height:7px;margin:20px 0 12px;accent-color:var(--accent);border:0;border-radius:8px;overflow:hidden}.update-card progress::-webkit-progress-bar{background:var(--surface-hover)}.update-card progress::-webkit-progress-value{background:var(--accent)}.update-card #update-detail{overflow-wrap:anywhere;color:var(--muted)}.update-card .preferences-actions{flex-wrap:wrap}.update-card .tiny-label{color:var(--muted)}
+
+/* Secondary explanations are available on demand across the app. */
+.interface-details{margin:14px 0;color:var(--muted);font-size:12px;line-height:1.7}
+.interface-details>summary{cursor:pointer;min-height:44px;display:list-item;padding:11px 0;color:var(--muted);font-size:12px}
+.interface-details>summary:hover{color:var(--text)}
+.interface-details>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.interface-details-body{padding:8px 0 12px;overflow-wrap:anywhere}
+.interface-details-body p{margin:8px 0;font-size:13px;line-height:1.8;color:var(--muted)}
+.interface-details .interface-details{margin:6px 0}
+.tool-check .interface-details{margin:2px 0 0}
+.tool-check .interface-details>summary{padding:6px 0;min-height:32px}
+#update-detail:empty{display:none}
+#update-details .updates-schedule{margin-top:16px}
+#update-details .updates-delta-note{margin-bottom:14px}

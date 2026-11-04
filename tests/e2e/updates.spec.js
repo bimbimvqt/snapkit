@@ -109,18 +109,26 @@ test('dedicated Updates page shows background availability everywhere without fo
   expect(await page.evaluate(()=>!!window.downloaded||!!window.installed)).toBe(false);
 });
 
-test('smart updates explain local planning, actual transferred bytes, savings and safe full-download fallback in EN/VI',async({page})=>{
+test('updates show concise progress and keep transfer diagnostics behind a disclosure in EN/VI',async({page})=>{
   await page.addInitScript(()=>{
     let state={status:'downloading',current:'0.2.0-beta.27',version:'0.2.0-beta.28',transfer:'planning',received:0,size:120*1024**2,percent:0};
     window.snapkitDesktop={ready:()=>{},setLanguage:async()=>{},updateState:async()=>state,testUpdate:next=>state={...state,...next}};
   });
   await page.goto('/?lang=en');await page.locator('[data-app-page="updates"]').click();
-  await expect(page.locator('#update-detail')).toHaveText('Preparing a smaller update…');await expect(page.locator('#update-progress')).not.toHaveAttribute('value');
+  await expect(page.locator('#update-detail')).toHaveText('Preparing the update…');await expect(page.locator('#update-progress')).not.toHaveAttribute('value');
   await page.evaluate(()=>window.snapkitDesktop.testUpdate({transfer:'delta',size:2*1024**2,received:1024**2,percent:50,reused:118*1024**2}));
-  await expect(page.locator('#update-detail')).toContainText('1.0 / 2.0 MB');await expect(page.locator('#update-detail')).toContainText('Reusing 118.0 MB');
+  await expect(page.locator('#update-detail')).toHaveText('50% downloaded');
+  await expect(page.locator('#update-transfer-detail')).toBeHidden();
+  await page.locator('#update-details > summary').click();
+  await expect(page.locator('#update-transfer-detail')).toContainText('1.0 / 2.0 MB');await expect(page.locator('#update-transfer-detail')).toContainText('Reusing 118.0 MB');
   await page.evaluate(()=>window.snapkitDesktop.testUpdate({status:'ready',downloadSize:2*1024**2,fullSize:120*1024**2}));
-  await expect(page.locator('#update-detail')).toHaveText('Smart update ready. Downloaded 2.0 MB instead of 120.0 MB.');
-  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#update-detail')).toContainText('Đã tải 2.0 MB thay vì 120.0 MB');
+  await expect(page.locator('#update-transfer-detail')).toHaveText('Smart update ready. Downloaded 2.0 MB instead of 120.0 MB.');
+  await page.locator('#update-details > summary').click();
+  await expect(page.locator('#update-transfer-detail')).toBeHidden();
+  await expect(page.locator('#update-detail')).toBeHidden();
+  await expect(page.locator('#check-updates')).toBeHidden();
+  await expect(page.locator('#update-install')).toBeVisible();
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#update-transfer-detail')).toContainText('Đã tải 2.0 MB thay vì 120.0 MB');
   await page.evaluate(()=>window.snapkitDesktop.testUpdate({status:'downloading',transfer:'full',fallback:true,size:120*1024**2,received:1024**2,percent:1}));
-  await expect(page.locator('#update-detail')).toContainText('Đang dùng gói đầy đủ');await expect(page.locator('#update-cancel')).toBeVisible();
+  await expect(page.locator('#update-transfer-detail')).toContainText('Đang dùng gói đầy đủ');await expect(page.locator('#update-cancel')).toBeVisible();
 });

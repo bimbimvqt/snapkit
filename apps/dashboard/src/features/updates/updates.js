@@ -41,10 +41,15 @@
 
     $('#update-status').textContent = t(statuses[state.status] || statuses.error, [state.version || '']);
     const transferDetail = state.transfer === 'delta' ? t('Downloading only changed data. Reusing {0} MB from this computer.', [(state.reused / 1024 ** 2).toFixed(1)]) : state.fallback ? t('Using the full package to complete this update.') : '';
-    const detail = state.error ? t(state.error) : state.status === 'downloading' && state.transfer === 'planning' ? t('Preparing a smaller update…') : state.status === 'downloading' ? `${state.percent || 0}% · ${(state.received / 1024 ** 2).toFixed(1)} / ${(state.size / 1024 ** 2).toFixed(1)} MB${transferDetail ? ' · ' + transferDetail : ''}` : state.status === 'ready' && state.transfer === 'delta' ? t('Smart update ready. Downloaded {0} MB instead of {1} MB.', [(state.downloadSize / 1024 ** 2).toFixed(1), (state.fullSize / 1024 ** 2).toFixed(1)]) : '';
+    const technicalDetail = state.error ? '' : state.status === 'downloading' && state.transfer === 'planning' ? t('Preparing a smaller update…') : state.status === 'downloading' ? `${state.percent || 0}% · ${(state.received / 1024 ** 2).toFixed(1)} / ${(state.size / 1024 ** 2).toFixed(1)} MB${transferDetail ? ' · ' + transferDetail : ''}` : state.status === 'ready' && state.transfer === 'delta' ? t('Smart update ready. Downloaded {0} MB instead of {1} MB.', [(state.downloadSize / 1024 ** 2).toFixed(1), (state.fullSize / 1024 ** 2).toFixed(1)]) : '';
+    const detail = state.error ? t(state.error) : state.status === 'downloading' ? t(state.transfer === 'planning' ? 'Preparing the update…' : '{0}% downloaded', [state.percent || 0]) : '';
     updateText('update-detail', detail);
+    $('#update-detail').classList.toggle('hidden', !detail);
+    updateText('update-transfer-detail', technicalDetail);
+    $('#update-transfer-detail').classList.toggle('hidden', !technicalDetail);
     $('#update-progress').classList.toggle('hidden', !['downloading', 'verifying'].includes(state.status));
     if (state.status === 'verifying' || state.status === 'downloading' && state.transfer === 'planning') $('#update-progress').removeAttribute('value'); else $('#update-progress').value = state.percent || 0;
+    $('#check-updates').classList.toggle('hidden', ['downloading', 'verifying', 'ready', 'installing'].includes(state.status));
     $('#check-updates').disabled = action || !bridge || ['unsupported', 'checking', 'downloading', 'verifying', 'ready', 'installing'].includes(state.status);
     $('#update-download').classList.toggle('hidden', !(state.status === 'available' || state.status === 'error' && state.retry === 'download'));
     $('#update-install').classList.toggle('hidden', state.status !== 'ready');

@@ -138,7 +138,7 @@ function render() {
   $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Device status checked every 2s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
-  $('#ide-summary').textContent = state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Run/Debug or F5 in IDE · Snapkit extension · Project files unchanged", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
+  $('#ide-summary').textContent = state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Press F5 in your editor", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
   renderWarnings(); renderProvisionJobs(); icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
   document.dispatchEvent(new Event('snapkit:state'));

@@ -17,7 +17,7 @@ test('app switches language without losing search, workspace input or cached too
   await expect(page.locator('#device-search')).toHaveValue('iPhone');
   expect(await page.locator('.card-name').allTextContents()).toEqual(names);
   await page.locator('[data-app-page="setup"]').click();
-  await expect(page.locator('#setup-title')).toHaveText('Khởi đầu rõ ràng, từng bước một.');
+  await expect(page.locator('#setup-title')).toHaveText('Thiết lập & công cụ');
   await expect(page.locator('#tool-checks')).toContainText('Sẵn sàng');
   await chooseLanguage(page, 'en');
   await expect(page.locator('#tool-checks')).toContainText('Ready');
@@ -28,7 +28,7 @@ test('app switches language without losing search, workspace input or cached too
   await expect(page.locator('#pref-flutter')).toHaveValue('/SDKs/My Flutter');
   await expect(page.locator('#save-preferences')).toHaveText('Lưu tùy chọn');
   await page.locator('[data-app-page="plan"]').click();
-  await expect(page.locator('#plan-title')).toHaveText('Ưu tiên nhịp làm việc của bạn.');
+  await expect(page.locator('#plan-title')).toHaveText('Gói sử dụng');
   await page.reload();
   await expect(page.locator('[data-language-select]')).toHaveAttribute('data-language-current', 'vi');
   await expect(page.locator('#add-device')).toHaveText('Thêm thiết bị');

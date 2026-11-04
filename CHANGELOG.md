@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.31 — 2026-11-04
+
+- Rút gọn giao diện toàn app: ưu tiên trạng thái, thao tác và thông tin cần thiết; bỏ các đoạn giới thiệu dài và khẩu hiệu trên màn hình chính.
+- Cập nhật chỉ hiện tiến độ và hành động tiếp theo; thống kê delta, dung lượng, lịch kiểm tra và ghi chú phát hành nằm trong Chi tiết cập nhật.
+- Thu gọn hướng dẫn editor, công cụ, lưu trữ, lệnh build/run, metadata bản build và build output; giữ lỗi và cảnh báo cài đè/xóa dữ liệu ở vị trí thao tác.
+- Giữ hướng dẫn bắt đầu và hướng dẫn TestFlight đầy đủ khi người dùng mở để tra cứu; hỗ trợ EN/VI, bàn phím và màn hình nhỏ.
+
 ## 0.2.0-beta.30 — 2026-11-04
 
 - Chỉ hiển thị editor có tích hợp Snapkit Debug Sync: VS Code, Cursor và Antigravity; giữ nhãn beta cho hai editor tương thích.

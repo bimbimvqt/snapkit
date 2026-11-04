@@ -33,7 +33,7 @@ function renderEditors() {
   $('#editor-options').innerHTML = productEditors.map(([id, name, detail, symbol]) => `<button type="button" class="editor-option ${selected === id ? 'chosen' : ''}" data-editor="${id}" aria-pressed="${selected === id}">${icon(symbol)}<strong>${escape(t(name))}</strong><small>${escape(t(detail))}</small>${selected === id ? icon('circle-check') : ''}</button>`).join('');
   $('#extension-download').classList.remove('hidden');
   const name = productEditors.find(([id]) => id === selected)[1];
-  $('#editor-help').textContent = t("In {0}, install Snapkit Debug Sync, choose a normal Flutter debug profile, then start Debug. Your selected devices are used for the next run.", [name]);
+  $('#editor-help').textContent = t("In {0}, install Snapkit Debug Sync and press F5 to debug on your selected devices.", [name]);
   if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/latest';
   icons();
 }
@@ -63,7 +63,7 @@ function renderTools() {
       const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[toolState.platform] || t("This computer");
       $('#computer-label').textContent = `${osName} · ${toolState.arch === 'arm64' ? 'Apple Silicon / ARM64' : 'Intel / AMD'}${toolState.memoryGB ? t(" · {0} GB memory", [toolState.memoryGB]) : ''}`;
       $('#computer-advice').textContent = t(toolState.advice);
-      $('#tool-checks').innerHTML = toolState.checks.map(check => `<article class="tool-check ${check.status}"><span class="tool-symbol">${icon(check.status === 'ready' ? 'check' : 'wrench')}</span><div><div class="tool-title"><h3>${escape(t(check.title))}</h3><span>${check.status === 'ready' ? t("Ready") : t("Needs setup")}</span></div><p>${escape(t(check.detail))}</p>${check.status !== 'ready' ? `<a class="text-link" href="${escape(check.help)}" target="_blank" rel="noopener noreferrer">${t("Open setup guide")} ${icon('arrow-up-right')}</a>` : ''}</div></article>`).join('');
+      $('#tool-checks').innerHTML = toolState.checks.map(check => `<article class="tool-check ${check.status}"><span class="tool-symbol">${icon(check.status === 'ready' ? 'check' : 'wrench')}</span><div><div class="tool-title"><h3>${escape(t(check.title))}</h3><span>${check.status === 'ready' ? t("Ready") : t("Needs setup")}</span></div>${check.status === 'ready' ? `<details class="interface-details"><summary>${t("More details")}</summary><p>${escape(t(check.detail))}</p></details>` : `<p>${escape(t(check.detail))}</p>`}${check.status !== 'ready' ? `<a class="text-link" href="${escape(check.help)}" target="_blank" rel="noopener noreferrer">${t("Open setup guide")} ${icon('arrow-up-right')}</a>` : ''}</div></article>`).join('');
       const ready = toolState.checks.filter(check => check.status === 'ready').length;
       $('#journey-tools').textContent = t("{0} of {1} tools ready", [ready, toolState.checks.length]);
       $('[data-go="setup"] .step-number').classList.toggle('complete', toolState.ready);
