@@ -1,4 +1,10 @@
 // Plans contain argument arrays only. User input never becomes a shell command.
+export function projectVersion(source) {
+  const match = /^version:[ \t]*(?:"([^"\n]+)"|'([^'\n]+)'|([^\s#]+))/m.exec(source);
+  const version = (match?.[1] || match?.[2] || match?.[3] || '').trim();
+  const [buildName = '', buildNumber = ''] = version.split('+');
+  return { version, buildName, buildNumber };
+}
 export function releasePlan(input, platform) {
   const format = input.format;
   if (!['apk', 'aab', 'ipa'].includes(format)) throw new Error('Choose APK, AAB or TestFlight IPA.');

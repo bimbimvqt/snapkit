@@ -1,3 +1,5 @@
+New in beta.20: release configuration lists remove workspace/IDE duplicates without hiding distinct configurations. Version and build number are prefilled from pubspec.yaml and remain editable per build. Refresh preserves edits, and a reset restores project values. TestFlight confirmation identifies the saved IPA version/build; the release page now explains signing, upload and Apple processing in English/Vietnamese.
+
 New in beta.19: production desktop packages include workspace APK/AAB/IPA builds and a separate TestFlight upload action. Updates can now be checked, downloaded, verified and installed from Preferences. Installation requires confirmation and no active builds/uploads/recordings/debug sessions. macOS stages the new bundle and retains the previous version until startup succeeds. Cache clearing preserves user data. Older app versions need one manual installation to gain this updater. See docs/in-app-updates.md for release and signing requirements.
 
 New in beta.18: sidebar keyboard focus uses an inset outline, preventing clipping by the navigation scroll container and overlap with adjacent items. Active-page highlighting stays distinct in both themes.

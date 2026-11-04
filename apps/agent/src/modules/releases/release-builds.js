@@ -36,7 +36,7 @@ export class ReleaseBuilds {
   }
   async catalog(workspace, settings) {
     if (!this.demo) return releaseCatalog(workspace, settings, this.platform);
-    return { workspace, platform: 'darwin', android: true, ios: true, androidFlavors: ['dev', 'prod'], iosFlavors: ['dev', 'prod'], flavors: ['dev', 'prod'], version: '1.0.0+1', profiles: [
+    return { workspace, platform: 'darwin', android: true, ios: true, androidFlavors: ['dev', 'prod'], iosFlavors: ['dev', 'prod'], flavors: ['dev', 'prod'], version: '1.0.0+1', buildName: '1.0.0', buildNumber: '1', profiles: [
       { name: 'Development', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: 'config/dev.json' },
       { name: 'Production', flavor: 'prod', target: 'lib/main_prod.dart', defineFile: 'config/prod.json' }
     ] };

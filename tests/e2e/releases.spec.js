@@ -3,6 +3,7 @@ import { choose } from './choices.js';
 test('release screen applies workspace profiles, builds APK and AAB with downloadable saved artifacts', async ({page}) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();
   await expect(page.locator('#release-profile')).toBeEnabled(); await expect(page.locator('#release-target')).toHaveValue('lib/main_dev.dart');
+  await expect(page.locator('#release-version')).toHaveValue('1.0.0'); await expect(page.locator('#release-number')).toHaveValue('1');
   await choose(page,'release-profile','1');await expect(page.locator('#release-target')).toHaveValue('lib/main_prod.dart');await expect(page.locator('#release-flavor')).toHaveValue('prod');
   await expect(page.locator('#release-command')).toContainText('--flavor prod');
   await page.locator('#release-submit').click();await expect(page.locator('#release-status')).toHaveText('Build complete');await expect(page.locator('#release-log')).toContainText('Demo build only');
@@ -21,8 +22,19 @@ test('TestFlight builds IPA first and requires a separate configured and confirm
   await page.locator('#release-key-id').fill('AB12CD34EF');await page.locator('#release-issuer').fill('12345678-1234-1234-1234-123456789012');await page.locator('#release-key-path').fill('/demo/AuthKey_AB12CD34EF.p8');
   await page.locator('#release-key-form button[type="submit"]').click();await expect(page.locator('#release-key-status')).toHaveText('Configured for this workspace');
   await page.locator('[data-release-upload]').click();await expect(page.locator('#release-upload-dialog')).toBeVisible();await expect(page.locator('#release-status')).toHaveText('Build complete');
+  await expect(page.locator('#release-upload-summary')).toContainText('1.0.0 · #1');
   await page.locator('#release-upload-confirm').click();await expect(page.locator('#release-status')).toHaveText('Sent to Apple');await expect(page.locator('#release-monitor-detail')).toContainText('Demo only');
   await page.locator('#release-key-clear').click();await expect(page.locator('#release-key-status')).toHaveText('Not configured');
+});
+test('refresh keeps version edits and the selected profile; reset uses the latest pubspec metadata', async ({page}) => {
+  await page.goto('/?lang=en'); await page.locator('[data-app-page="releases"]').click(); await expect(page.locator('#release-profile')).toBeEnabled();
+  await choose(page, 'release-profile', '1'); await page.locator('#release-version').fill('1.2.1'); await page.locator('#release-number').fill('42');
+  await page.route('**/api/releases/catalog', async route => { const response = await route.fetch(); const data = await response.json(); await route.fulfill({ response, json: { ...data, version: '1.0.1+2', buildName: '1.0.1', buildNumber: '2' } }); });
+  await page.locator('#release-refresh').click(); await expect(page.locator('#release-project-version')).toHaveText('1.0.1+2');
+  await expect(page.locator('#release-flavor')).toHaveValue('prod'); await expect(page.locator('#release-version')).toHaveValue('1.2.1'); await expect(page.locator('#release-number')).toHaveValue('42');
+  await expect(page.locator('#release-command')).toContainText('--build-name 1.2.1 --build-number 42');
+  await page.locator('#release-reset-version').click(); await expect(page.locator('#release-version')).toHaveValue('1.0.1'); await expect(page.locator('#release-number')).toHaveValue('2');
+  await page.locator('.release-testflight-guide summary').click(); await expect(page.locator('.release-testflight-guide')).toContainText('90 days');
 });
 test('release job controls cancel active builds and keep project history after navigation',async({page})=>{
   await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();

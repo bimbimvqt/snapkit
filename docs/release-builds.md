@@ -55,3 +55,12 @@ Cấu hình khoá và upload chỉ có trong local app/dashboard, không cho pai
 ## Kiểm chứng
 
 Test tự động dùng project tạm và adapter Flutter/Xcode giả lập, kiểm tra flavor/entrypoint/version, huỷ, artifact cũ, phân quyền, cách ly workspace và upload cần xác nhận. Demo tạo file minh hoạ không cài được và không gửi gì đến Apple. Cần kiểm tra thêm với signing/keystore/API key thực trước khi dùng phát hành sản phẩm.
+
+
+## Version và cấu hình (beta.20)
+
+Snapkit gộp cấu hình trùng theo flavor + đường dẫn entrypoint + đường dẫn defines sau khi chuẩn hóa; giữ các cấu hình khác defines/entrypoint dù cùng flavor. Cấu hình workspace chỉ xuất hiện riêng khi khác cấu hình IDE.
+
+Phiên bản và số build được điền từ `version:` trong `pubspec.yaml` (ví dụ `1.2.118+190` thành `1.2.118` và `190`). Có thể sửa riêng cho lần build qua `--build-name`/`--build-number`, không ghi lại pubspec hay thay đổi cấu hình debug. Refresh giữ giá trị đã sửa; **Dùng phiên bản dự án** khôi phục metadata vừa đọc. Nếu bỏ trống, backend lấy giá trị project hiện tại khi bắt đầu và ghi vào snapshot của job. Không tự tăng build number hoặc truy vấn số build mới nhất của App Store Connect.
+
+IPA TestFlight là bản release có ký distribution. Flavor dev/prod quyết định cấu hình app, không phải hai môi trường TestFlight riêng do Snapkit tạo. Nếu dev/prod dùng bundle ID khác nhau thì cần hai app tương ứng trên App Store Connect. Sau khi build IPA, upload là thao tác riêng bằng team API key. Apple xử lý/kiểm tra file trước khi chọn nhóm tester; external testing có thể cần Beta App Review, khai báo mã hóa có thể cần hoàn tất, và build hết hạn sau 90 ngày. Upload thành công không đồng nghĩa app đã được phát hành lên App Store. Apple Developer team/ký iOS app là cấu hình của workspace; độc lập với Developer ID/notarization của desktop Snapkit.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { releasePlan, redactBuildLog } from '../../apps/agent/src/domain/release-plan.js';
+import { releasePlan, redactBuildLog, projectVersion } from '../../apps/agent/src/domain/release-plan.js';
 import { ReleaseBuilds } from '../../apps/agent/src/modules/releases/release-builds.js';
 import { gradleFlavors, releaseCatalog, validateRelease } from '../../apps/agent/src/modules/releases/release-catalog.js';
 
@@ -29,10 +29,30 @@ test('catalog discovers Android flavors, profiles and version without changing p
   const { workspace } = await fixture(t);
   const catalog = await releaseCatalog(workspace, { flavor:'dev', target:input.target }, 'darwin');
   assert.deepEqual(catalog.androidFlavors, ['dev','prod']); assert.equal(catalog.version,'1.2.0+7');
+  assert.equal(catalog.buildName, '1.2.0'); assert.equal(catalog.buildNumber, '7');
   assert.ok(catalog.profiles.some(profile => profile.flavor === 'prod' && profile.review));
   assert.deepEqual(gradleFlavors('productFlavors { dev { dimension "env" }; prod { dimension "env" } }'), ['dev','prod']);
   assert.equal((await validateRelease(workspace, input, 'darwin')).format, 'apk');
   await assert.rejects(validateRelease(workspace, { ...input, target:'../outside.dart' }, 'darwin'), /entrypoint/);
+  const defaults = await validateRelease(workspace, { ...input, buildName: '', buildNumber: '' }, 'darwin');
+  assert.equal(defaults.buildName, '1.2.0'); assert.equal(defaults.buildNumber, '7');
+  assert.match(defaults.args.join(' '), /--build-name 1.2.0 --build-number 7/);
+});
+test('release profiles deduplicate effective paths and keep genuinely different configs for the same flavor', async t => {
+  const { workspace } = await fixture(t); await mkdir(path.join(workspace, '.vscode'));
+  const profile = (name, defineFile) => ({ name, type: 'dart', request: 'launch', program: 'lib/main_dev.dart', args: ['--flavor', 'dev', '--dart-define-from-file', defineFile] });
+  await writeFile(path.join(workspace, '.vscode/launch.json'), JSON.stringify({ configurations: [profile('Development', 'config/dev.json'), profile('Alternate dev', 'config/other.json')] }));
+  const catalog = await releaseCatalog(workspace, { flavor: 'dev', target: path.join(workspace, 'lib/main_dev.dart'), defineFile: path.join(workspace, 'config/../config/dev.json') }, 'darwin');
+  assert.equal(catalog.profiles.filter(p => p.flavor === 'dev').length, 2);
+  assert.equal(catalog.profiles.some(p => p.name === 'Workspace settings'), false);
+  assert.equal(catalog.profiles.find(p => p.current)?.name, 'Development');
+  const custom = await releaseCatalog(workspace, { flavor: 'dev', target: input.target, defineFile: 'config/custom.json' }, 'darwin');
+  assert.equal(custom.profiles.filter(p => p.flavor === 'dev').length, 3);
+});
+test('project versions read quoted YAML values, comments and missing build metadata without guessing', () => {
+  for (const value of ['version: 1.2.118+190 # app version', 'version: "1.2.118+190"', "version: '1.2.118+190'"]) assert.deepEqual(projectVersion(value), { version: '1.2.118+190', buildName: '1.2.118', buildNumber: '190' });
+  assert.deepEqual(projectVersion('version: 1.2.0'), { version: '1.2.0', buildName: '1.2.0', buildNumber: '' });
+  assert.deepEqual(projectVersion('name: example'), { version: '', buildName: '', buildNumber: '' });
 });
 test('build jobs isolate workspaces, serialize, snapshot artifacts and reject stale build output', async t => {
   const { dir, workspace } = await fixture(t); let finish;

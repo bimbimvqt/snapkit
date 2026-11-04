@@ -739,3 +739,20 @@ Object.assign(window.SnapkitMessages.translations, {
   'Could not check active tasks. Try again.': 'Chưa thể kiểm tra tác vụ đang chạy. Hãy thử lại.',
   'The updated app did not finish starting. The previous version was restored.': 'Bản cập nhật chưa khởi động xong. Đã khôi phục phiên bản trước.'
 });
+
+Object.assign(window.SnapkitMessages.translations, {
+  'App version': 'Phiên bản ứng dụng', 'Build number': 'Số build', 'Entrypoint & defines': 'Entrypoint và defines',
+  'Loaded from pubspec.yaml. Changes apply only to this build.': 'Lấy từ pubspec.yaml. Thay đổi chỉ áp dụng cho bản build này.',
+  'Use project version': 'Dùng phiên bản dự án', 'How TestFlight works': 'IPA và TestFlight hoạt động thế nào?',
+  'Choose the environment.': 'Chọn môi trường.',
+  'Dev and prod use your Flutter flavors, entrypoint and defines. TestFlight builds always use release mode.': 'Dev và prod sử dụng flavor, entrypoint và defines của project Flutter. Bản TestFlight luôn build ở chế độ release.',
+  'Create a signed IPA.': 'Tạo file IPA có ký số.',
+  'Xcode archives and exports an App Store IPA on this Mac. Your iOS app needs an Apple Developer team, distribution signing and an App Store Connect app with the matching bundle ID.': 'Xcode archive và xuất IPA dành cho App Store ngay trên Mac này. App iOS của bạn cần Apple Developer team, cấu hình ký distribution và ứng dụng trên App Store Connect có cùng bundle ID.',
+  'Upload when ready.': 'Upload khi đã sẵn sàng.',
+  'Configure your App Store Connect API key below, then confirm the saved IPA to upload. Upload does not rebuild or change the selected environment.': 'Cấu hình API key App Store Connect bên dưới, rồi xác nhận file IPA đã lưu để upload. Bước upload không build lại hoặc đổi môi trường đã chọn.',
+  'Wait for Apple, then invite testers.': 'Chờ Apple xử lý rồi mời người test.',
+  'Apple validates and processes the build. Manage test groups and export compliance in App Store Connect; external testing may require Beta App Review. TestFlight builds expire after 90 days.': 'Apple xác minh và xử lý bản build. Quản lý nhóm test và khai báo mã hóa trên App Store Connect; test bên ngoài có thể cần Beta App Review. Bản TestFlight hết hạn sau 90 ngày.',
+  'Use a new build number for each TestFlight upload. Snapkit reads your project version, not the latest build on App Store Connect.': 'Mỗi lần upload TestFlight cần số build mới. Snapkit đọc version trong project, chưa lấy số build mới nhất từ App Store Connect.',
+  'This workspace does not contain an iOS project.': 'Workspace này chưa có project iOS.',
+  'This workspace does not contain an Android project.': 'Workspace này chưa có project Android.'
+});

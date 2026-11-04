@@ -1,8 +1,16 @@
 import path from 'node:path';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat, realpath } from 'node:fs/promises';
 import { workspaceProfiles, validateWorkspace, validateBuild } from '../workspace/workspace.js';
-import { releasePlan } from '../../domain/release-plan.js';
+import { releasePlan, projectVersion } from '../../domain/release-plan.js';
 const exists = async file => (await stat(file).catch(() => null))?.isDirectory() || false;
+async function canonical(file) {
+  let parent = file; const tail = [];
+  for (;;) {
+    try { return path.join(await realpath(parent), ...tail); } catch {}
+    const next = path.dirname(parent); if (next === parent) return file;
+    tail.unshift(path.basename(parent)); parent = next;
+  }
+}
 // Extract named Android flavor declarations, including Kotlin create/getByName syntax.
 export function gradleFlavors(raw) {
   const text = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -27,11 +35,17 @@ export async function releaseCatalog(workspace, settings, platform) {
   const schemes = await readdir(path.join(root, 'ios/Runner.xcodeproj/xcshareddata/xcschemes')).catch(() => []);
   const iosFlavors = schemes.filter(name => name.endsWith('.xcscheme') && name !== 'Runner.xcscheme').map(name => name.slice(0, -9));
   const flavors = [...new Set([...info.flavors, ...androidFlavors, settings.flavor || ''].filter(Boolean))];
-  const profiles = [{ name: 'Workspace settings', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '' }, ...info.profiles];
+  const current = { name: 'Workspace settings', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '' };
+  const identity = async profile => JSON.stringify([profile.flavor || '', await canonical(path.resolve(root, profile.target || 'lib/main.dart')), profile.defineFile ? await canonical(path.resolve(root, profile.defineFile)) : '']);
+  const currentKey = await identity(current), seen = new Map();
+  for (const profile of info.profiles) { const key = await identity(profile); if (!seen.has(key)) seen.set(key, profile); }
+  const profiles = [...seen.values()];
+  const matching = seen.get(currentKey);
+  if (matching) matching.current = true;
+  else profiles.unshift({ ...current, current: true });
   for (const flavor of flavors) if (!profiles.some(profile => profile.flavor === flavor)) profiles.push({ name: flavor, flavor, target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '', review: true });
   const pubspec = await readFile(path.join(root, 'pubspec.yaml'), 'utf8');
-  const version = /^version:\s*([^\s#]+)/m.exec(pubspec)?.[1] || '';
-  return { workspace: root, platform, android: await exists(path.join(root, 'android')), ios: await exists(path.join(root, 'ios')), androidFlavors, iosFlavors, profiles, version, flavors };
+  return { workspace: root, platform, android: await exists(path.join(root, 'android')), ios: await exists(path.join(root, 'ios')), androidFlavors, iosFlavors, profiles, ...projectVersion(pubspec), flavors };
 }
 export async function validateRelease(workspace, input, platform) {
   const plan = releasePlan(input, platform), root = await validateWorkspace(workspace);
@@ -43,5 +57,5 @@ export async function validateRelease(workspace, input, platform) {
   if (plan.exportOptions) {
     if (!path.isAbsolute(plan.exportOptions) || !(await stat(plan.exportOptions).catch(() => null))?.isFile() || !plan.exportOptions.endsWith('.plist')) throw new Error('Choose an existing ExportOptions.plist file.');
   }
-  return { workspace: root, ...releasePlan({ ...plan, ...build }, platform) };
+  return { workspace: root, ...releasePlan({ ...plan, ...build, buildName: plan.buildName || catalog.buildName, buildNumber: plan.buildNumber || catalog.buildNumber }, platform) };
 }

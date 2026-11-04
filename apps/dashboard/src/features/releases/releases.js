@@ -15,7 +15,7 @@
     el('release-submit').disabled = !ready || window.SNAPKIT_PREVIEW || releaseState.busy || formBusy || (kind === 'ipa' ? catalog.platform !== 'darwin' || !catalog.ios : !catalog.android);
     el('release-submit').querySelector('span').textContent = t({ apk: 'Build APK', aab: 'Build App Bundle', ipa: 'Build TestFlight IPA' }[kind]) + (el('release-flavor').value ? ' · ' + el('release-flavor').value : '');
     el('release-ios-options').hidden = kind !== 'ipa';
-    el('release-platform-note').textContent = window.SNAPKIT_PREVIEW ? t('Open Snapkit Desktop to build this workspace.') : releaseState.busy && releaseState.active?.workspace !== state.settings.workspace ? t('A release task is running in another workspace. Wait for it to finish before starting a build.') : kind === 'ipa' ? t(catalog?.platform !== 'darwin' ? 'TestFlight builds require macOS and Xcode.' : 'App Store distribution · signing comes from your Xcode project.') : t('Release mode · signing comes from your Android project.');
+    el('release-platform-note').textContent = window.SNAPKIT_PREVIEW ? t('Open Snapkit Desktop to build this workspace.') : releaseState.busy && releaseState.active?.workspace !== state.settings.workspace ? t('A release task is running in another workspace. Wait for it to finish before starting a build.') : kind === 'ipa' ? t(catalog?.platform !== 'darwin' ? 'TestFlight builds require macOS and Xcode.' : !catalog?.ios ? 'This workspace does not contain an iOS project.' : 'App Store distribution · signing comes from your Xcode project.') : t(catalog && !catalog.android ? 'This workspace does not contain an Android project.' : 'Release mode · signing comes from your Android project.');
     el('release-key-status').textContent = t(releaseState.uploadConfigured ? 'Configured for this workspace' : 'Not configured');
     el('release-key-clear').disabled = !releaseState.uploadConfigured || !localOnly();
     el('release-key-form').querySelector('button[type=submit]').disabled = !state.settings.workspace || !localOnly();
@@ -33,10 +33,13 @@
   }
   async function loadCatalog() {
     if (catalogLoading || !state.settings.workspace) return;
-    const workspace = state.settings.workspace, epoch = generation; catalogLoading = true; updateControls(); el('release-catalog-error').textContent = '';
+    const workspace = state.settings.workspace, epoch = generation;
+    const previous = catalog ? { values: input(), profile: catalog.profiles[Number(el('release-profile').value)], buildName: catalog.buildName, buildNumber: catalog.buildNumber } : null;
+    catalogLoading = true; updateControls(); el('release-catalog-error').textContent = '';
     try {
       const result = await api('/api/releases/catalog'); if (epoch !== generation || workspace !== state.settings.workspace) return;
-      catalog = result;
+      const [name = '', number = ''] = (result.version || '').split('+');
+      result.buildName ??= name; result.buildNumber ??= number; catalog = result;
       const profiles = result.profiles || [], flavors = [...new Set([...(result.flavors || []), ...profiles.map(profile => profile.flavor || '')])];
       if (!flavors.length) flavors.push('');
       el('release-profile').innerHTML = profiles.map((profile, index) => `<option value="${index}">${escape(t(profile.name))}${profile.flavor ? ' · ' + escape(profile.flavor) : ''}</option>`).join('');
@@ -45,8 +48,16 @@
       el('release-project-version').textContent = result.version || '—';
       document.querySelectorAll('[name="release-format"]').forEach(radio => { radio.disabled = radio.value === 'ipa' ? !result.ios || result.platform !== 'darwin' : !result.android; });
       if (document.querySelector('[name="release-format"]:checked')?.disabled) document.querySelector('[name="release-format"]:not(:disabled)')?.click();
-      const index = Math.max(0, profiles.findIndex(profile => profile.flavor === (state.settings.flavor || '') && profile.target === (state.settings.target || 'lib/main.dart')));
+      let index = previous?.profile ? profiles.findIndex(profile => profile.name === previous.profile.name && profile.flavor === previous.profile.flavor) : -1;
+      if (index < 0) index = profiles.findIndex(profile => profile.current);
+      if (index < 0) index = profiles.findIndex(profile => profile.flavor === (state.settings.flavor || '') && profile.target === (state.settings.target || 'lib/main.dart') && (profile.defineFile || '') === (state.settings.defineFile || ''));
+      index = Math.max(0, index);
       el('release-profile').value = String(index); applyProfile(index);
+      if (previous?.profile && ['flavor', 'target', 'defineFile'].some(key => previous.values[key] !== (previous.profile[key] || ''))) {
+        el('release-flavor').value = previous.values.flavor; el('release-target').value = previous.values.target; el('release-defines').value = previous.values.defineFile;
+      }
+      el('release-version').value = previous && previous.values.buildName !== previous.buildName ? previous.values.buildName : result.buildName;
+      el('release-number').value = previous && previous.values.buildNumber !== previous.buildNumber ? previous.values.buildNumber : result.buildNumber;
     } catch (error) { if (epoch === generation) { catalog = null; el('release-catalog-error').textContent = t(error.message); } }
     finally { if (epoch === generation) { catalogLoading = false; updateControls(); } }
   }
@@ -93,6 +104,7 @@
   el('release-flavor').addEventListener('change', () => { const index = catalog?.profiles.findIndex(profile => profile.flavor === el('release-flavor').value); if (index >= 0) { el('release-profile').value = String(index); applyProfile(index); } else updateControls(); });
   el('release-form').addEventListener('input', updateControls); el('release-form').addEventListener('change', updateControls);
   el('release-refresh').addEventListener('click', () => { loadCatalog(); refreshResults(); });
+  el('release-reset-version').addEventListener('click', () => { el('release-version').value = catalog?.buildName || ''; el('release-number').value = catalog?.buildNumber || ''; updateControls(); });
   el('release-form').addEventListener('submit', async event => {
     event.preventDefault(); if (el('release-submit').disabled) return;
     const epoch = generation; formBusy = true; el('release-form-error').textContent = ''; updateControls();
@@ -118,7 +130,7 @@
     if (button.dataset.releaseUpload) {
       if (!releaseState.uploadConfigured) { el('release-credentials').open = true; el('release-key-id').focus(); return; }
       const job = releaseState.jobs.find(item => item.id === button.dataset.releaseUpload); uploadId = job.id;
-      el('release-upload-summary').textContent = [title(job.plan.format), job.plan.flavor || t('Default (no flavor)'), job.plan.target, job.artifacts[0]?.name, job.uploadStatus === 'unknown' ? t('A previous upload may have reached Apple. Check App Store Connect before retrying.') : ''].filter(Boolean).join(' · ');
+      el('release-upload-summary').textContent = [title(job.plan.format), job.plan.flavor || t('Default (no flavor)'), job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', job.plan.target, job.artifacts[0]?.name, job.uploadStatus === 'unknown' ? t('A previous upload may have reached Apple. Check App Store Connect before retrying.') : ''].filter(Boolean).join(' · ');
       el('release-upload-error').textContent = ''; el('release-upload-dialog').showModal(); return;
     }
     busy(button, async () => {

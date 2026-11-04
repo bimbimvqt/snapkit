@@ -1,6 +1,19 @@
 # Snapkit changelog
 
-## Unreleased — Dev
+## 0.2.0-beta.20 — 2026-11-04
+
+- Gộp cấu hình build workspace/IDE trùng flavor, entrypoint và defines, kể cả đường dẫn tương đương qua symlink. Giữ cấu hình khác nhau dù cùng flavor.
+- Tự điền version và build number từ pubspec.yaml; cho sửa riêng từng build và khôi phục giá trị dự án.
+- Làm mới cấu hình giữ giá trị đang sửa; xác nhận upload hiển thị version/build của IPA đã lưu.
+- Hướng dẫn IPA/TestFlight EN/VI ngay trong app và thông báo rõ workspace thiếu platform.
+
+## 0.2.0-beta.19 — 2026-11-03
+
+- Cập nhật desktop ngay trong app: kiểm tra, tải có tiến độ/hủy, xác minh checksum và xác nhận cài riêng.
+- macOS staging, xác nhận khởi động và rollback; Windows chuyển giao cho NSIS. Chặn cài khi đang build, upload, debug hoặc quay màn hình.
+- Xóa HTTP cache theo version và qua nút riêng, giữ dữ liệu app. Thêm script dọn output có thể tạo lại.
+- Tổ chức source theo apps/packages/domain/application/infrastructure, tách UI theo tính năng.
+
 
 - Thêm Build & phát hành: APK, AAB và IPA TestFlight theo cấu hình workspace, flavor, entrypoint và defines.
 - Tiến trình, log có giới hạn, huỷ cây process, lịch sử theo workspace và artifact lưu riêng từng build.
