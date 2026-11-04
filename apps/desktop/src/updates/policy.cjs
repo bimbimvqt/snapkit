@@ -17,7 +17,9 @@ function selectRelease(releases, current, platform, arch) {
     if (!asset || !/^sha256:[a-f0-9]{64}$/.test(asset.digest || '') || !Number.isSafeInteger(asset.size) || asset.size <= 0 || asset.size > 1024 ** 3) continue;
     const expected = `https://github.com/${REPO}/releases/download/${release.tag_name}/${name}`;
     if (asset.browser_download_url !== expected) continue;
-    candidates.push({ version, name, url: expected, size: asset.size, sha256: asset.digest.slice(7), releaseUrl: `https://github.com/${REPO}/releases/tag/${release.tag_name}` });
+    const map = release.assets?.find(item => item.name === name + '.blockmap.json');
+    const blockmap = map && /^sha256:[a-f0-9]{64}$/.test(map.digest || '') && Number.isSafeInteger(map.size) && map.size > 0 && map.size <= 16 * 1024 * 1024 && map.browser_download_url === expected + '.blockmap.json' ? { name: map.name, url: map.browser_download_url, size: map.size, sha256: map.digest.slice(7) } : undefined;
+    candidates.push({ version, name, url: expected, size: asset.size, sha256: asset.digest.slice(7), releaseUrl: `https://github.com/${REPO}/releases/tag/${release.tag_name}`, ...(blockmap ? { blockmap } : {}) });
   }
   candidates.sort((a, b) => newer(a.version, b.version) ? -1 : newer(b.version, a.version) ? 1 : 0);
   return candidates[0] || null;

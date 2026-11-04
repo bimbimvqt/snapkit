@@ -2,6 +2,12 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Downloading only changed data. Reusing {0} MB from this computer.": "Chỉ tải phần thay đổi. Tái sử dụng {0} MB có sẵn trên máy.",
+    "Using the full package to complete this update.": "Đang dùng gói đầy đủ để hoàn tất bản cập nhật này.",
+    "Preparing a smaller update…": "Đang chuẩn bị bản cập nhật dung lượng nhỏ…",
+    "Smart update ready. Downloaded {0} MB instead of {1} MB.": "Cập nhật thông minh đã sẵn sàng. Đã tải {0} MB thay vì {1} MB.",
+    "Smart updates reuse unchanged data on this computer when possible. Snapkit verifies the complete package before installation and uses a full download when needed.": "Cập nhật thông minh tái sử dụng dữ liệu không đổi trên máy khi có thể. Snapkit xác minh gói hoàn chỉnh trước khi cài đặt và tải gói đầy đủ khi cần.",
+
     "Updates": "Cập nhật",
     "New": "Mới",
     "KEEP MOVING FORWARD": "LUÔN SẴN SÀNG CHO BƯỚC TIẾP THEO",

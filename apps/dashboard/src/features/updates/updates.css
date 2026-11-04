@@ -25,3 +25,5 @@
 @media(max-width:600px){.updates-page .update-card{padding:20px}.update-banner{padding:12px 16px;flex-wrap:wrap}.update-banner p{flex-basis:calc(100% - 40px)}.update-banner #update-view{margin-left:30px}.updates-schedule{padding:20px}}
 
 .sidebar-bottom>[data-app-page="updates"]{margin:8px 0;min-height:44px;font-size:12px}
+
+.updates-delta-note{color:var(--muted);font-size:13px;line-height:1.8;margin-bottom:24px}

@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.28 — 2026-11-04
+
+- Cập nhật delta theo khối dữ liệu: tái sử dụng gói nền trên máy và chỉ tải các phần thay đổi qua HTTP Range khi tiết kiệm ít nhất 10%.
+- Phát hành blockmap gắn SHA-256 với đúng ZIP macOS/EXE Windows; dựng lại gói đầy đủ và xác minh trước khi dùng bộ cài hiện tại.
+- Tự chuyển sang gói đầy đủ khi thiếu/sai cache, map lỗi, server không hỗ trợ Range hoặc dữ liệu ghép không khớp. Hủy tải không kích hoạt fallback.
+- Giữ một gói nền của phiên bản đã khởi động; hỗ trợ lấy baseline từ lần nâng cấp bằng updater cũ trước khi helper dọn download.
+- Hiển thị chuẩn bị delta, số MB thực tải/tái sử dụng và dung lượng tiết kiệm EN/VI; không vá trực tiếp bundle đang chạy.
+- Giữ nguyên kiểm tra nền 10 phút, xác nhận cài, chữ ký bundle macOS và rollback.
+
 ## 0.2.0-beta.27 — 2026-11-04
 
 - Tách Cập nhật khỏi Tùy chọn, ghim thành mục riêng ở đáy sidebar với badge bản mới/đã sẵn sàng/tiến độ tải.

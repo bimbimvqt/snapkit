@@ -57,6 +57,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -65,12 +68,14 @@ jobs:
           path: release
           merge-multiple: true
       - run: python3 scripts/package-ide-extension.py release/snapkit-debug-sync.vsix
+      - name: Generate content-defined delta maps
+        run: node scripts/build-update-blockmaps.cjs release
       - name: Publish verified update assets and downloads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd release
-          sha256sum *.dmg *.zip *.exe *.vsix > SHA256SUMS.txt
+          sha256sum *.dmg *.zip *.exe *.vsix *.blockmap.json > SHA256SUMS.txt
           cd ..
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME" --notes-file docs/beta-release.md

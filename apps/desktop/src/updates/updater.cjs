@@ -5,6 +5,7 @@ const { randomUUID } = require('node:crypto');
 const { selectRelease } = require('./policy.cjs');
 const network = require('./network.cjs');
 const installer = require('./install.cjs');
+const { smartDownload, seedBaseline, packageName } = require('./delta.cjs');
 class DesktopUpdater {
   constructor({ version, platform, arch, packaged, executable, userData, releases = network.releaseList, download = network.download, prepare = installer.prepareMac, install = installer.startInstaller, now = Date.now }) {
     Object.assign(this, { version, platform, arch, packaged, executable, releases, transfer: download, prepare, install, now });
@@ -31,14 +32,14 @@ class DesktopUpdater {
     const signal = this.controller.signal;
     try {
       await fs.mkdir(this.work, { recursive: true });
-      await fs.writeFile(path.join(this.cache, 'download.json'), JSON.stringify({ token: this.token }), { mode: 0o600 });
+      await fs.writeFile(path.join(this.cache, 'download.json'), JSON.stringify({ token: this.token, asset: { version: this.asset.version, name: this.asset.name, size: this.asset.size, sha256: this.asset.sha256 } }), { mode: 0o600 });
       const disk = await fs.statfs(this.work); if (disk.bavail * disk.bsize < this.asset.size * 5) throw Error('Free more disk space before downloading this update.');
-      await this.transfer(this.asset, this.file, signal, received => this.set('downloading', { received, size: this.asset.size, percent: Math.floor(received * 100 / this.asset.size) }));
+      this.downloadInfo = await smartDownload(this.asset, this.file, signal, (received, info) => this.set('downloading', { received, size: info.size, percent: info.size ? Math.floor(received * 100 / info.size) : 100, transfer: info.mode, fullSize: info.fullSize, reused: info.reused, fallback: info.fallback }), { cache: this.cache, version: this.version, platform: this.platform, arch: this.arch, fullDownload: this.transfer });
       if (signal.aborted) throw Error('Download cancelled.');
-      this.set('verifying');
+      this.set('verifying', { transfer: this.downloadInfo.mode, reused: this.downloadInfo.reused });
       if (this.platform === 'darwin') this.paths = await this.prepare({ file: this.file, version: this.asset.version, arch: this.arch, executable: this.executable, token: this.token });
       if (signal.aborted) throw Error('Download cancelled.');
-      return this.set('ready');
+      return this.set('ready', { transfer: this.downloadInfo.mode, reused: this.downloadInfo.reused, downloadSize: this.downloadInfo.size, fullSize: this.asset.size });
     } catch (error) {
       try { await this.discard(); } catch { /* Cleanup errors must never leave the UI stuck in verifying. */ }
       return this.set(signal.aborted ? 'available' : 'error', signal.aborted ? { size: this.asset.size } : { error: error.message, retry: 'download' });
@@ -55,6 +56,22 @@ class DesktopUpdater {
       await this.install({ platform: this.platform, executable: this.executable, cache: this.cache, file: this.file, asset: this.asset, paths: this.paths, token: this.token });
       return true;
     } catch (error) { this.set('ready', { error: error.message }); throw error; }
+  }
+  async seedCurrent() {
+    // Called before the macOS helper removes the download after startup acknowledgement.
+    // Also bootstraps a baseline when upgrading from an older, full-download-only updater.
+    try {
+      const journal = JSON.parse(await fs.readFile(path.join(this.cache, 'download.json'), 'utf8'));
+      if (!/^[a-f0-9-]{36}$/.test(journal.token || '')) return;
+      const name = packageName(this.version, this.platform, this.arch), file = path.join(this.cache, journal.token, name);
+      if (!(await fs.stat(file).catch(() => null))?.isFile()) return;
+      let asset = journal.asset;
+      if (!asset || asset.version !== this.version || asset.name !== name) {
+        const releases = await this.releases(AbortSignal.timeout(15000));
+        asset = selectRelease(releases.filter(release => release.tag_name === 'v' + this.version), '0.0.0-beta.0', this.platform, this.arch);
+      }
+      await seedBaseline({ cache: this.cache, file, asset, version: this.version, platform: this.platform, arch: this.arch });
+    } catch { /* Baseline caching is optional. The next update safely falls back to a full download. */ }
   }
   async acknowledge(token, ready = false) {
     if (!/^[a-f0-9-]{36}$/.test(token || '') || this.platform !== 'darwin') return;

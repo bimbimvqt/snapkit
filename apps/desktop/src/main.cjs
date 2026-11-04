@@ -168,7 +168,7 @@ async function start() {
     console.log(`[Snapkit Dev] Watching apps/dashboard/ + packages/ui/ · ${origin} · data: ${devRoot}`);
   }
   mainWindow.show();
-  if (readyReported) await updater.acknowledge(updateToken, true);
+  if (readyReported) { await updater.seedCurrent(); await updater.acknowledge(updateToken, true); }
   if (!updateToken) await updater.cleanup();
   if (app.isPackaged && process.env.SNAPKIT_SMOKE_TEST !== '1') {
     updateChecks = startUpdateChecks(updater);

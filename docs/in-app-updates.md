@@ -47,3 +47,16 @@ Khi mở một version mới, Snapkit tự xóa HTTP cache cũ một lần. **X�
 ## Sửa lỗi chuẩn bị cập nhật (beta.21)
 
 Updater dùng `original-fs` để sao chép/xóa bundle tải về, tránh Electron coi `app.asar` là thư mục ảo. Script helper bên trong bundle vẫn được đọc qua filesystem hỗ trợ ASAR. Mọi lỗi chuẩn bị/dọn file chuyển sang trạng thái lỗi có thể thử lại. Bản beta.19/beta.20 có thể kẹt trước khi hiện nút cài đặt; cần phục hồi/cài bản beta.21 một lần để có bộ cập nhật đã sửa. File dự án và dữ liệu tài khoản không bị xóa.
+
+
+## Delta / cập nhật thông minh (beta.28)
+
+Luồng kiểm tra/tải/xác minh/cài vẫn như trước. Điểm thay đổi là cách truyền gói cập nhật: release phát hành thêm `<ZIP-or-EXE>.blockmap.json` cho từng OS/CPU. Blockmap dùng content-defined chunks (gear32-v1, 16–256 KiB), kèm kích thước và SHA-256 của toàn gói cùng từng khối. Metadata phải có digest GitHub hợp lệ và đúng URL cố định của asset, tối đa 16 MiB; tổng khối phải khớp gói đích. Không lấy URL hay file tùy ý từ manifest.
+
+App giữ **một gói nền** tại `<Electron userData>/updates/baseline/package.bin`, cùng metadata phiên bản/OS/CPU. Khi bản mới khởi động xong, trước khi báo ready cho helper, app sao chép và xác minh gói vừa cài để làm baseline. Có thể bootstrap từ journal chỉ chứa token của updater cũ bằng cách đối chiếu metadata GitHub của đúng phiên bản đang chạy. Không có file hoặc mất mạng khi bootstrap thì bỏ qua, không chặn app khởi động. Chỉ giữ một baseline thành công; đây là cache updater local, không phải source hay dữ liệu workspace. Xóa HTTP cache trong Preferences không xóa baseline.
+
+Khi tải bản tiếp theo, app kiểm tra baseline đúng phiên bản/OS/CPU, đọc và xác minh toàn bộ baseline, so sánh khối, sao chép khối trùng từ local và tải phần thiếu qua các yêu cầu HTTP Range. Mỗi range tối đa 4 MiB và toàn kế hoạch tối đa 128 range. Dùng delta nếu tiết kiệm ít nhất 10%; nếu không thì tải đầy đủ. Tiến độ hiển thị **bytes truyền qua mạng của payload**, thay vì cộng phần tái sử dụng. Blockmap nhỏ được tải riêng để lập kế hoạch.
+
+Response phải là 206, Content-Range chính xác và không nén HTTP. Response 200 bỏ qua range, dữ liệu sai, checksum không khớp, cache hỏng hay map lỗi sẽ bỏ gói ghép và tải đầy đủ một lần. Hủy tác vụ không kích hoạt fallback. Gói dựng lại phải có SHA-256 giống hệt full asset do GitHub công bố, sau đó vẫn qua kiểm tra bundle ID/version/CPU/codesign trên macOS và được xác minh lại trước cài. Không chỉnh trực tiếp ASAR/resources hay bundle đang chạy; dữ liệu tài khoản/workspace và cơ chế rollback giữ nguyên.
+
+Người dùng updater trước beta.28 cần tải toàn bộ beta.28 một lần. Các lần sau có thể dùng delta nếu baseline còn hợp lệ và bản mới có đủ dữ liệu tái sử dụng. Cài thủ công, mất cache, đổi OS/CPU hoặc Electron/runtime thay đổi nhiều có thể cần full download. Updater dùng cùng thuật toán cho ZIP macOS và EXE Windows; dung lượng tiết kiệm phụ thuộc từng cặp phiên bản.
