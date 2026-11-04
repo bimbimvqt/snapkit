@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { getPreferences } from '../storage/preferences.js';
 import { androidSDKDirectory } from '../storage/paths.js';
+import { detectedSDKs } from '../tooling/sdk-discovery.js';
 
 const activeCommands = new Set();
 export function stopCommands() {
@@ -15,8 +16,12 @@ export function executable(name) {
   const override = process.env[`SNAPKIT_${name.toUpperCase()}`];
   if (override) return override;
   const prefs = getPreferences();
-  if (name === 'flutter' && prefs.flutterSDK) return path.join(prefs.flutterSDK, 'bin', process.platform === 'win32' ? 'flutter.bat' : 'flutter');
-  const sdk = prefs.androidSDK || androidSDKDirectory();
+  if (name === 'flutter') {
+    const flutter = prefs.flutterSDK || detectedSDKs().flutterSDK;
+    return flutter ? path.join(flutter, 'bin', process.platform === 'win32' ? 'flutter.bat' : 'flutter') : name;
+  }
+  if (!['adb', 'emulator', 'sdkmanager', 'avdmanager'].includes(name)) return name;
+  const sdk = prefs.androidSDK || detectedSDKs().androidSDK || androidSDKDirectory();
   const suffix = process.platform === 'win32' ? '.exe' : '';
   const manager = ['sdkmanager', 'avdmanager'].includes(name) ? path.join(sdk, 'cmdline-tools', 'latest', 'bin', `${name}${process.platform === 'win32' ? '.bat' : ''}`) : null;
   if (manager && existsSync(manager)) return manager;

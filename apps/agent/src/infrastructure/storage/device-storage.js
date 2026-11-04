@@ -5,6 +5,7 @@ import { mkdir, realpath, lstat, readdir } from 'node:fs/promises';
 import { run, parseJsonOutput } from '../process/cli.js';
 import { dataRoot, androidSDKDirectory } from './paths.js';
 import { getPreferences } from './preferences.js';
+import { detectedSDKs } from '../tooling/sdk-discovery.js';
 export { dataRoot } from './paths.js';
 
 const defaultIOSDevices = path.join(os.homedir(), 'Library/Developer/CoreSimulator/Devices');
@@ -19,15 +20,19 @@ export const storage = {
   root: dataRoot, avd: process.env.ANDROID_AVD_HOME || (existsSync(path.join(dataRoot, 'Android/avd')) ? path.join(dataRoot, 'Android/avd') : path.join(process.env.ANDROID_USER_HOME || path.join(os.homedir(), '.android'), 'avd')), iosDevices: selectIOSDeviceRoot(defaultIOSDevices, path.join(dataRoot, 'iOS/Devices')),
   downloads: path.join(dataRoot, 'downloads/iOS'),
   temp: path.join(dataRoot, 'tmp'), state: path.join(dataRoot, 'state'),
-  sdk: getPreferences().androidSDK || androidSDKDirectory()
+  sdk: getPreferences().androidSDK || detectedSDKs().androidSDK || androidSDKDirectory()
 };
+export function refreshAndroidSDK() {
+  storage.sdk = getPreferences().androidSDK || detectedSDKs().androidSDK || androidSDKDirectory();
+  process.env.ANDROID_HOME = storage.sdk;
+  process.env.ANDROID_SDK_ROOT = storage.sdk;
+}
 export async function configureStorage() {
   // Fail closed if an external volume was unplugged; never create a fake mount directory.
   if (dataRoot.startsWith('/Volumes/')) await realpath(path.join('/Volumes', dataRoot.split('/')[2]));
   for (const key of ['avd', ...(process.platform === 'darwin' ? ['iosDevices'] : []), 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
   process.env.ANDROID_AVD_HOME = storage.avd;
-  process.env.ANDROID_HOME = storage.sdk;
-  process.env.ANDROID_SDK_ROOT = storage.sdk;
+  refreshAndroidSDK();
   process.env.TMPDIR = storage.temp + path.sep; process.env.TMP = storage.temp; process.env.TEMP = storage.temp;
 }
 export async function storageStatus() {

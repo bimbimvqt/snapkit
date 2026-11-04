@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.29 — 2026-11-04
+
+- Tự tìm Flutter và Android SDK trong máy và các ổ đang gắn, gồm SSD, FVM và các thư mục cài SDK phổ biến.
+- Hoạt động khi mở desktop từ Finder mà PATH không có Flutter/ADB; giữ ưu tiên đường dẫn người dùng đã chọn.
+- Nút Kiểm tra lại làm mới nhận diện SDK và xác thực bằng công cụ thực tế, không quét đệ quy toàn bộ ổ.
+- Đồng bộ Android SDK cho các lệnh chạy/build và giữ nguyên cập nhật delta, xác minh gói và xác nhận cài đặt.
+
 ## 0.2.0-beta.28 — 2026-11-04
 
 - Cập nhật delta theo khối dữ liệu: tái sử dụng gói nền trên máy và chỉ tải các phần thay đổi qua HTTP Range khi tiết kiệm ít nhất 10%.

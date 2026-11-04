@@ -116,7 +116,7 @@ Mã ghép đôi dùng một lần, hết hạn sau 5 phút; phiên hết hạn s
 
 Cài đặt mới dùng thư mục dữ liệu chuẩn: macOS `~/Library/Application Support/Snapkit`, Windows `%APPDATA%/Snapkit`, Linux `$XDG_DATA_HOME/snapkit` hoặc `~/.local/share/snapkit`. Có thể override `SNAPKIT_DATA_ROOT`. Bản cài SSD cũ được giữ khi tìm thấy settings hiện hữu; không tự chọn một ổ ngoài chỉ vì trùng tên.
 
-Android SDK ưu tiên SDK đã cấu hình qua environment hoặc Preferences, rồi vị trí cài chuẩn của hệ điều hành. AVD home hiện có được giữ; cài đặt mới dùng Android AVD home chuẩn. iOS dùng device set native/symlink hiện hữu, không tự chuyển dữ liệu sang SSD. Runtime iOS do Xcode quản lý.
+Snapkit tự tìm Flutter và Android SDK theo Preferences, environment/PATH, vị trí cài chuẩn, FVM và các thư mục SDK phổ biến trên ổ đang gắn (kể cả SSD). Không quét đệ quy toàn bộ ổ. Nút **Kiểm tra lại** làm mới kết quả tìm kiếm và chạy công cụ để xác thực; nếu SDK ở thư mục tùy biến chưa tìm được, chọn thủ công trong Preferences. AVD home hiện có được giữ; cài đặt mới dùng Android AVD home chuẩn. iOS dùng device set native/symlink hiện hữu, không tự chuyển dữ liệu sang SSD. Runtime iOS do Xcode quản lý.
 
 SDK folder trong Preferences phải tồn tại và chứa executable tương ứng. Restart app để áp dụng đường dẫn Android SDK mới. Thay đổi cấu hình không ghi file vào project ứng dụng.
 

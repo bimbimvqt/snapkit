@@ -1,13 +1,15 @@
 import os from 'node:os';
 import { run, parseJsonOutput, executable } from '../../infrastructure/process/cli.js';
 import { statfs } from 'node:fs/promises';
-import { storage } from '../../infrastructure/storage/device-storage.js';
+import { storage, refreshAndroidSDK } from '../../infrastructure/storage/device-storage.js';
 import { getPreferences } from '../../infrastructure/storage/preferences.js';
+import { clearSDKDiscovery } from '../../infrastructure/tooling/sdk-discovery.js';
 
 let cached, pending;
 export async function diagnostics({ fresh = false } = {}) {
   if (!fresh && cached && Date.now() - cached.checkedAt < 60000) return cached;
   if (pending) return pending;
+  if (fresh) { clearSDKDiscovery(); refreshAndroidSDK(); }
   pending = collect().then(result => { cached = result; return result; }).finally(() => { pending = null; });
   return pending;
 }
@@ -20,7 +22,7 @@ async function collect() {
         return { id, title, status: available.length ? 'ready' : 'attention', detail: available.length ? `${available.length} simulator runtime${available.length === 1 ? '' : 's'} installed` : 'Open Xcode → Settings → Components and install an iOS runtime.', required, help };
       }
       const parsed = id === 'flutter' ? parseJsonOutput(result) : null;
-      return { id, title, status: 'ready', detail: parsed?.frameworkVersion ? `Flutter ${parsed.frameworkVersion}` : result.trim().split('\n')[0].slice(0, 180), required, help };
+      return { id, title, status: 'ready', detail: parsed?.frameworkVersion ? `Flutter ${parsed.frameworkVersion}` : result.trim().split('\n')[0].slice(0, 180), required, help, executable: executable(command) };
     } catch {
       return { id, title, status: 'attention', detail: id === 'flutter' ? 'Choose your Flutter SDK, or install Flutter to connect your project.' : id === 'android' ? 'Install Android SDK Platform-Tools in Android Studio, or choose your SDK folder.' : id === 'emulator' ? 'Install Android Emulator from Android Studio → SDK Manager → SDK Tools.' : 'Open Xcode once, finish setup and install an iOS Simulator runtime.', required, help };
     }
