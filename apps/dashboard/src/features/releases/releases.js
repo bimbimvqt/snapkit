@@ -1,27 +1,29 @@
 /* Release UI talks only to the authenticated local agent. */
 (() => {
+  let apple = { teams: [], selections: {} }, appleLoading = false, appleSaving = false, appleEpoch = 0, detectedTeams = [];
   let catalog = null, releaseState = { jobs: [], busy: false }, selectedId = '', detail = null;
   let context = '', loading = false, catalogLoading = false, formBusy = false, uploadId = '', generation = 0;
   const el = id => document.getElementById(id);
   const text = (key, values) => escape(t(key, values));
-  const statuses = { preparing: 'Preparing…', building: 'Building…', collecting: 'Saving artifact…', succeeded: 'Build complete', failed: 'Build failed', cancelled: 'Cancelled', interrupted: 'Interrupted', uploading: 'Uploading…', uploaded: 'Sent to Apple', unknown: 'Check App Store Connect' };
+  function setAppleError(id, message = '') { el(id).dataset.source = message; el(id).textContent = t(message); }
+  const statuses = { preparing: 'Preparing…', building: 'Building…', collecting: 'Saving artifact…', succeeded: 'Build complete', failed: 'Build failed', cancelled: 'Cancelled', interrupted: 'Interrupted', blocked: 'Upload blocked', uploading: 'Uploading…', uploaded: 'Sent to Apple', unknown: 'Check App Store Connect' };
   const format = () => document.querySelector('[name="release-format"]:checked')?.value || 'apk';
   const title = kind => ({ apk: 'APK', aab: 'App Bundle', ipa: 'TestFlight IPA' })[kind];
   const selectedJob = () => releaseState.jobs.find(job => job.id === selectedId);
-  function input() { return { format: format(), flavor: el('release-flavor').value, target: el('release-target').value.trim(), defineFile: el('release-defines').value.trim(), buildName: el('release-version').value.trim(), buildNumber: el('release-number').value.trim(), exportOptions: el('release-export-options').value.trim() }; }
+  function input() { return { apple: apple.selections[el('release-flavor').value], format: format(), flavor: el('release-flavor').value, target: el('release-target').value.trim(), defineFile: el('release-defines').value.trim(), buildName: el('release-version').value.trim(), buildNumber: el('release-number').value.trim(), exportOptions: el('release-export-options').value.trim() }; }
   function localOnly() { return !connection && !window.SNAPKIT_CONTROLLER; }
   function updateControls() {
     const kind = format(), ready = catalog && state.settings.workspace && !catalogLoading;
-    el('release-submit').disabled = !ready || window.SNAPKIT_PREVIEW || releaseState.busy || formBusy || (kind === 'ipa' ? catalog.platform !== 'darwin' || !catalog.ios : !catalog.android);
+    el('release-submit').disabled = !ready || window.SNAPKIT_PREVIEW || releaseState.busy || formBusy || (kind === 'ipa' ? appleLoading || appleSaving || !apple.selections[el('release-flavor').value] || apple.selections[el('release-flavor').value]?.teamId !== el('release-apple-team').value || apple.selections[el('release-flavor').value]?.appId !== el('release-apple-app').value || !localOnly() || catalog.platform !== 'darwin' || !catalog.ios : !catalog.android);
     el('release-submit').querySelector('span').textContent = t({ apk: 'Build APK', aab: 'Build App Bundle', ipa: 'Build TestFlight IPA' }[kind]) + (el('release-flavor').value ? ' · ' + el('release-flavor').value : '');
     el('release-ios-options').hidden = kind !== 'ipa';
+    el('release-apple-selection').hidden = kind !== 'ipa';
     el('release-platform-note').textContent = window.SNAPKIT_PREVIEW ? t('Open Snapkit Desktop to build this workspace.') : releaseState.busy && releaseState.active?.workspace !== state.settings.workspace ? t('A release task is running in another workspace. Wait for it to finish before starting a build.') : kind === 'ipa' ? t(catalog?.platform !== 'darwin' ? 'TestFlight builds require macOS and Xcode.' : !catalog?.ios ? 'This workspace does not contain an iOS project.' : 'App Store distribution · signing comes from your Xcode project.') : t(catalog && !catalog.android ? 'This workspace does not contain an Android project.' : 'Release mode · signing comes from your Android project.');
-    el('release-key-status').textContent = t(releaseState.uploadConfigured ? 'Configured for this workspace' : 'Not configured');
-    el('release-key-clear').disabled = !releaseState.uploadConfigured || !localOnly();
-    el('release-key-form').querySelector('button[type=submit]').disabled = !state.settings.workspace || !localOnly();
+    el('release-key-status').textContent = apple.teams.length ? `${apple.teams.length} ${t('connected teams')}` : t('Not configured');
+    el('release-key-form').querySelector('button[type=submit]').disabled = !state.settings.workspace || !localOnly() || !!window.SNAPKIT_PREVIEW;
     document.querySelectorAll('[data-release-file]').forEach(button => { button.hidden = !window.snapkitDesktop?.chooseReleaseFile; });
     const options = input(), pieces = [title(kind), options.flavor || t('Default (no flavor)'), options.target];
-    el('release-summary').textContent = pieces.join(' · ');
+    el('release-summary').textContent = [...pieces, ...(kind === 'ipa' && options.apple ? [options.apple.teamName, options.apple.bundleId] : [])].join(' · ');
     const args = ['flutter', 'build', { apk: 'apk', aab: 'appbundle', ipa: 'ipa' }[kind], '--release', ...(options.flavor ? ['--flavor', options.flavor] : []), '--target', options.target, ...(options.defineFile ? ['--dart-define-from-file', options.defineFile] : []), ...(options.buildName ? ['--build-name', options.buildName] : []), ...(options.buildNumber ? ['--build-number', options.buildNumber] : []), ...(kind === 'ipa' ? options.exportOptions ? ['--export-options-plist', options.exportOptions] : ['--export-method', 'app-store'] : [])];
     el('release-command').textContent = args.map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(' ');
   }
@@ -29,7 +31,7 @@
     const profile = catalog?.profiles[index]; if (!profile) return;
     el('release-flavor').value = profile.flavor || ''; el('release-target').value = profile.target || 'lib/main.dart'; el('release-defines').value = profile.defineFile || '';
     el('release-form-error').textContent = profile.review ? t('This flavor has no matching debug profile. Review its entrypoint and defines before building.') : '';
-    updateControls();
+    renderApple(); updateControls();
   }
   async function loadCatalog() {
     if (catalogLoading || !state.settings.workspace) return;
@@ -65,20 +67,21 @@
     const next = JSON.stringify([state.settings.workspace, state.settings.flavor, state.settings.target, state.settings.defineFile]);
     if (context === next) return false;
     context = next; generation++; catalog = null; catalogLoading = false; loading = false; selectedId = ''; detail = null; releaseState = { jobs: [], busy: false };
-    el('release-form').reset(); el('release-key-form').reset(); el('release-form-error').textContent = ''; el('release-key-error').textContent = ''; el('release-catalog-error').textContent = '';
+    el('release-form').reset(); el('release-key-form').reset(); el('release-form-error').textContent = ''; setAppleError('release-key-error', ''); el('release-catalog-error').textContent = '';
     if (el('release-upload-dialog').open) el('release-upload-dialog').close();
     el('release-workspace').textContent = state.settings.workspace || '';
     el('release-layout').hidden = !state.settings.workspace; el('release-no-workspace').classList.toggle('hidden', !!state.settings.workspace);
+    apple = { teams: [], selections: {} }; appleLoading = false; appleSaving = false; appleEpoch++; detectedTeams = []; renderSuggestions(); renderApple();
     renderResults(); updateControls(); return true;
   }
   function renderResults() {
     const job = selectedJob(), activeStatus = job?.uploadStatus || job?.status;
     el('release-monitor-title').textContent = job ? `${title(job.plan.format)} · ${job.plan.flavor || t('Default (no flavor)')}` : t('Ready when you are.');
     el('release-status').textContent = t(statuses[activeStatus] || 'No build selected'); el('release-status').dataset.status = activeStatus || '';
-    el('release-monitor-detail').textContent = job ? [new Date(job.startedAt).toLocaleString(window.SnapkitI18n.language), job.plan.target, job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : t('Start a build to follow its progress and download the result.');
+    el('release-monitor-detail').textContent = job ? [new Date(job.startedAt).toLocaleString(window.SnapkitI18n.language), job.apple ? `${job.apple.teamName} · ${job.apple.bundleId} · ${job.apple.teamId}` : '', job.plan.target, job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : t('Start a build to follow its progress and download the result.');
     el('release-active-error').textContent = t(job?.uploadError || job?.error || '');
     const active = job && releaseState.active?.id === job.id;
-    const actions = job ? (active ? `<button type="button" class="button" data-release-cancel="${job.id}">${icon('square')}${text('Cancel task')}</button>` : '') + (job.status === 'succeeded' ? job.artifacts.map(item => `<button type="button" class="button" data-release-download="${item.id}" data-release-job="${job.id}">${icon('download')}${text('Download')} ${escape(item.name)} · ${(item.size / 1024 / 1024).toFixed(1)} MB</button>`).join('') + (job.plan.format === 'ipa' ? `<button type="button" class="button primary" data-release-upload="${job.id}" ${releaseState.busy || job.uploadStatus === 'uploaded' || !localOnly() ? 'disabled' : ''}>${icon('send')}${text(job.uploadStatus === 'uploaded' ? 'Sent to Apple' : 'Upload to TestFlight')}</button><p class="release-note">${text(job.uploadStatus === 'uploaded' ? 'Apple is processing this build. Check App Store Connect for validation and tester availability.' : !releaseState.uploadConfigured ? 'Configure App Store Connect below to enable upload.' : 'Upload sends this saved IPA. It does not rebuild the project.')}</p>` : '') : '') : '';
+    const actions = job ? (active ? `<button type="button" class="button" data-release-cancel="${job.id}">${icon('square')}${text('Cancel task')}</button>` : '') + (job.status === 'succeeded' ? job.artifacts.map(item => `<button type="button" class="button" data-release-download="${item.id}" data-release-job="${job.id}">${icon('download')}${text('Download')} ${escape(item.name)} · ${(item.size / 1024 / 1024).toFixed(1)} MB</button>`).join('') + (job.plan.format === 'ipa' ? `<button type="button" class="button primary" data-release-upload="${job.id}" ${releaseState.busy || job.uploadStatus === 'uploaded' || !localOnly() ? 'disabled' : ''}>${icon('send')}${text(job.uploadStatus === 'uploaded' ? 'Sent to Apple' : 'Upload to TestFlight')}</button><p class="release-note">${text(job.uploadStatus === 'uploaded' ? 'Apple is processing this build. Check App Store Connect for validation and tester availability.' : !(job.apple ? releaseState.configuredTeamIds?.includes(job.apple.teamId) : releaseState.uploadConfigured) ? 'Reconnect the Apple team used by this IPA before uploading.' : 'Upload sends this saved IPA. It does not rebuild the project.')}</p>` : '') : '') : '';
     if (el('release-current-actions').dataset.markup !== actions) { el('release-current-actions').innerHTML = actions; el('release-current-actions').dataset.markup = actions; }
     el('release-log-wrap').hidden = !job;
     const output = detail && job && detail.id === job.id ? detail.log || '' : '';
@@ -101,9 +104,9 @@
     finally { if (epoch === generation) loading = false; }
   }
   el('release-profile').addEventListener('change', () => applyProfile(Number(el('release-profile').value)));
-  el('release-flavor').addEventListener('change', () => { const index = catalog?.profiles.findIndex(profile => profile.flavor === el('release-flavor').value); if (index >= 0) { el('release-profile').value = String(index); applyProfile(index); } else updateControls(); });
+  el('release-flavor').addEventListener('change', () => { const index = catalog?.profiles.findIndex(profile => profile.flavor === el('release-flavor').value); if (index >= 0) { el('release-profile').value = String(index); applyProfile(index); } else { renderApple(); updateControls(); } });
   el('release-form').addEventListener('input', updateControls); el('release-form').addEventListener('change', updateControls);
-  el('release-refresh').addEventListener('click', () => { loadCatalog(); refreshResults(); });
+  el('release-refresh').addEventListener('click', () => { loadCatalog(); loadApple(); refreshResults(); });
   el('release-reset-version').addEventListener('click', () => { el('release-version').value = catalog?.buildName || ''; el('release-number').value = catalog?.buildNumber || ''; updateControls(); });
   el('release-form').addEventListener('submit', async event => {
     event.preventDefault(); if (el('release-submit').disabled) return;
@@ -112,12 +115,63 @@
     catch (error) { if (epoch === generation) el('release-form-error').textContent = t(error.message); }
     finally { formBusy = false; updateControls(); }
   });
-  el('release-key-form').addEventListener('submit', event => { event.preventDefault(); busy(el('release-key-form').querySelector('button[type=submit]'), async () => {
-    el('release-key-error').textContent = '';
-    try { await api('/api/releases/testflight/config', { keyId: el('release-key-id').value, issuerId: el('release-issuer').value, keyPath: el('release-key-path').value }); el('release-key-form').reset(); await refreshResults(); toast('Upload configuration saved on this computer'); }
-    catch (error) { el('release-key-error').textContent = t(error.message); }
+  const uploadConfigured = job => job?.apple ? releaseState.configuredTeamIds?.includes(job.apple.teamId) : releaseState.uploadConfigured;
+  function renderApple(preserve = false) {
+    const flavor = el('release-flavor').value, saved = apple.selections[flavor], selected = preserve ? {teamId:el('release-apple-team').value,appId:el('release-apple-app').value} : saved;
+    el('release-apple-team').innerHTML = `<option value="">${text(appleLoading ? 'Loading teams…' : 'Choose an Apple team')}</option>` + apple.teams.map(team => `<option value="${escape(team.teamId)}">${escape(team.name)} · ${escape(team.teamId)}</option>`).join('');
+    el('release-apple-team').value = selected?.teamId || '';
+    renderApps(selected?.appId);
+    el('release-apple-teams').innerHTML = apple.teams.map(team => `<article><div><strong>${escape(team.name)}</strong><small>${escape(team.teamId)} · ${team.apps.length} ${text('apps')}</small></div><div class="release-team-actions"><button type="button" class="button" data-apple-edit="${escape(team.teamId)}">${text('Update key')}</button><button type="button" class="button" data-apple-remove="${escape(team.teamId)}" ${releaseState.busy || !localOnly() || window.SNAPKIT_PREVIEW ? 'disabled' : ''}>${text('Disconnect team')}</button></div></article>`).join('');
+    el('release-apple-team').disabled = appleLoading || appleSaving || !localOnly();
+  }
+  function renderApps(appId = '') {
+    const team = apple.teams.find(team => team.teamId === el('release-apple-team').value), saved = apple.selections[el('release-flavor').value];
+    el('release-apple-app').innerHTML = `<option value="">${text(team && !team.apps.length ? 'No accessible apps in this team' : 'Choose an app')}</option>` + (team?.apps || []).map(app => `<option value="${escape(app.id)}">${escape(app.name)} · ${escape(app.bundleId)}</option>`).join('');
+    el('release-apple-app').value = appId;
+    el('release-apple-app').disabled = !team || appleLoading || appleSaving || !localOnly();
+    el('release-apple-binding').textContent = saved && team?.teamId === saved.teamId && appId === saved.appId ? `${t('Saved for')} ${el('release-flavor').value || t('Default (no flavor)')} · ${saved.bundleId}` : t('Choose a team and app to enable IPA builds.');
+    el('release-apple-refresh').disabled = !team || appleLoading || appleSaving || !localOnly();
+  }
+  async function loadApple() {
+    if (!state.settings.workspace || !localOnly() || appleLoading) return;
+    const epoch = generation, request = ++appleEpoch; appleLoading = true; renderApple(); updateControls(); setAppleError('release-apple-error', '');
+    try { const result = await api('/api/apple/teams'); if (epoch === generation && request === appleEpoch) apple = result; }
+    catch (error) { if (epoch === generation && request === appleEpoch) setAppleError('release-apple-error', error.message); }
+    finally { if (epoch === generation && request === appleEpoch) { appleLoading = false; renderApple(); updateControls(); } }
+  }
+  el('release-apple-team').addEventListener('change', () => { renderApps(); updateControls(); });
+  el('release-apple-app').addEventListener('change', async () => {
+    const epoch = generation, flavor = el('release-flavor').value, teamId = el('release-apple-team').value, appId = el('release-apple-app').value;
+    if (!teamId || !appId || appleSaving) return;
+    appleSaving = true; setAppleError('release-apple-error', ''); updateControls(); el('release-apple-team').disabled = true; el('release-apple-app').disabled = true;
+    try { const saved = await api('/api/apple/selection', { flavor, teamId, appId }); if (epoch === generation) apple.selections[flavor] = saved; }
+    catch (error) { if (epoch === generation) setAppleError('release-apple-error', error.message); }
+    finally { if (epoch === generation) { appleSaving = false; renderApple(); updateControls(); } }
+  });
+  const showConnection = () => { el('release-credentials').open = true; el('release-team-name').focus(); };
+  el('release-apple-connect').addEventListener('click', showConnection);
+  el('release-credentials').addEventListener('toggle', async () => {
+    if (!el('release-credentials').open || !localOnly() || !state.settings.workspace) return;
+    const epoch = generation;
+    try { const result = await api('/api/apple/detected'); if (epoch !== generation) return;
+      detectedTeams = result.teams; renderSuggestions();
+    } catch { if (epoch === generation) { detectedTeams = []; renderSuggestions(); } }
+  });
+  function renderSuggestions() {
+      el('release-team-suggestions').innerHTML = detectedTeams.length ? text('Detected on this Mac:') + ' ' + detectedTeams.map(team => `<button type="button" class="button" data-apple-suggest="${escape(team.teamId)}" data-apple-name="${escape(team.name)}">${escape(team.name || team.teamId)} · ${escape(team.teamId)}</button>`).join(' ') : text('Find your Team ID at developer.apple.com/account → Membership details.');
+  }
+  el('release-credentials').addEventListener('click', event => {
+    const suggest = event.target.closest('[data-apple-suggest]'), edit = event.target.closest('[data-apple-edit]'), remove = event.target.closest('[data-apple-remove]');
+    if (remove) busy(remove, async () => { const epoch = generation; if (!confirm(t('Remove this team connection? Saved IPAs keep their original destination.'))) return; const result = await api(`/api/apple/teams/${remove.dataset.appleRemove}/remove`, {}); if (epoch !== generation) return; apple = result; renderApple(); await refreshResults(); });
+    if (suggest) { el('release-team-id').value = suggest.dataset.appleSuggest; if (suggest.dataset.appleName) el('release-team-name').value = suggest.dataset.appleName; }
+    if (edit) { const team = apple.teams.find(team => team.teamId === edit.dataset.appleEdit); el('release-key-form').reset(); el('release-team-id').value = team.teamId; el('release-team-name').value = team.name; el('release-key-id').focus(); }
+  });
+  el('release-key-form').addEventListener('submit', event => { event.preventDefault(); const epoch = generation; busy(el('release-key-form').querySelector('button[type=submit]'), async () => {
+    setAppleError('release-key-error', '');
+    try { const result = await api('/api/apple/teams', { teamId: el('release-team-id').value, name: el('release-team-name').value, keyId: el('release-key-id').value, issuerId: el('release-issuer').value, keyPath: el('release-key-path').value }); if (epoch !== generation) return; apple = result; el('release-key-form').reset(); renderApple(); await refreshResults(); toast('Apple team connected'); }
+    catch (error) { if (epoch === generation) setAppleError('release-key-error', error.message); }
   }); });
-  el('release-key-clear').addEventListener('click', () => busy(el('release-key-clear'), async () => { await api('/api/releases/testflight/config', { clear: true }); await refreshResults(); }));
+  el('release-apple-refresh').addEventListener('click', () => busy(el('release-apple-refresh'), async () => { const teamId = el('release-apple-team').value, epoch = generation; setAppleError('release-apple-error', ''); try { const result = await api(`/api/apple/teams/${teamId}/refresh`, {}); if (epoch !== generation) return; apple = result; renderApple(true); updateControls(); } catch (error) { if (epoch === generation) setAppleError('release-apple-error', error.message); } }));
   document.querySelectorAll('[data-release-file]').forEach(button => button.addEventListener('click', () => busy(button, async () => { const value = await window.snapkitDesktop?.chooseReleaseFile(button.dataset.releaseFile); if (value) { el(button.dataset.releaseFile === 'private-key' ? 'release-key-path' : 'release-export-options').value = value; updateControls(); } })));
   el('release-upload-confirm').addEventListener('click', () => busy(el('release-upload-confirm'), async () => {
     el('release-upload-error').textContent = '';
@@ -128,9 +182,10 @@
     const button = event.target.closest('[data-release-select],[data-release-cancel],[data-release-delete],[data-release-download],[data-release-upload]'); if (!button) return;
     if (button.dataset.releaseSelect) { selectedId = button.dataset.releaseSelect; detail = null; renderResults(); refreshResults(); return; }
     if (button.dataset.releaseUpload) {
-      if (!releaseState.uploadConfigured) { el('release-credentials').open = true; el('release-key-id').focus(); return; }
-      const job = releaseState.jobs.find(item => item.id === button.dataset.releaseUpload); uploadId = job.id;
-      el('release-upload-summary').textContent = [title(job.plan.format), job.plan.flavor || t('Default (no flavor)'), job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', job.plan.target, job.artifacts[0]?.name, job.uploadStatus === 'unknown' ? t('A previous upload may have reached Apple. Check App Store Connect before retrying.') : ''].filter(Boolean).join(' · ');
+      const job = releaseState.jobs.find(item => item.id === button.dataset.releaseUpload);
+      if (!uploadConfigured(job)) { showConnection(); return; }
+      uploadId = job.id;
+      el('release-upload-summary').textContent = [title(job.plan.format), job.plan.flavor || t('Default (no flavor)'), job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', job.plan.target, job.apple ? `${job.apple.teamName} · ${job.apple.teamId} · ${job.apple.appName} · ${job.apple.bundleId}` : '', job.artifacts[0]?.name, job.uploadStatus === 'unknown' ? t('A previous upload may have reached Apple. Check App Store Connect before retrying.') : ''].filter(Boolean).join(' · ');
       el('release-upload-error').textContent = ''; el('release-upload-dialog').showModal(); return;
     }
     busy(button, async () => {
@@ -144,9 +199,9 @@
       await refreshResults();
     });
   });
-  document.addEventListener('snapkit:page', event => { if (event.detail === 'releases') { resetWorkspace(); if (!catalog) loadCatalog(); refreshResults(); } });
-  document.addEventListener('snapkit:state', () => { if (resetWorkspace() && activePage === 'releases') { loadCatalog(); refreshResults(); } });
-  document.addEventListener('snapkit:language', () => { renderResults(); });
+  document.addEventListener('snapkit:page', event => { if (event.detail === 'releases') { resetWorkspace(); if (!catalog) loadCatalog(); loadApple(); refreshResults(); } });
+  document.addEventListener('snapkit:state', () => { if (resetWorkspace() && activePage === 'releases') { loadCatalog(); loadApple(); refreshResults(); } });
+  document.addEventListener('snapkit:language', () => { renderApple(true); renderSuggestions(); for (const id of ['release-key-error','release-apple-error']) setAppleError(id, el(id).dataset.source || ''); renderResults(); });
   setInterval(() => { if (!document.hidden && activePage === 'releases') refreshResults(); }, 1500);
   resetWorkspace();
 })();

@@ -145,6 +145,14 @@ app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), we
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
 // Release commands execute only in the authenticated local agent, never on cloud.
+// Team credentials and Apple account metadata are available only on this computer.
+app.use('/api/apple', (req, res, next) => req.remoteToken ? res.status(403).json({ error: 'Manage Apple teams in the local desktop app.' }) : next());
+app.get('/api/apple/teams', (_req, res) => res.json(releaseBuilds.apple.catalog(requireWorkspace())));
+app.get('/api/apple/detected', async (_req, res) => res.json({ teams: demo ? [{ teamId: 'ABCDE12345', name: 'Demo Studio', source: 'project' }] : await releaseBuilds.apple.signing.detected(requireWorkspace()) }));
+app.post('/api/apple/teams', async (req, res) => { if (releaseBuilds.active || releaseBuilds.starting) throw Error('Another release task is running.'); await releaseBuilds.apple.connect(req.body); res.json(releaseBuilds.apple.catalog(requireWorkspace())); });
+app.post('/api/apple/teams/:teamId/refresh', async (req, res) => { await releaseBuilds.apple.refresh(req.params.teamId); res.json(releaseBuilds.apple.catalog(requireWorkspace())); });
+app.post('/api/apple/teams/:teamId/remove', async (req, res) => { if (releaseBuilds.active || releaseBuilds.starting) throw Error('Another release task is running.'); await releaseBuilds.apple.remove(req.params.teamId); res.json(releaseBuilds.apple.catalog(requireWorkspace())); });
+app.post('/api/apple/selection', async (req, res) => res.json(await releaseBuilds.apple.select(requireWorkspace(), req.body)));
 app.get('/api/releases/catalog', async (_req, res) => res.json(await releaseBuilds.catalog(settings.workspace, settings)));
 app.get('/api/releases', (_req, res) => res.json(releaseBuilds.list(settings.workspace)));
 app.get('/api/releases/:id', (req, res) => res.json(releaseBuilds.publicJob(releaseBuilds.find(requireWorkspace(), req.params.id), true)));

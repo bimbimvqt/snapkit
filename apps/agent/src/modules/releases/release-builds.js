@@ -1,3 +1,4 @@
+import { AppleTeams } from '../apple/teams.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile, mkdir, writeFile, rename, readdir, stat, realpath, copyFile, rm, statfs } from 'node:fs/promises';
 import path from 'node:path';
@@ -9,12 +10,14 @@ import { validateRelease, releaseCatalog } from './release-catalog.js';
 
 const activeStatuses = ['preparing', 'building', 'collecting'];
 export class ReleaseBuilds {
-  constructor({ demo = false, root = path.join(demo ? path.join(os.tmpdir(), `snapkit-release-demo-${process.pid}`) : dataRoot, 'release-builds'), platform = process.platform, execute = releaseCommand, validate = validateRelease } = {}) {
+  constructor({ demo = false, root = path.join(demo ? path.join(os.tmpdir(), `snapkit-release-demo-${process.pid}`) : dataRoot, 'release-builds'), platform = process.platform, execute = releaseCommand, validate = validateRelease, apple } = {}) {
     Object.assign(this, { demo, root, platform, execute, validate });
+    this.apple = apple || new AppleTeams({ root, demo });
     this.jobs = []; this.identities = {}; this.logBuffers = new Map(); this.active = null; this.starting = false; this.closed = false; this.writing = Promise.resolve();
   }
   project(workspace) { return createHash('sha256').update(path.resolve(workspace)).digest('hex'); }
   async restore() {
+    await this.apple.restore();
     if (this.demo) return;
     const saved = await readFile(path.join(this.root, 'index.json'), 'utf8').then(JSON.parse).catch(error => { if (error.code !== 'ENOENT') throw error; return {}; });
     this.jobs = saved.jobs || []; this.identities = saved.identities || {};
@@ -32,7 +35,7 @@ export class ReleaseBuilds {
   publicJob(job, includeLog = false) { const { log, ...safe } = job; return includeLog ? { ...safe, log: redactBuildLog(log || '') } : safe; }
   list(workspace) {
     const project = workspace ? this.project(workspace) : '';
-    return { jobs: this.jobs.filter(job => job.project === project).map(job => this.publicJob(job)).reverse(), active: this.active ? { id: this.active.job.id, workspace: this.active.job.workspace, operation: this.active.operation } : null, busy: !!this.active || this.starting, uploadConfigured: !!this.identities[project], demo: this.demo };
+    return { jobs: this.jobs.filter(job => job.project === project).map(job => this.publicJob(job)).reverse(), active: this.active ? { id: this.active.job.id, workspace: this.active.job.workspace, operation: this.active.operation } : null, busy: !!this.active || this.starting, uploadConfigured: !!this.identities[project], configuredTeamIds: Object.keys(this.apple.teams), demo: this.demo };
   }
   async catalog(workspace, settings) {
     if (!this.demo) return releaseCatalog(workspace, settings, this.platform);
@@ -53,7 +56,9 @@ export class ReleaseBuilds {
       await mkdir(this.root, { recursive: true });
       if (!this.demo) for (const folder of [plan.workspace, this.root]) { const disk = await statfs(folder); if (disk.bavail * disk.bsize < 1024 ** 3) throw new Error('Free at least 1 GB on the workspace and Snapkit data disks before building.'); }
       if (this.closed) throw new Error('Snapkit is shutting down.');
-      const job = { id: randomUUID(), project: this.project(workspace), workspace: plan.workspace, plan, status: 'preparing', startedAt: Date.now(), log: '', artifacts: [], uploadStatus: '' };
+      const apple = plan.format === 'ipa' ? this.apple.snapshot(workspace, plan.flavor) : undefined;
+      if (apple && input.apple && (apple.teamId !== input.apple.teamId || apple.appId !== input.apple.appId || apple.bundleId !== input.apple.bundleId)) throw Error('Apple selection changed. Review the team and app before building.');
+      const job = { apple, id: randomUUID(), project: this.project(workspace), workspace: plan.workspace, plan, status: 'preparing', startedAt: Date.now(), log: '', artifacts: [], uploadStatus: '' };
       this.jobs.push(job); const controller = new AbortController(); this.active = { job, controller, operation: 'build' };
       try { await this.save(); } catch (error) { this.jobs.pop(); this.active = null; throw error; }
       this.active.done = this.build(job, controller).finally(() => { this.active = null; });
@@ -76,8 +81,19 @@ export class ReleaseBuilds {
         const file = path.join(this.root, job.id, `demo-${job.plan.flavor || 'app'}.${job.plan.format}`); await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, 'Snapkit demo artifact — not installable.');
         job.artifacts = [{ id: randomUUID(), name: path.basename(file), size: (await stat(file)).size, demo: true }];
       } else {
+        let buildArgs = job.plan.args, buildEnv;
+        if (job.apple) {
+          this.append(job, `Checking Apple app · ${job.apple.bundleId} · ${job.apple.teamId}\n`);
+          await this.apple.verify(job.apple, controller.signal);
+          const signing = await this.apple.signing.prepare(job.workspace, job.apple, job.plan, path.join(this.root, job.id), controller.signal);
+          buildEnv = signing.env;
+          buildArgs = [...job.plan.args];
+          const index = buildArgs.findIndex(arg => ['--export-method', '--export-options-plist'].includes(arg));
+          if (index >= 0) buildArgs.splice(index, 2);
+          buildArgs.push('--export-options-plist', signing.exportOptions);
+        }
         const before = new Map(await Promise.all((await this.candidates(job)).map(async file => [file, await this.fingerprint(file)])));
-        if (job.plan.format === 'ipa' && job.plan.exportOptions) {
+        if (!job.apple && job.plan.format === 'ipa' && job.plan.exportOptions) {
           let raw = '';
           await this.execute('plutil', ['-convert', 'json', '-o', '-', '--', job.plan.exportOptions], { cwd: job.workspace, signal: controller.signal, timeout: 15000, onOutput: value => { raw += value; } });
           const options = JSON.parse(raw);
@@ -87,7 +103,7 @@ export class ReleaseBuilds {
         if (controller.signal.aborted) throw new Error('Task cancelled.');
         job.status = 'building';
         this.append(job, `Building ${job.plan.format.toUpperCase()} · ${job.plan.flavor || 'default'} · release\n`);
-        await this.execute(job.plan.command, job.plan.args, { cwd: job.workspace, signal: controller.signal, onOutput: chunk => this.append(job, chunk) });
+        await this.execute(job.plan.command, buildArgs, { cwd: job.workspace, env: buildEnv, signal: controller.signal, onOutput: chunk => this.append(job, chunk) });
         if (controller.signal.aborted) throw new Error('Task cancelled.');
         job.status = 'collecting';
         const files = [];
@@ -101,6 +117,7 @@ export class ReleaseBuilds {
           if (!resolved.startsWith(allowed + path.sep)) throw new Error('Build output is outside the workspace build directory.');
           const name = path.basename(file), destination = path.join(this.root, job.id, name);
           await mkdir(path.dirname(destination), { recursive: true }); await copyFile(resolved, destination);
+          if (job.apple) job.appleVerified = await this.apple.signing.inspectIPA(destination, job.apple, job.plan, path.join(this.root, job.id), controller.signal);
           job.artifacts.push({ id: randomUUID(), name, size: (await stat(destination)).size });
         }
       }
@@ -134,7 +151,7 @@ export class ReleaseBuilds {
     if (this.closed || this.active || this.starting) throw new Error('Another release task is running.');
     const job = this.find(workspace, id);
     if (job.plan.format !== 'ipa' || job.status !== 'succeeded' || job.uploadStatus === 'uploaded') throw new Error('Choose a completed IPA build that has not already been uploaded.');
-    const identity = this.identities[this.project(workspace)]; if (!identity) throw new Error('Configure App Store Connect for this workspace first.');
+    let identity = job.apple ? this.apple.identity(job.apple) : this.identities[this.project(workspace)]; if (!identity) throw new Error('Configure App Store Connect for this workspace first.');
     this.starting = true;
     try {
       const artifact = await this.artifact(workspace, id, job.artifacts[0]?.id);
@@ -143,11 +160,16 @@ export class ReleaseBuilds {
       const controller = new AbortController(); job.uploadStatus = 'uploading'; delete job.uploadError;
       this.active = { job, controller, operation: 'upload' }; await this.save();
       this.active.done = (async () => {
+        let submitted = false;
         try {
-          if (this.demo) { this.append(job, '\nDemo upload only. Nothing is sent to Apple.\n'); await new Promise(resolve => setTimeout(resolve, 600)); if (controller.signal.aborted) throw Error('Task cancelled.'); }
-          else await this.execute('xcrun', ['altool', '--upload-app', '--type', 'ios', '--file', artifact.file, '--apiKey', identity.keyId, '--apiIssuer', identity.issuerId], { cwd: job.workspace, env: { ...process.env, API_PRIVATE_KEYS_DIR: path.dirname(identity.keyPath) }, timeout: 30 * 60000, signal: controller.signal, onOutput: chunk => this.append(job, chunk) });
+          if (this.demo) { submitted = true; this.append(job, '\nDemo upload only. Nothing is sent to Apple.\n'); await new Promise(resolve => setTimeout(resolve, 600)); if (controller.signal.aborted) throw Error('Task cancelled.'); }
+          else {
+            if (job.apple) { identity = await this.apple.verify(job.apple, controller.signal); await this.apple.signing.inspectIPA(artifact.file, job.apple, job.plan, path.join(this.root, job.id), controller.signal); }
+            submitted = true;
+            await this.execute('xcrun', ['altool', '--upload-app', '--type', 'ios', '--file', artifact.file, '--apiKey', identity.keyId, '--apiIssuer', identity.issuerId], { cwd: job.workspace, env: { ...process.env, API_PRIVATE_KEYS_DIR: path.dirname(identity.keyPath) }, timeout: 30 * 60000, signal: controller.signal, onOutput: chunk => this.append(job, chunk) });
+          }
           job.uploadStatus = 'uploaded'; this.append(job, '\nAccepted by Apple. Processing and tester availability are managed in App Store Connect.\n');
-        } catch (error) { job.uploadStatus = 'unknown'; job.uploadError = 'Check App Store Connect before retrying. ' + redactBuildLog(error.message); this.append(job, '\n' + job.uploadError + '\n'); }
+        } catch (error) { job.uploadStatus = submitted ? 'unknown' : 'blocked'; job.uploadError = (submitted ? 'Check App Store Connect before retrying. ' : 'Upload was not started. ') + redactBuildLog(error.message); this.append(job, '\n' + job.uploadError + '\n'); }
         finally { this.logBuffers.delete(job.id); job.uploadFinishedAt = Date.now(); await this.save().catch(() => {}); this.active = null; }
       })();
       return this.publicJob(job);
@@ -165,5 +187,5 @@ export class ReleaseBuilds {
     await rm(path.join(this.root, id), { recursive: true, force: true }); this.jobs = this.jobs.filter(item => item !== job); await this.save();
   }
   async cancelActive() { const active = this.active; if (active) { active.controller.abort(); await active.done; } }
-  async close() { this.closed = true; await this.cancelActive(); await this.writing.catch(() => {}); }
+  async close() { this.closed = true; await this.cancelActive(); await this.writing.catch(() => {}); await this.apple.writing.catch(() => {}); }
 }

@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.22 — 2026-11-04
+
+- Kết nối nhiều team Apple qua team API key local, tải danh sách app từ Apple và nhớ team/app riêng theo workspace/flavor.
+- Gợi ý Team ID từ project/chứng chỉ trên Mac, hướng dẫn đăng nhập Xcode và cấu hình key EN/VI.
+- Đối chiếu bundle ID trước build, tạo cấu hình team/export riêng cho job; không sửa source project.
+- IPA giữ nguyên team/app; kiểm tra team, bundle ID, loại ký, version/build trước upload để tránh chọn nhầm môi trường.
+- Giữ tương thích IPA/cấu hình key cũ, không tự gán key cũ cho team được dò thấy.
+- Kiểm tra API/JWT, signing, IPA, phân quyền local và UI bằng adapter giả lập; chưa upload thực lên Apple.
+
 ## 0.2.0-beta.21 — 2026-11-04
 
 - Sửa cập nhật macOS bị kẹt ở bước xác minh do Electron coi app.asar là thư mục ảo khi dọn bundle giải nén.

@@ -28,7 +28,7 @@ Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · 
 
 ## Build & phát hành
 
-Build APK, AAB hoặc IPA TestFlight từ workspace với profile/flavor, entrypoint và defines tương ứng. Có log, huỷ tác vụ, lịch sử và tải file; upload TestFlight là thao tác xác nhận riêng sau build IPA. Xem [hướng dẫn và điều kiện signing/upload](docs/release-builds.md).
+Build APK, AAB hoặc IPA TestFlight từ workspace với profile/flavor, entrypoint và defines tương ứng. Chọn team Apple/app được nhớ theo workspace/flavor, kiểm tra bundle ID và signing IPA. Có log, huỷ tác vụ, lịch sử và tải file; upload TestFlight là thao tác xác nhận riêng sau build IPA. Xem [hướng dẫn và điều kiện signing/upload](docs/release-builds.md).
 
 ## Bộ thiết bị, log và ảnh/video
 

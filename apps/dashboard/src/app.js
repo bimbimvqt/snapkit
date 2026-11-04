@@ -56,6 +56,8 @@ const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
 async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
+    if (url === '/api/apple/teams') return { teams: [], selections: {} };
+    if (url === '/api/apple/detected') return { teams: [] };
     if (url === '/api/releases') return { jobs: [], busy: false, uploadConfigured: false, demo: true };
     if (url === '/api/releases/catalog') return { workspace: state.settings.workspace, platform: 'darwin', android: true, ios: true, flavors: [], profiles: [{ name: 'Workspace settings', flavor: '', target: 'lib/main.dart', defineFile: '' }], version: '1.0.0+1' };
     if (url === '/api/tools') return { sets: [], captures: [], recordings: [], jobs: [], demo: true };

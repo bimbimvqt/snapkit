@@ -77,6 +77,8 @@ test('website API requires pairing for reads and commands, hides local token, an
   assert.equal((await request('/api/scan', { method: 'POST', headers })).status, 200);
   assert.equal((await request('/api/pairing/code', { method: 'POST', headers })).status, 403);
   assert.equal((await fetch(base + '/api/state', { headers: { ...headers, Origin: 'https://other.example' } })).status, 403);
+  for (const route of ['/api/apple/teams', '/api/apple/detected']) assert.equal((await request(route, {headers})).status, 403);
+  for (const route of ['/api/apple/teams','/api/apple/selection','/api/apple/teams/ABCDE12345/refresh','/api/apple/teams/ABCDE12345/remove']) assert.equal((await request(route, { method:'POST', headers:{...headers,'Content-Type':'application/json'}, body:'{}' })).status, 403);
   await post('/api/pairing/revoke', {});
   assert.equal((await request('/api/state', { headers })).status, 401);
 });

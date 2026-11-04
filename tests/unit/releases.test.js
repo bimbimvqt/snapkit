@@ -76,7 +76,8 @@ test('cancelled builds finish before allowing another job and interrupted upload
 test('upload needs explicit confirmation and only sends saved IPA with a local key directory', async t => {
   const {dir,workspace}=await fixture(t);let uploaded=false;
   const runner=new ReleaseBuilds({root:path.join(dir,'data'),platform:'darwin',execute:async(name,args,options)=>{if(name==='xcrun'){uploaded=true;assert.equal(args[0],'altool');assert.equal(options.env.API_PRIVATE_KEYS_DIR,dir);assert.ok(args.includes('--apiIssuer'));}else{const file=path.join(workspace,'build/ios/ipa/example.ipa');await mkdir(path.dirname(file),{recursive:true});await writeFile(file,'signed IPA fixture');}}});
-  const job=await runner.start(workspace,{...input,format:'ipa'});await runner.active.done;
+  const job = { id: 'legacy-ipa', project: runner.project(workspace), workspace, plan: releasePlan({...input,format:'ipa'},'darwin'), status:'succeeded', artifacts:[{id:'legacy-artifact',name:'example.ipa'}] };
+  runner.jobs.push(job);await mkdir(path.join(runner.root,job.id),{recursive:true});await writeFile(path.join(runner.root,job.id,'example.ipa'),'legacy IPA');
   const keyPath=path.join(dir,'AuthKey_AB12CD34EF.p8');await writeFile(keyPath,'private key fixture');
   await runner.identity(workspace,{keyId:'AB12CD34EF',issuerId:'12345678-1234-1234-1234-123456789012',keyPath});
   await assert.rejects(runner.upload(workspace,job.id,'wrong'),/Confirm/);assert.equal(uploaded,false);
