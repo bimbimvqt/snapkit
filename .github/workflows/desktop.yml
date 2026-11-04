@@ -1,7 +1,7 @@
-name: Build Desktop Beta
+name: Build Desktop Release
 on:
   push:
-    tags: ['v*-beta.*']
+    tags: ['v*']
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
       - run: npm run check
       - name: Check desktop starts with a bundled agent
         run: npm run desktop:smoke
-      - name: Package beta
+      - name: Package production app
         run: npm run desktop:dist -- --${{ matrix.platform }} --${{ matrix.arch }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -65,11 +65,15 @@ jobs:
           path: release
           merge-multiple: true
       - run: python3 scripts/package-ide-extension.py release/snapkit-debug-sync.vsix
-      - name: Publish checksums and beta downloads
+      - name: Publish verified update assets and downloads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd release
           sha256sum *.dmg *.zip *.exe *.vsix > SHA256SUMS.txt
           cd ..
-          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME — Desktop Beta" --notes-file docs/beta-release.md
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME" --notes-file docs/beta-release.md
+          else
+            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Snapkit $GITHUB_REF_NAME" --notes-file docs/beta-release.md
+          fi

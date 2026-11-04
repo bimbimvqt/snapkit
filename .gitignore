@@ -10,3 +10,6 @@ dist/
 release/
 cloud-data/
 *.log
+
+.snapkit-dev/
+apps/cloud/data/

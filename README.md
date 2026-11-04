@@ -6,19 +6,29 @@ Bản macOS ký ad-hoc, chưa có Apple Developer ID/notarization; không tự c
 
 - [Luồng desktop, tình huống người dùng và lộ trình thương mại](docs/desktop-beta.md)
 - [Phạm vi và giới hạn beta](docs/beta-release.md)
-- [Hướng dẫn extension EN](ide-extension/README.md) · [Tiếng Việt](ide-extension/README.vi.md)
-- [Changelog extension](ide-extension/CHANGELOG.md) · [Hỗ trợ](ide-extension/SUPPORT.md)
+- [Hướng dẫn extension EN](apps/ide-extension/README.md) · [Tiếng Việt](apps/ide-extension/README.vi.md)
+- [Changelog extension](apps/ide-extension/CHANGELOG.md) · [Hỗ trợ](apps/ide-extension/SUPPORT.md)
 - Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · dịch vụ phiên bản: [snapkit.45.119.214.94.sslip.io](https://snapkit.45.119.214.94.sslip.io/health)
 
 Gói Free/Pro được giải thích trong app; các tính năng Pro hiện có được dùng miễn phí trong beta. RevenueCat backend đã có adapter xác minh entitlement/webhook. **Checkout luôn tắt trong beta**; account identity, luồng mua/khôi phục, giá thực từ provider và kiểm thử thanh toán là các bước bắt buộc trước khi mở bán. Không có subscription tự phát sinh khi beta kết thúc.
 
+## Cấu trúc source
+
+`apps/` chứa 6 ứng dụng, `packages/ui/` chứa phần giao diện dùng chung, `tests/` gom kiểm thử và `scripts/` chứa công cụ. Xem [bản đồ kiến trúc và quy tắc phụ thuộc](docs/architecture.md) để biết nơi đặt từng tính năng.
+
 Các hướng dẫn bên dưới dành cho người chạy từ source.
+
+**Chỉnh UI trực tiếp:** chạy `npm run desktop:dev` để mở Snapkit Dev với tự cập nhật CSS/HTML/JS và DevTools. Dùng `npm run desktop:dev:local` khi cần thiết bị thật. Xem [hướng dẫn phát triển desktop](docs/desktop-development.md).
 
 Tạo và bật iOS Simulators / Android Emulators, xem thiết bị thật và chọn thiết bị debug cho **Antigravity**. Dashboard không chạy app Flutter. Debug, Hot Reload, đầu ra Dart và DevTools do IDE quản lý. Snapkit có log hệ thống, bộ thiết bị theo dự án và chụp/quay màn hình.
 
 Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên → **Delete device & data**. Snapkit dừng máy ảo nếu đang chạy rồi xoá bằng `simctl delete` hoặc `avdmanager delete avd`: app đã cài, dữ liệu, cài đặt và snapshot riêng của thiết bị bị xoá vĩnh viễn. Runtime iOS / Android system image dùng chung được giữ lại; thiết bị thật không hỗ trợ xoá. Thiết bị bị xoá cũng được bỏ khỏi lựa chọn debug. Phiên debug đang dùng thiết bị đó sẽ mất kết nối; Debug Sync 1.3+ giữ các phiên trên thiết bị khác tiếp tục chạy.
 
 Website: [bimbimvqt.github.io/snapkit](https://bimbimvqt.github.io/snapkit/) · [Device Manager](https://bimbimvqt.github.io/snapkit/preview/)
+
+## Build & phát hành
+
+Build APK, AAB hoặc IPA TestFlight từ workspace với profile/flavor, entrypoint và defines tương ứng. Có log, huỷ tác vụ, lịch sử và tải file; upload TestFlight là thao tác xác nhận riêng sau build IPA. Xem [hướng dẫn và điều kiện signing/upload](docs/release-builds.md).
 
 ## Bộ thiết bị, log và ảnh/video
 
@@ -136,7 +146,7 @@ Workflow `Build Desktop Beta` tạo DMG/ZIP cho macOS arm64/x64 và NSIS cho Win
 
 ## Cloud và RevenueCat
 
-Cloud chạy độc lập với device agent; không có API điều khiển thiết bị từ server. Cấu hình ở `cloud/.env.example`; triển khai bằng `cloud/compose.yaml`. Secret RevenueCat chỉ ở server. `/v1/billing/config` trả beta catalog, `/v1/releases/latest` trả bản tải theo OS/CPU, webhook xác thực qua Authorization và reconcile RevenueCat; `/v1/me/subscription` xác thực subject bằng OIDC JWT. Xem điều kiện mở bán trong `docs/desktop-beta.md`.
+Cloud chạy độc lập với device agent; không có API điều khiển thiết bị từ server. Cấu hình ở `apps/cloud/.env.example`; triển khai bằng `apps/cloud/compose.yaml`. Secret RevenueCat chỉ ở server. `/v1/billing/config` trả beta catalog, `/v1/releases/latest` trả bản tải theo OS/CPU, webhook xác thực qua Authorization và reconcile RevenueCat; `/v1/me/subscription` xác thực subject bằng OIDC JWT. Xem điều kiện mở bán trong `docs/desktop-beta.md`.
 
 ### Google login và quản trị
 
@@ -144,4 +154,6 @@ Cloud chạy độc lập với device agent; không có API điều khiển thi
 
 Trang quản trị: https://snapkit.45.119.214.94.sslip.io/admin/ (website tĩnh chuyển về địa chỉ này). Admin được cấp theo `SNAPKIT_ADMIN_EMAILS`, chỉ nhận email Google đã xác minh. Quản trị hỗ trợ khóa/mở tài khoản, mở/đóng đăng ký, nội dung landing EN/VN, thông báo trong app, phiên bản đề xuất và lịch sử thao tác. Khóa tài khoản thu hồi các phiên đăng nhập.
 
-Cấu hình server theo `cloud/.env.example`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SNAPKIT_PUBLIC_URL`, `SNAPKIT_ADMIN_EMAILS`. Redirect URI: `https://snapkit.45.119.214.94.sslip.io/auth/google/callback`. Không đưa client secret vào Git hoặc bộ cài. Dữ liệu tài khoản lưu trong `cloud/data/accounts.json` trên server; cần sao lưu volume cùng dữ liệu billing. RevenueCat vẫn ở giai đoạn chuẩn bị, checkout tắt.
+Cấu hình server theo `apps/cloud/.env.example`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SNAPKIT_PUBLIC_URL`, `SNAPKIT_ADMIN_EMAILS`. Redirect URI: `https://snapkit.45.119.214.94.sslip.io/auth/google/callback`. Không đưa client secret vào Git hoặc bộ cài. Dữ liệu tài khoản lưu trong `apps/cloud/data/accounts.json` trên server; cần sao lưu volume cùng dữ liệu billing. RevenueCat vẫn ở giai đoạn chuẩn bị, checkout tắt.
+
+Cập nhật ngay trong desktop app và quy trình phát hành: [In-app updates](docs/in-app-updates.md). Dọn output có thể tạo lại: `npm run clean` (xóa cả `release/`), hoặc `npm run clean -- --keep-release`.

@@ -5,9 +5,10 @@ artifactName: Snapkit-${version}-${os}-${arch}.${ext}
 directories:
   output: release
 files:
-  - desktop/**
-  - public/**
-  - server/**
+  - apps/desktop/**
+  - apps/dashboard/**
+  - apps/agent/**
+  - packages/ui/**
   - package.json
   - snapkit-debug-sync.vsix
   - '!**/*.map'
@@ -15,7 +16,7 @@ asar: true
 asarUnpack:
   - node_modules/lucide/**
 mac:
-  icon: desktop/assets/icon.icns
+  icon: apps/desktop/assets/icon.icns
   minimumSystemVersion: "13.0"
   category: public.app-category.developer-tools
   target:
@@ -26,7 +27,7 @@ mac:
   notarize: false
   gatekeeperAssess: false
 win:
-  icon: desktop/assets/icon.ico
+  icon: apps/desktop/assets/icon.ico
   target:
     - nsis
 nsis:

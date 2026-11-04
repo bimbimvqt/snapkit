@@ -2,8 +2,8 @@
 import { readFile, writeFile, mkdir, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { validateWorkspace, stripLegacyTargets } from '../server/workspace.js';
-import { storage } from '../server/storage.js';
+import { validateWorkspace, stripLegacyTargets } from '../apps/agent/src/modules/workspace/workspace.js';
+import { storage } from '../apps/agent/src/infrastructure/storage/device-storage.js';
 
 const root = await validateWorkspace(process.argv[2]);
 const file = path.join(root, '.vscode/launch.json');

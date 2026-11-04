@@ -43,7 +43,7 @@ The dashboard separates Devices, Setup & tools, Preferences, Your plan, Device s
 | Selected device disappears | existing debug plan rejects unavailable targets; user updates selection |
 | IDE integration disabled / agent offline | ordinary IDE debug remains available |
 | App removed | per-user installer retains app data; devices and project folders are not uninstalled |
-| Update available | explicit check and download; no unsigned automatic replacement |
+| Update available | in-app check/download/verification, explicit install confirmation; macOS startup acknowledgement and rollback; signing limitations remain |
 
 ## RevenueCat integration
 
@@ -62,13 +62,13 @@ Before enabling sales:
 
 ## Service deployment
 
-`cloud/compose.yaml` runs a separate 192 MiB / 0.35 CPU service on the existing edge network. The host serves release metadata and the public beta plan catalog; it never receives local device commands. `cloud/.env.example` lists provider/identity settings. Real `.env` and data are ignored. Server data directory must be writable by UID 1000. Use one cloud replica while JSON persistence is in place; use a transactional database before scaled paid traffic.
+`apps/cloud/compose.yaml` runs a separate 192 MiB / 0.35 CPU service on the existing edge network. The host serves release metadata and the public beta plan catalog; it never receives local device commands. `apps/cloud/.env.example` lists provider/identity settings. Real `.env` and data are ignored. Server data directory must be writable by UID 1000. Use one cloud replica while JSON persistence is in place; use a transactional database before scaled paid traffic.
 
 Temporary HTTPS host: `snapkit.45.119.214.94.sslip.io`. Website downloads remain on GitHub Releases. The existing GitHub Pages controller stays the default pairing origin. A future domain change must update the website origin and pairing configuration together.
 
 ## Release verification and remaining gates
 
-Run `npm run check`, `npm test`, `npm run test:ui`, `npm run test:pages`, `npm run desktop:smoke`, then `npm run desktop:dist` on target platforms. Tag `v*-beta.*` builds macOS arm64/x64 and Windows x64, publishes a prerelease only when all packaging jobs succeed, and includes VSIX plus SHA256 checksums.
+Run `npm run check`, `npm test`, `npm run test:ui`, `npm run test:pages`, `npm run desktop:smoke`, then `npm run desktop:dist` on target platforms. Tag `v*` builds macOS arm64/x64 and Windows x64, publishes a prerelease only when all packaging jobs succeed, and includes VSIX plus SHA256 checksums.
 
 The first downloadable beta is unsigned/not notarized. GitHub-hosted Windows/macOS launch checks and packaging do not establish USB-device, virtualization, production billing or clean-machine user acceptance. Perform real-device and first-install QA before declaring those supported without qualification. Obtain Apple distribution/notarization credentials and Windows code-signing credentials before signed public distribution. No signing credential is checked into source.
 
@@ -76,7 +76,7 @@ The first downloadable beta is unsigned/not notarized. GitHub-hosted Windows/mac
 
 Landing page and desktop UI support English (`en`) and Vietnamese (`vi`, shown as VN). A first visit follows the browser locale; an explicit selection is saved as `snapkit-language`. `?lang=en` and `?lang=vi` provide direct links and update when the selector changes. Selection is shared by tabs on the same origin. Desktop and website have separate browser storage, so each retains its own choice. Native desktop notices use the remembered desktop language.
 
-`public/i18n.js` is reused by Pages and cloud. Authored static copy is bound once; dynamic renderers call `t` with source keys and positional values. No observer scans or rewrites arbitrary server data. Project names, device names, paths, identifiers, source code and raw SDK output are preserved. Unknown technical errors retain their original diagnostic text. Catalogs live in `public/locales.js`, `site/locales.js`, and `desktop/locales.cjs`.
+`packages/ui/i18n.js` is reused by Pages and cloud. Authored static copy is bound once; dynamic renderers call `t` with source keys and positional values. No observer scans or rewrites arbitrary server data. Project names, device names, paths, identifiers, source code and raw SDK output are preserved. Unknown technical errors retain their original diagnostic text. Catalogs live in `apps/dashboard/src/shared/i18n/messages.js`, `apps/website/locales.js`, and `apps/desktop/src/i18n/messages.cjs`.
 
 Beta.2 macOS bundles use verified ad-hoc signatures. Apple Developer ID signing and notarization remain pending. See the beta release notes for targeted tester installation steps.
 
@@ -95,3 +95,5 @@ Local validation includes native screenshot, recording and log smoke on a booted
 ## Consistent controls in beta.15
 
 All select and flavor suggestion popups use the shared custom menu component, including forms inside native HTML dialogs. Underlying select values remain the source for form validation and existing actions. Menus provide keyboard navigation, searchable long lists, viewport positioning and light/dark theme parity. Project tools retain focused controls during background refresh, expose cancel editing and recreate capture preview URLs when returning to the page.
+
+In-app update behavior, production packaging, signing limitations and cleanup: [in-app-updates.md](in-app-updates.md).

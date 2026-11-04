@@ -5,7 +5,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
-source = Path(__file__).resolve().parents[1] / 'ide-extension'
+source = Path(__file__).resolve().parents[1] / 'apps/ide-extension'
 package = json.loads((source / 'package.json').read_text())
 # Always package the shared desktop icon; a stale extension copy cannot drift.
 (source / 'icon.png').write_bytes((source.parent / 'desktop/assets/icon.png').read_bytes())

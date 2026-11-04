@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## Unreleased — Dev
+
+- Thêm Build & phát hành: APK, AAB và IPA TestFlight theo cấu hình workspace, flavor, entrypoint và defines.
+- Tiến trình, log có giới hạn, huỷ cây process, lịch sử theo workspace và artifact lưu riêng từng build.
+- Cấu hình App Store Connect local và xác nhận upload riêng sau IPA; upload gián đoạn yêu cầu kiểm tra Apple trước khi thử lại.
+- EN/VI, dropdown tuỳ chỉnh, giao diện sáng/tối và bố cục thích ứng.
+
 ## 0.2.0-beta.18 — 2026-11-03
 
 - Đưa viền focus bàn phím vào trong mục sidebar, tránh bị vùng cuộn cắt hai cạnh và chồng lên mục bên cạnh. Giữ phân biệt trạng thái focus và trang đang chọn trong giao diện sáng/tối.

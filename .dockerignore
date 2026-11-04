@@ -4,7 +4,9 @@ dist
 release
 .env
 **/.env
-cloud/data
+apps/cloud/data
 cloud-data
 .snapkit
 test-results
+
+.snapkit-dev

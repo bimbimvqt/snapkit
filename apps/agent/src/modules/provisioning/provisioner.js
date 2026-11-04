@@ -1,0 +1,138 @@
+import { EventEmitter } from 'node:events';
+import { randomUUID } from 'node:crypto';
+import { readFile, writeFile, readdir, realpath, access } from 'node:fs/promises';
+import path from 'node:path';
+import { run, parseJsonOutput } from '../../infrastructure/process/cli.js';
+import { storage, requireIOSStorage } from '../../infrastructure/storage/device-storage.js';
+
+import { versionCode, iosCompatible, parseIOSDownloads, parseAndroidProfiles, parseAndroidImages, androidCompatible } from '../../domain/runtime-catalog.js';
+export class Provisioner extends EventEmitter {
+  constructor({ execute = run, paths = storage, platform = process.platform, arch = process.arch, checkIOS = requireIOSStorage } = {}) {
+    super(); this.execute = execute; this.paths = paths; this.platform = platform; this.arch = arch; this.checkIOS = checkIOS;
+    this.jobs = []; this.remoteImages = []; this.catalogPending = new Map();
+  }
+  async catalog(remote = false, platform = 'all') {
+    const key = `${platform}:${remote}`;
+    if (this.catalogPending.has(key)) return this.catalogPending.get(key);
+    const pending = this.getCatalog(remote, platform).finally(() => this.catalogPending.delete(key));
+    this.catalogPending.set(key, pending); return pending;
+  }
+  async getCatalog(remote, platform) {
+    const warnings = [];
+    const attempt = async (name, task, fallback) => { try { return await task(); } catch (e) { warnings.push(`${name}: ${e.message}`); return fallback; } };
+    const [types, runtimes, profiles, images] = await Promise.all([
+      platform !== 'android' && this.platform === 'darwin' ? attempt('iOS models', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'devicetypes', '--json'])).devicetypes, []) : [],
+      platform !== 'android' && this.platform === 'darwin' ? attempt('iOS runtimes', async () => parseJsonOutput(await this.execute('xcrun', ['simctl', 'list', 'runtimes', '--json'])).runtimes, []) : [],
+      platform !== 'ios' ? attempt('Android profiles', async () => parseAndroidProfiles(await this.execute('avdmanager', ['list', 'device'], { timeout: 45000 })), []) : [],
+      platform !== 'ios' ? attempt('Android images', async () => parseAndroidImages(await this.execute('sdkmanager', [remote ? '--list' : '--list_installed', ...(remote ? ['--include_obsolete'] : []), `--sdk_root=${this.paths.sdk}`], { timeout: remote ? 120000 : 45000 }), this.arch), []) : []
+    ]);
+    if (remote && platform !== 'ios') this.remoteImages = images;
+    const merged = new Map(this.remoteImages.map(i => [i.id, { ...i, installed: false }]));
+    for (const image of images) merged.set(image.id, image);
+    const iosRuntimes = runtimes.filter(r => r.platform === 'iOS' || r.identifier?.includes('SimRuntime.iOS-'));
+    const models = types.filter(d => ['iPhone', 'iPad'].includes(d.productFamily)).map(d => ({ id: d.identifier, name: d.name,
+      minRuntimeVersion: d.minRuntimeVersion ?? 0, maxRuntimeVersion: d.maxRuntimeVersion ?? 4294967295,
+      minVersion: d.minRuntimeVersionString, maxVersion: d.maxRuntimeVersion < 4294967295 ? d.maxRuntimeVersionString : null,
+      runtimeIds: iosRuntimes.filter(r => iosCompatible(d, r, this.arch)).map(r => r.identifier),
+      reason: 'No installed runtime supports this model and host architecture.' }));
+    if (platform !== 'android' && this.platform === 'darwin' && !models.some(d => d.name === 'iPhone 5')) models.push({ id: 'legacy:iphone-5', name: 'iPhone 5 (legacy, 32-bit)', runtimeIds: [], unsupported: true,
+      reason: 'iPhone 5 needs legacy iOS 6–10 / 32-bit simulator tooling. This Xcode has no compatible profile; current Flutter does not support 32-bit iOS.' });
+    const downloads = (await readdir(this.paths.downloads, { recursive: true }).catch(() => [])).filter(f => f.toLowerCase().endsWith('.dmg'));
+    return { ios: { models, runtimes: iosRuntimes.map(r => ({ id: r.identifier, name: r.name, version: r.version, available: r.isAvailable, error: r.availabilityError })) },
+      android: { models: profiles.map(p => ({ ...p, imageIds: [...merged.values()].filter(i => androidCompatible(p, i)).map(i => i.id) })), images: [...merged.values()] }, downloads, warnings, platform: this.platform, arch: this.arch };
+  }
+  async iosDownloads() {
+    if (this.platform !== 'darwin') throw new Error('Xcode runtime downloads require macOS');
+    if (this.iosDownloadCache && Date.now() - this.iosDownloadCache.time < 600000) return this.iosDownloadCache.value;
+    const [response, xcode, host] = await Promise.all([
+      fetch('https://devimages-cdn.apple.com/downloads/xcode/simulators/index2.dvtdownloadableindex', { signal: AbortSignal.timeout(25000) }),
+      this.execute('xcodebuild', ['-version']), this.execute('sw_vers', ['-productVersion'])
+    ]);
+    if (!response.ok) throw new Error(`Apple runtime catalog returned HTTP ${response.status}`);
+    const xml = await response.text();
+    if (Buffer.byteLength(xml) > 8 * 1024 * 1024) throw new Error('Apple runtime catalog exceeds size limit');
+    const index = JSON.parse(await this.execute('plutil', ['-convert', 'json', '-o', '-', '--', '-'], { input: xml }));
+    const xcodeVersion = /Xcode\s+(\d+(?:\.\d+)*)/.exec(xcode)?.[1];
+    if (!xcodeVersion) throw new Error('Could not determine the selected Xcode version');
+    const value = { runtimes: parseIOSDownloads(index, { arch: this.arch, xcodeVersion, hostVersion: host.trim() }),
+      xcodeVersion, hostVersion: host.trim(), note: 'Apple catalog candidates. Xcode validates availability, licensing and compatibility during download/import.' };
+    this.iosDownloadCache = { time: Date.now(), value }; return value;
+  }
+  async downloadIOSForModel(version, modelId) {
+    if (modelId) {
+      const catalog = await this.catalog(false, 'ios');
+      const model = catalog.ios.models.find(m => m.id === modelId);
+      if (!model || model.unsupported) throw new Error(model?.reason || 'This model is not supported by the selected Xcode');
+      if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version || '')) throw new Error('Enter a valid iOS version');
+      if (versionCode(version) < model.minRuntimeVersion || versionCode(version) > model.maxRuntimeVersion) throw new Error(`iOS ${version} is outside the runtime range for ${model.name}`);
+    }
+    return this.downloadIOS(version);
+  }
+  async saveJobs() {
+    try { await writeFile(path.join(this.paths.state, 'provision-jobs.json'), JSON.stringify(this.jobs, null, 2)); } catch { /* Event stream remains usable if persisting fails. */ }
+  }
+  async restore() {
+    try { this.jobs = JSON.parse(await readFile(path.join(this.paths.state, 'provision-jobs.json'), 'utf8')).slice(-20).map(j => j.status === 'running' ? { ...j, status: 'error', error: 'Server restarted before completion. Refresh the catalog to inspect installed assets.' } : j); } catch {}
+  }
+  publish() { this.emit('jobs', this.jobs); }
+  start(title, task) {
+    if (this.jobs.some(j => j.status === 'running')) throw new Error('Another provisioning job is running. Wait for it to finish.');
+    const job = { id: randomUUID(), title, status: 'running', startedAt: new Date().toISOString(), logs: [] };
+    this.jobs.push(job); this.jobs = this.jobs.slice(-20); this.publish(); this.saveJobs();
+    const log = chunk => { job.logs.push(String(chunk).replace(/\r/g, '\n').slice(-6000)); job.logs = job.logs.slice(-100); this.publish(); };
+    Promise.resolve().then(() => task(log)).then(result => { job.status = 'completed'; job.result = result; this.emit('completed', job); }).catch(e => { job.status = 'error'; job.error = e.message; log(e.message); }).finally(() => { job.finishedAt = new Date().toISOString(); this.publish(); this.saveJobs(); });
+    return job;
+  }
+  async create(body) {
+    if (!['ios', 'android'].includes(body.platform)) throw new Error('Choose iOS or Android');
+    const name = String(body.name || '').trim();
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9 ._()-]{0,63}$/.test(name)) throw new Error('Use a device name of 1–64 letters, numbers, spaces, dots, hyphens or parentheses');
+    const catalog = await this.catalog(false, body.platform);
+    if (body.platform === 'ios') {
+      const model = catalog.ios.models.find(m => m.id === body.model);
+      if (!model || !model.runtimeIds.includes(body.runtime)) throw new Error(model?.reason || 'Unsupported iOS model/runtime pair');
+      await this.checkIOS();
+      return this.start(`Create ${name}`, async log => {
+        const id = (await this.execute('xcrun', ['simctl', 'create', name, model.id, body.runtime], { timeout: 120000, onOutput: log })).trim();
+        return { id, name, path: path.join(this.paths.iosDevices, id) };
+      });
+    }
+    const model = catalog.android.models.find(m => m.id === body.model);
+    const image = catalog.android.images.find(i => i.id === body.runtime && i.installed);
+    if (!model || !image || !model.imageIds.includes(image.id)) throw new Error('Select an installed Android image compatible with the selected profile and host architecture');
+    const avdName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const avdPath = path.join(this.paths.avd, `${avdName}.avd`);
+    if (await access(avdPath).then(() => true, () => false)) throw new Error('An Android device with this name already exists');
+    return this.start(`Create ${name}`, async log => {
+      await this.execute('avdmanager', ['create', 'avd', '--name', avdName, '--package', image.id, '--device', model.id, '--path', avdPath], { input: 'no\n', timeout: 120000, onOutput: log });
+      return { id: `avd:${avdName}`, name, path: avdPath };
+    });
+  }
+  async installAndroid(id) {
+    const image = this.remoteImages.find(i => i.id === id);
+    if (!image) throw new Error('Load downloadable Android versions and choose a listed system image first');
+    return this.start(`Install ${image.name}`, async log => {
+      await this.execute('sdkmanager', ['--install', image.id, `--sdk_root=${this.paths.sdk}`], { timeout: 3600000, onOutput: log });
+      return { package: image.id, path: this.paths.sdk };
+    });
+  }
+  downloadIOS(version) {
+    if (this.platform !== 'darwin') throw new Error('iOS runtime downloads require macOS and Xcode');
+    if (!/^\d{1,2}\.\d{1,2}(\.\d{1,2})?$/.test(version || '')) throw new Error('Enter an iOS version such as 18.5 or 26.1');
+    return this.start(`Download iOS ${version}`, async log => {
+      await this.execute('xcodebuild', ['-downloadPlatform', 'iOS', '-buildVersion', version, '-exportPath', this.paths.downloads, '-architectureVariant', this.arch === 'arm64' ? 'arm64' : 'universal'], { timeout: 3600000, onOutput: log });
+      return { path: this.paths.downloads, message: 'Download finished. Import the DMG to make the runtime available. Apple controls which versions can be downloaded.' };
+    });
+  }
+  async importIOS(filename) {
+    if (this.platform !== 'darwin') throw new Error('iOS runtime import requires macOS');
+    if (typeof filename !== 'string' || !filename.endsWith('.dmg')) throw new Error('Choose a downloaded runtime DMG');
+    const file = await realpath(path.resolve(this.paths.downloads, filename));
+    const root = await realpath(this.paths.downloads);
+    if (!file.startsWith(root + path.sep)) throw new Error('Runtime must be inside the SSD downloads folder');
+    return this.start(`Import ${path.basename(file)}`, async log => {
+      await this.execute('xcodebuild', ['-importPlatform', file], { timeout: 3600000, onOutput: log });
+      return { message: 'Runtime imported. Installed runtime images are managed by Xcode in the system location.' };
+    });
+  }
+}
