@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.30 — 2026-11-04
+
+- Chỉ hiển thị editor có tích hợp Snapkit Debug Sync: VS Code, Cursor và Antigravity; giữ nhãn beta cho hai editor tương thích.
+- Bỏ Android Studio, IntelliJ IDEA và Editor khác khỏi lựa chọn; cấu hình cũ không được hỗ trợ trở về VS Code.
+- Giải thích lựa chọn editor chỉ lưu để hướng dẫn thiết lập, không tự mở IDE hoặc cài extension; hướng dẫn thể hiện tên editor đang chọn bằng EN/VI.
+
 ## 0.2.0-beta.29 — 2026-11-04
 
 - Tự tìm Flutter và Android SDK trong máy và các ổ đang gắn, gồm SSD, FVM và các thư mục cài SDK phổ biến.

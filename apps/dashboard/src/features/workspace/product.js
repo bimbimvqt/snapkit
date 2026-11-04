@@ -3,10 +3,7 @@ let product = null, toolState = null, activePage = 'devices', productLoading = f
 const productEditors = [
   ['vscode', 'Visual Studio Code', 'Extension available', 'code-xml'],
   ['cursor', 'Cursor', 'Extension · beta', 'mouse-pointer-2'],
-  ['antigravity', 'Antigravity', 'Extension · beta', 'orbit'],
-  ['android-studio', 'Android Studio', 'Device management', 'bot'],
-  ['intellij', 'IntelliJ IDEA', 'Device management', 'braces'],
-  ['other', 'Another editor', 'Device management', 'terminal']
+  ['antigravity', 'Antigravity', 'Extension · beta', 'orbit']
 ];
 function showProductPage(page) {
   if (!['devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases', 'updates'].includes(page)) return;
@@ -32,11 +29,11 @@ function updateJourney() {
 }
 document.addEventListener('snapkit:state', updateJourney);
 function renderEditors() {
-  const selected = product?.preferences?.editor || 'vscode';
+  const selected = productEditors.some(([id]) => id === product?.preferences?.editor) ? product.preferences.editor : 'vscode';
   $('#editor-options').innerHTML = productEditors.map(([id, name, detail, symbol]) => `<button type="button" class="editor-option ${selected === id ? 'chosen' : ''}" data-editor="${id}" aria-pressed="${selected === id}">${icon(symbol)}<strong>${escape(t(name))}</strong><small>${escape(t(detail))}</small>${selected === id ? icon('circle-check') : ''}</button>`).join('');
-  const extension = ['vscode', 'cursor', 'antigravity'].includes(selected);
-  $('#extension-download').classList.toggle('hidden', !extension);
-  $('#editor-help').textContent = extension ? t("Install Snapkit Debug Sync, choose a normal Flutter debug profile in your editor, then start Debug. Your selected devices are used for the next run.") : t("Start your devices here, then choose them in your editor’s own device selector. Group debug and coordinated restart are not integrated with this editor yet.");
+  $('#extension-download').classList.remove('hidden');
+  const name = productEditors.find(([id]) => id === selected)[1];
+  $('#editor-help').textContent = t("In {0}, install Snapkit Debug Sync, choose a normal Flutter debug profile, then start Debug. Your selected devices are used for the next run.", [name]);
   if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/latest';
   icons();
 }

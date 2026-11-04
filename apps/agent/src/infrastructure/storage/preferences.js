@@ -6,7 +6,8 @@ const file = path.join(dataRoot, 'state/preferences.json');
 let preferences = {};
 try { preferences = JSON.parse(readFileSync(file, 'utf8')); } catch {}
 if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) preferences = {};
-export const getPreferences = () => ({ flutterSDK: preferences.flutterSDK || '', androidSDK: preferences.androidSDK || '', editor: preferences.editor || 'vscode', onboardingComplete: preferences.onboardingComplete === true });
+const supportedEditors = ['vscode', 'cursor', 'antigravity'];
+export const getPreferences = () => ({ flutterSDK: preferences.flutterSDK || '', androidSDK: preferences.androidSDK || '', editor: supportedEditors.includes(preferences.editor) ? preferences.editor : 'vscode', onboardingComplete: preferences.onboardingComplete === true });
 export async function savePreferences(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid preferences');
   const next = getPreferences();
@@ -21,7 +22,7 @@ export async function savePreferences(input) {
     next[key] = value;
   }
   if (input.editor !== undefined) {
-    if (!['vscode', 'cursor', 'antigravity', 'android-studio', 'intellij', 'other'].includes(input.editor)) throw new Error('Choose a supported editor');
+    if (!supportedEditors.includes(input.editor)) throw new Error('Choose a supported editor');
     next.editor = input.editor;
   }
   if (input.onboardingComplete !== undefined) next.onboardingComplete = input.onboardingComplete === true;
