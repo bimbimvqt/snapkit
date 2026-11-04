@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.26 — 2026-11-04
+
+- Chạy Release trực tiếp trên điện thoại Android/iPhone thật kết nối USB hoặc Wi-Fi, từ card thiết bị hoặc trang Build & phát hành.
+- Chọn thiết bị bằng dropdown tùy biến; dùng flavor, entrypoint và defines của cấu hình đang chọn, lấy version từ pubspec.yaml.
+- Thực thi Flutter local ở chế độ release không giữ debugger; có log, lịch sử, hủy và chặn tác vụ đồng thời.
+- Chỉ nhận thiết bị thật đang online; iPhone cần macOS/Xcode và cấu hình ký của project, không yêu cầu key TestFlight.
+- Không tạo bản sao artifact hay gửi app lên server Snapkit/TestFlight trong luồng chạy; giữ nguyên luồng build file và upload riêng.
+- Giao diện EN/VI, trạng thái chưa kết nối/host không hỗ trợ và giải thích app có thể thay thế bản cùng bundle ID.
+
 ## 0.2.0-beta.25 — 2026-11-04
 
 - Thêm màn hình chờ toàn cửa sổ với logo Snapkit và thanh loading khi khởi động lại để cài bản cập nhật.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { releasePlan, redactBuildLog, projectVersion } from '../../apps/agent/src/domain/release-plan.js';
+import { releasePlan, runReleasePlan, redactBuildLog, projectVersion } from '../../apps/agent/src/domain/release-plan.js';
 import { ReleaseBuilds } from '../../apps/agent/src/modules/releases/release-builds.js';
 import { gradleFlavors, releaseCatalog, validateRelease } from '../../apps/agent/src/modules/releases/release-catalog.js';
 
@@ -92,4 +92,49 @@ test('release subprocess runner streams output, reports failure and cancels its 
   await assert.rejects(releaseCommand(process.execPath,['-e','process.exit(2)']),/code 2/);
   const controller=new AbortController();const pending=releaseCommand(process.execPath,['-e','console.log("started");setInterval(()=>{},1000)'],{signal:controller.signal,onOutput:()=>controller.abort()});
   await assert.rejects(pending,/cancelled/);
+});
+
+const phone = { id: 'physical-android', flutterId: '192.168.1.5:5555', name: 'Pixel phone', group: 'physical', platform: 'android', state: 'online' };
+test('Run Release targets exactly one physical device with flavor/defines and rejects simulators or unsupported hosts', () => {
+  const base = releasePlan({ ...input, defineFile: 'config/dev.json' }, 'darwin');
+  const plan = runReleasePlan(base, phone, 'win32');
+  assert.deepEqual(plan.args, ['run','--release','--no-resident','--device-id','192.168.1.5:5555','--flavor','dev','--target','lib/main_dev.dart','--dart-define-from-file','config/dev.json']);
+  assert.equal(plan.operation, 'run'); assert.equal(plan.device.name, 'Pixel phone');
+  assert.ok(!runReleasePlan(releasePlan({format:'ipa'}, 'darwin'), {...phone, platform:'ios'}, 'darwin').args.includes('--export-method'));
+  for (const device of [undefined, {...phone, group:'android'}, {...phone,state:'offline'}, {...phone,flutterId:''}, {...phone,flutterId:'--bad'}, {...phone,platform:'linux'}]) assert.throws(() => runReleasePlan(base, device, 'darwin'));
+  assert.throws(() => runReleasePlan(base, {...phone,platform:'ios'}, 'win32'), /macOS/);
+});
+test('Run Release reuses local validation and task lifecycle without collecting artifacts or Apple uploads', async t => {
+  const {dir, workspace} = await fixture(t), calls=[];
+  const runner = new ReleaseBuilds({root:path.join(dir,'data'), platform:'darwin', execute:async (command,args,options) => { calls.push({command,args}); options.onOutput('installed and started'); }});
+  const job = await runner.start(workspace, {...input,operation:'run',format:'aab'}, phone);
+  await runner.active.done;
+  const saved=runner.find(workspace,job.id);
+  assert.equal(saved.status,'succeeded'); assert.deepEqual(saved.artifacts,[]);
+  assert.equal(saved.plan.buildName,'1.2.0'); assert.equal(saved.plan.buildNumber,'7');
+  assert.equal(saved.plan.format,'apk'); assert.equal(saved.plan.operation,'run');
+  assert.equal(calls.length,1); assert.equal(calls[0].command,'flutter'); assert.equal(calls[0].args[0],'run');
+  assert.match(saved.log,/installed and started/);
+  await assert.rejects(runner.upload(workspace,job.id,job.id), /completed IPA/);
+  await assert.rejects(runner.start(workspace,{...input,operation:'run',flavor:'missing'},phone), /flavor configured/);
+  await assert.rejects(runner.start(workspace,{...input,operation:'run'}), /physical/);
+  const restored = new ReleaseBuilds({root:runner.root}); await restored.restore();
+  assert.equal(restored.find(workspace,job.id).plan.device.name,phone.name);
+  // Physical iOS launch uses development signing from the project, never App Store export/key preparation.
+  runner.apple.signing.prepare = async () => { throw Error('App Store signing must not run'); };
+  const ios = await runner.start(workspace, {...input, operation:'run', apple:{teamId:'BAD'}}, {...phone,id:'iphone',flutterId:'iphone-udid',platform:'ios'});
+  await runner.active.done;
+  assert.equal(runner.find(workspace,ios.id).status,'succeeded'); assert.equal(calls.at(-1).args[0],'run');
+  assert.ok(!calls.at(-1).args.includes('--export-method'));
+
+});
+test('Run Release cancellation and failed device launch never report success or produce artifacts', async t => {
+  const {dir,workspace}=await fixture(t);
+  const runner=new ReleaseBuilds({root:path.join(dir,'data'),platform:'darwin',execute:async (_command,_args,{signal}) => new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('device disconnected')), {once:true}))});
+  const job=await runner.start(workspace,{...input,operation:'run'},phone);
+  await assert.rejects(runner.start(workspace,input),/Another release task/);
+  await runner.cancel(workspace,job.id); assert.equal(runner.find(workspace,job.id).status,'cancelled');
+  runner.execute=async()=>{throw Error('device disconnected')};
+  const failed=await runner.start(workspace,{...input,operation:'run'},phone); await runner.active.done;
+  assert.equal(runner.find(workspace,failed.id).status,'failed'); assert.deepEqual(runner.find(workspace,failed.id).artifacts,[]);
 });

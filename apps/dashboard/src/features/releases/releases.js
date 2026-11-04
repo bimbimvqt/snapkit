@@ -1,7 +1,7 @@
 /* Release UI talks only to the authenticated local agent. */
 (() => {
   let apple = { teams: [], selections: {} }, appleLoading = false, appleSaving = false, appleEpoch = 0, detectedTeams = [];
-  let catalog = null, releaseState = { jobs: [], busy: false }, selectedId = '', detail = null;
+  let catalog = null, releaseState = { jobs: [], busy: false }, selectedId = '', detail = null, runDeviceId = '';
   let context = '', loading = false, catalogLoading = false, formBusy = false, uploadId = '', generation = 0;
   const el = id => document.getElementById(id);
   const text = (key, values) => escape(t(key, values));
@@ -9,10 +9,30 @@
   const statuses = { preparing: 'Preparing…', building: 'Building…', collecting: 'Saving artifact…', succeeded: 'Build complete', failed: 'Build failed', cancelled: 'Cancelled', interrupted: 'Interrupted', blocked: 'Upload blocked', uploading: 'Uploading…', uploaded: 'Sent to Apple', unknown: 'Check App Store Connect' };
   const format = () => document.querySelector('[name="release-format"]:checked')?.value || 'apk';
   const title = kind => ({ apk: 'APK', aab: 'App Bundle', ipa: 'IPA' })[kind];
+  const jobTitle = job => job.plan.operation === 'run' ? t('Run Release') : job.plan.purpose === 'testflight' ? t('TestFlight IPA') : title(job.plan.format);
+  const jobStatus = job => job.plan.operation === 'run' && job.status === 'succeeded' ? 'Release launch complete' : job.plan.operation === 'run' && job.status === 'building' ? 'Building and launching…' : statuses[job.uploadStatus || job.status] || job.status;
   const selectedJob = () => releaseState.jobs.find(job => job.id === selectedId);
   function input(purpose = 'ipa') { return { purpose, apple: purpose === 'testflight' && el('release-use-apple').checked ? apple.selections[el('release-flavor').value] : undefined, format: format(), flavor: el('release-flavor').value, target: el('release-target').value.trim(), defineFile: el('release-defines').value.trim(), buildName: el('release-version').value.trim(), buildNumber: el('release-number').value.trim(), exportOptions: el('release-export-options').value.trim() }; }
   function localOnly() { return !connection && !window.SNAPKIT_CONTROLLER; }
+  function renderRunControls() {
+    const devices = (state.devices || []).filter(device => device.group === 'physical' && device.state === 'online' && device.flutterId && ['ios', 'android'].includes(device.platform));
+    const picker = el('release-run-device');
+    const options = `<option value="">${text(devices.length ? 'Choose a device' : 'No physical device connected')}</option>` + devices.map(device => `<option value="${escape(device.id)}">${escape(device.name)} · ${device.platform === 'ios' ? 'iOS' : 'Android'}</option>`).join('');
+    if (picker.dataset.options !== options) { picker.innerHTML = options; picker.dataset.options = options; }
+    picker.value = runDeviceId;
+    const target = devices.find(device => device.id === runDeviceId), optionsInput = input();
+    const unsupported = target?.platform === 'ios' && catalog?.platform !== 'darwin';
+    const debugging = target && state.debugSessions?.some(session => [target.id, target.flutterId].includes(session.deviceId));
+    picker.disabled = !devices.length || formBusy;
+    el('release-run-submit').disabled = !target || !catalog || catalogLoading || !localOnly() || !!window.SNAPKIT_PREVIEW || formBusy || releaseState.busy || unsupported || debugging || !(target.platform === 'ios' ? catalog.ios : catalog.android);
+    el('release-run-submit').querySelector('span').textContent = t('Run Release') + (optionsInput.flavor ? ' · ' + optionsInput.flavor : '');
+    el('release-run-note').textContent = t(!localOnly() ? 'Run Release is available in the local app only.' : !devices.length ? 'Connect and unlock your phone, approve USB debugging or trust, then refresh Devices. Paired Wi-Fi devices also work.' : unsupported ? 'Running on iPhone requires macOS and Xcode.' : debugging ? 'Stop debugging this device before running Release.' : 'Choose the phone that should receive this release build.');
+    el('release-run-summary').textContent = target ? [target.name, optionsInput.flavor || t('Default (no flavor)'), optionsInput.target].join(' · ') : '';
+    el('release-run-command').hidden = !target;
+    if (target) el('release-run-command').textContent = ['flutter', 'run', '--release', '--no-resident', '--device-id', target.flutterId, ...(optionsInput.flavor ? ['--flavor', optionsInput.flavor] : []), '--target', optionsInput.target, ...(optionsInput.defineFile ? ['--dart-define-from-file', optionsInput.defineFile] : [])].map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(' ');
+  }
   function updateControls() {
+    renderRunControls();
     const kind = format(), ready = catalog && state.settings.workspace && !catalogLoading;
     el('release-submit').disabled = !ready || window.SNAPKIT_PREVIEW || releaseState.busy || formBusy || (kind === 'ipa' ? !localOnly() || catalog.platform !== 'darwin' || !catalog.ios : !catalog.android);
     el('release-submit').querySelector('span').textContent = t({ apk: 'Build APK', aab: 'Build App Bundle', ipa: 'Create IPA' }[kind]) + (el('release-flavor').value ? ' · ' + el('release-flavor').value : '');
@@ -71,7 +91,7 @@
     const next = JSON.stringify([state.settings.workspace, state.settings.flavor, state.settings.target, state.settings.defineFile]);
     if (context === next) return false;
     context = next; generation++; catalog = null; catalogLoading = false; loading = false; selectedId = ''; detail = null; releaseState = { jobs: [], busy: false };
-    el('release-form').reset(); el('release-key-form').reset(); el('release-form-error').textContent = ''; setAppleError('release-key-error', ''); el('release-catalog-error').textContent = '';
+    runDeviceId = ''; el('release-run-error').textContent = ''; el('release-form').reset(); el('release-key-form').reset(); el('release-form-error').textContent = ''; setAppleError('release-key-error', ''); el('release-catalog-error').textContent = '';
     if (el('release-upload-dialog').open) el('release-upload-dialog').close();
     el('release-workspace').textContent = state.settings.workspace || '';
     el('release-layout').hidden = !state.settings.workspace; el('release-no-workspace').classList.toggle('hidden', !!state.settings.workspace);
@@ -80,17 +100,17 @@
   }
   function renderResults() {
     const job = selectedJob(), activeStatus = job?.uploadStatus || job?.status;
-    el('release-monitor-title').textContent = job ? `${job.plan.purpose === 'testflight' ? t('TestFlight IPA') : title(job.plan.format)} · ${job.plan.flavor || t('Default (no flavor)')}` : t('Ready when you are.');
-    el('release-status').textContent = t(statuses[activeStatus] || 'No build selected'); el('release-status').dataset.status = activeStatus || '';
-    el('release-monitor-detail').textContent = job ? [new Date(job.startedAt).toLocaleString(window.SnapkitI18n.language), job.apple ? `${job.apple.teamName} · ${job.apple.bundleId} · ${job.apple.teamId}` : job.signing ? `${job.signing.bundleId} · ${job.signing.teamId}` : '', job.plan.target, job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : t('Start a build to follow its progress and download the result.');
+    el('release-monitor-title').textContent = job ? `${jobTitle(job)} · ${job.plan.flavor || t('Default (no flavor)')}` : t('Ready when you are.');
+    el('release-status').textContent = t(job ? jobStatus(job) : 'No build selected'); el('release-status').dataset.status = activeStatus || '';
+    el('release-monitor-detail').textContent = job ? [new Date(job.startedAt).toLocaleString(window.SnapkitI18n.language), job.apple ? `${job.apple.teamName} · ${job.apple.bundleId} · ${job.apple.teamId}` : job.signing ? `${job.signing.bundleId} · ${job.signing.teamId}` : '', job.plan.device?.name || '', job.plan.target, job.plan.buildName || '', job.plan.buildNumber ? '#' + job.plan.buildNumber : '', releaseState.demo ? t('Demo only · no real build or upload') : ''].filter(Boolean).join(' · ') : t('Start a build to follow its progress and download the result.');
     el('release-active-error').textContent = t(job?.uploadError || job?.error || '');
     const active = job && releaseState.active?.id === job.id;
-    const actions = job ? (active ? `<button type="button" class="button" data-release-cancel="${job.id}">${icon('square')}${text('Cancel task')}</button>` : '') + (job.status === 'succeeded' ? job.artifacts.map(item => `<button type="button" class="button" data-release-download="${item.id}" data-release-job="${job.id}">${icon('download')}${text('Download')} ${escape(item.name)} · ${(item.size / 1024 / 1024).toFixed(1)} MB</button>`).join('') + (job.plan.format === 'ipa' ? `<button type="button" class="button primary" data-release-upload="${job.id}" ${releaseState.busy || job.uploadStatus === 'uploaded' || !localOnly() ? 'disabled' : ''}>${icon('send')}${text(job.uploadStatus === 'uploaded' ? 'Sent to Apple' : 'Upload to TestFlight')}</button><button type="button" class="button" data-apple-help="xcode">${icon('monitor')}${text('Xcode instructions')}</button><p class="release-note">${text(job.uploadStatus === 'uploaded' ? 'Apple is processing this build. Check App Store Connect for validation and tester availability.' : !uploadConfigured(job) ? 'Reconnect the Apple team used by this IPA before uploading.' : 'Upload sends this saved IPA. It does not rebuild the project.')}</p>` : '') : '') : '';
+    const actions = job ? (active ? `<button type="button" class="button" data-release-cancel="${job.id}">${icon('square')}${text('Cancel task')}</button>` : '') + (job.status === 'succeeded' ? job.artifacts.map(item => `<button type="button" class="button" data-release-download="${item.id}" data-release-job="${job.id}">${icon('download')}${text('Download')} ${escape(item.name)} · ${(item.size / 1024 / 1024).toFixed(1)} MB</button>`).join('') + (job.plan.format === 'ipa' && job.plan.operation !== 'run' ? `<button type="button" class="button primary" data-release-upload="${job.id}" ${releaseState.busy || job.uploadStatus === 'uploaded' || !localOnly() ? 'disabled' : ''}>${icon('send')}${text(job.uploadStatus === 'uploaded' ? 'Sent to Apple' : 'Upload to TestFlight')}</button><button type="button" class="button" data-apple-help="xcode">${icon('monitor')}${text('Xcode instructions')}</button><p class="release-note">${text(job.uploadStatus === 'uploaded' ? 'Apple is processing this build. Check App Store Connect for validation and tester availability.' : !uploadConfigured(job) ? 'Reconnect the Apple team used by this IPA before uploading.' : 'Upload sends this saved IPA. It does not rebuild the project.')}</p>` : '') : '') : '';
     if (el('release-current-actions').dataset.markup !== actions) { el('release-current-actions').innerHTML = actions; el('release-current-actions').dataset.markup = actions; }
     el('release-log-wrap').hidden = !job;
     const output = detail && job && detail.id === job.id ? detail.log || '' : '';
     if (el('release-log').textContent !== output) { el('release-log').textContent = output; if (el('release-follow').checked) el('release-log').scrollTop = el('release-log').scrollHeight; }
-    const history = releaseState.jobs.map(item => `<article class="release-history-row${item.id === selectedId ? ' is-selected' : ''}"><button type="button" data-release-select="${item.id}" aria-pressed="${item.id === selectedId}"><strong>${escape(item.plan.purpose === 'testflight' ? t('TestFlight IPA') : title(item.plan.format))} · ${escape(item.plan.flavor || t('Default (no flavor)'))}</strong><small>${text(statuses[item.uploadStatus || item.status] || item.status)} · ${escape(new Date(item.startedAt).toLocaleString(window.SnapkitI18n.language))}</small></button><button type="button" class="icon-button" data-release-delete="${item.id}" aria-label="${text('Remove build')}" ${releaseState.active?.id === item.id ? 'disabled' : ''}>${icon('trash-2')}</button></article>`).join('') || `<p class="release-note">${text('Your builds will appear here.')}</p>`;
+    const history = releaseState.jobs.map(item => `<article class="release-history-row${item.id === selectedId ? ' is-selected' : ''}"><button type="button" data-release-select="${item.id}" aria-pressed="${item.id === selectedId}"><strong>${escape(jobTitle(item))} · ${escape(item.plan.flavor || t('Default (no flavor)'))}</strong><small>${text(jobStatus(item))} · ${escape(new Date(item.startedAt).toLocaleString(window.SnapkitI18n.language))}</small></button><button type="button" class="icon-button" data-release-delete="${item.id}" aria-label="${text('Remove build')}" ${releaseState.active?.id === item.id ? 'disabled' : ''}>${icon('trash-2')}</button></article>`).join('') || `<p class="release-note">${text('Your builds will appear here.')}</p>`;
     if (el('release-history').dataset.markup !== history) { el('release-history').innerHTML = history; el('release-history').dataset.markup = history; }
     el('release-history-count').textContent = releaseState.jobs.length; updateControls(); icons();
   }
@@ -117,6 +137,23 @@
     const epoch = generation; formBusy = true; el('release-form-error').textContent = ''; updateControls();
     try { const job = await api('/api/releases/build', input(purpose)); if (epoch !== generation) return; selectedId = job.id; releaseState.jobs.unshift(job); releaseState.busy = true; releaseState.active = { id: job.id, workspace: state.settings.workspace, operation: 'build' }; renderResults(); await refreshResults(); }
     catch (error) { if (epoch === generation) el('release-form-error').textContent = t(error.message); }
+    finally { formBusy = false; updateControls(); }
+  });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-run-release]'); if (!button || button.disabled) return;
+    showProductPage('releases'); runDeviceId = button.dataset.runRelease; updateControls();
+    el('release-run-title').scrollIntoView({ block: 'center' }); el('release-run-title').focus({ preventScroll: true });
+  });
+  el('release-run-device').addEventListener('input', () => { runDeviceId = el('release-run-device').value; el('release-run-error').textContent = ''; updateControls(); });
+  el('release-run-submit').addEventListener('click', async () => {
+    if (el('release-run-submit').disabled || !el('release-target').reportValidity()) return;
+    const epoch = generation, values = { ...input(), deviceId: runDeviceId };
+    formBusy = true; el('release-run-error').textContent = ''; updateControls();
+    try {
+      const job = await api('/api/releases/run', values); if (epoch !== generation) return;
+      selectedId = job.id; releaseState.jobs.unshift(job); releaseState.busy = true; releaseState.active = { id: job.id, workspace: state.settings.workspace, operation: 'run' };
+      renderResults(); el('release-monitor-title').scrollIntoView({ block: 'nearest' }); await refreshResults();
+    } catch (error) { if (epoch === generation) el('release-run-error').textContent = t(error.message); }
     finally { formBusy = false; updateControls(); }
   });
   const uploadConfigured = job => job?.apple ? releaseState.configuredTeamIds?.includes(job.apple.teamId) : job?.signing ? apple.selections[job.plan.flavor || '']?.teamId === job.signing.teamId && apple.selections[job.plan.flavor || '']?.bundleId === job.signing.bundleId : releaseState.uploadConfigured;
@@ -213,7 +250,7 @@
     });
   });
   document.addEventListener('snapkit:page', event => { if (event.detail === 'releases') { resetWorkspace(); if (!catalog) loadCatalog(); loadApple(); refreshResults(); } });
-  document.addEventListener('snapkit:state', () => { if (resetWorkspace() && activePage === 'releases') { loadCatalog(); loadApple(); refreshResults(); } });
+  document.addEventListener('snapkit:state', () => { updateControls(); if (resetWorkspace() && activePage === 'releases') { loadCatalog(); loadApple(); refreshResults(); } });
   document.addEventListener('snapkit:language', () => { renderApple(true); renderSuggestions(); for (const id of ['release-key-error','release-apple-error']) setAppleError(id, el(id).dataset.source || ''); renderResults(); });
   setInterval(() => { if (!document.hidden && activePage === 'releases') refreshResults(); }, 1500);
   resetWorkspace();

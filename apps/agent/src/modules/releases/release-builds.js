@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { dataRoot } from '../../infrastructure/storage/paths.js';
 import { releaseCommand } from '../../infrastructure/process/release-command.js';
-import { releasePlan, redactBuildLog, testFlightIdentity } from '../../domain/release-plan.js';
+import { releasePlan, runReleasePlan, redactBuildLog, testFlightIdentity } from '../../domain/release-plan.js';
 import { validateRelease, releaseCatalog } from './release-catalog.js';
 
 const activeStatuses = ['preparing', 'building', 'collecting'];
@@ -46,20 +46,28 @@ export class ReleaseBuilds {
   }
   append(job, chunk) { const raw = ((this.logBuffers.get(job.id) || job.log || '') + chunk).slice(-256 * 1024); this.logBuffers.set(job.id, raw); job.log = redactBuildLog(raw).slice(-128 * 1024); }
   find(workspace, id) { const job = this.jobs.find(job => job.id === id && job.project === this.project(workspace)); if (!job) throw new Error('Build not found in this workspace.'); return job; }
-  async start(workspace, input) {
+  async start(workspace, input, device) {
     if (!workspace) throw new Error('Choose a Flutter workspace first.');
     if (this.closed || this.active || this.starting) throw new Error('Another release task is running. Wait for it to finish or cancel it.');
     this.starting = true;
     try {
       if (this.jobs.length >= 100) throw new Error('Build history is full. Remove an old build before starting another.');
-      const plan = this.demo ? { workspace, ...releasePlan(input, 'darwin') } : await this.validate(workspace, input, this.platform);
+      const running = input.operation === 'run';
+      if (input.operation && !['build', 'run'].includes(input.operation)) throw Error('Invalid release operation.');
+      if (running) {
+        // Validate the trusted discovered device before selecting its platform.
+        runReleasePlan({}, device, this.demo ? 'darwin' : this.platform);
+        input = { ...input, format: device.platform === 'ios' ? 'ipa' : 'apk', purpose: 'ipa', exportOptions: '', apple: undefined, buildName: '', buildNumber: '' };
+      }
+      let plan = this.demo ? { workspace, ...releasePlan(input, 'darwin') } : await this.validate(workspace, input, this.platform);
+      if (running) plan = runReleasePlan(plan, device, this.demo ? 'darwin' : this.platform);
       await mkdir(this.root, { recursive: true });
       if (!this.demo) for (const folder of [plan.workspace, this.root]) { const disk = await statfs(folder); if (disk.bavail * disk.bsize < 1024 ** 3) throw new Error('Free at least 1 GB on the workspace and Snapkit data disks before building.'); }
       if (this.closed) throw new Error('Snapkit is shutting down.');
-      const apple = plan.format === 'ipa' && input.apple ? this.apple.snapshot(workspace, plan.flavor) : undefined;
+      const apple = !running && plan.format === 'ipa' && input.apple ? this.apple.snapshot(workspace, plan.flavor) : undefined;
       if (apple && input.apple && (apple.teamId !== input.apple.teamId || apple.appId !== input.apple.appId || apple.bundleId !== input.apple.bundleId)) throw Error('Apple selection changed. Review the team and app before building.');
       const job = { apple, id: randomUUID(), project: this.project(workspace), workspace: plan.workspace, plan, status: 'preparing', startedAt: Date.now(), log: '', artifacts: [], uploadStatus: '' };
-      this.jobs.push(job); const controller = new AbortController(); this.active = { job, controller, operation: 'build' };
+      this.jobs.push(job); const controller = new AbortController(); this.active = { job, controller, operation: running ? 'run' : 'build' };
       try { await this.save(); } catch (error) { this.jobs.pop(); this.active = null; throw error; }
       this.active.done = this.build(job, controller).finally(() => { this.active = null; });
       return this.publicJob(job);
@@ -74,7 +82,14 @@ export class ReleaseBuilds {
   async fingerprint(file) { const info = await stat(file).catch(() => null); return info?.isFile() ? `${info.size}:${info.mtimeMs}` : ''; }
   async build(job, controller) {
     try {
-      if (this.demo) {
+      if (job.plan.operation === 'run') {
+        job.status = 'building';
+        this.append(job, `Running release · ${job.plan.device.name} · ${job.plan.flavor || 'default'}\n`);
+        if (this.demo) {
+          this.append(job, 'Demo run only. No app is installed or launched.\n');
+          await new Promise(resolve => setTimeout(resolve, 700));
+        } else await this.execute(job.plan.command, job.plan.args, { cwd: job.workspace, signal: controller.signal, onOutput: chunk => this.append(job, chunk) });
+      } else if (this.demo) {
         this.append(job, 'Demo build only. No Flutter command or upload is executed.\n'); job.status = 'building';
         await new Promise(resolve => setTimeout(resolve, 700));
         if (controller.signal.aborted) throw new Error('Task cancelled.');
@@ -123,7 +138,7 @@ export class ReleaseBuilds {
         }
       }
       if (controller.signal.aborted) throw new Error('Task cancelled.');
-      job.status = 'succeeded'; this.append(job, '\nBuild complete. Artifact saved in Snapkit.\n');
+      job.status = 'succeeded'; this.append(job, job.plan.operation === 'run' ? '\nRelease launch command completed. No hot reload or attached debugger.\n' : '\nBuild complete. Artifact saved in Snapkit.\n');
     } catch (error) {
       job.status = controller.signal.aborted ? 'cancelled' : 'failed'; job.error = redactBuildLog(error.message); this.append(job, '\n' + job.error + '\n');
       job.artifacts = []; await rm(path.join(this.root, job.id), { recursive: true, force: true }).catch(() => {});
@@ -151,7 +166,7 @@ export class ReleaseBuilds {
     if (confirm !== id) throw new Error('Confirm this exact build before uploading.');
     if (this.closed || this.active || this.starting) throw new Error('Another release task is running.');
     const job = this.find(workspace, id);
-    if (job.plan.format !== 'ipa' || job.status !== 'succeeded' || job.uploadStatus === 'uploaded') throw new Error('Choose a completed IPA build that has not already been uploaded.');
+    if (job.plan.operation === 'run' || job.plan.format !== 'ipa' || job.status !== 'succeeded' || job.uploadStatus === 'uploaded') throw new Error('Choose a completed IPA build that has not already been uploaded.');
     if (!job.apple && job.signing) {
       const selected = this.apple.snapshot(workspace, job.plan.flavor);
       if (selected.teamId !== job.signing.teamId || selected.bundleId !== job.signing.bundleId) throw Error('Choose the Apple team and app matching this saved IPA.');

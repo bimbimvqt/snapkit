@@ -156,7 +156,16 @@ app.post('/api/apple/selection', async (req, res) => res.json(await releaseBuild
 app.get('/api/releases/catalog', async (_req, res) => res.json(await releaseBuilds.catalog(settings.workspace, settings)));
 app.get('/api/releases', (_req, res) => res.json(releaseBuilds.list(settings.workspace)));
 app.get('/api/releases/:id', (req, res) => res.json(releaseBuilds.publicJob(releaseBuilds.find(requireWorkspace(), req.params.id), true)));
-app.post('/api/releases/build', async (req, res) => res.json(await releaseBuilds.start(requireWorkspace(), req.body)));
+app.post('/api/releases/build', async (req, res) => {
+  if (req.body.operation === 'run') throw Error('Use the Run Release action to select a physical device.');
+  res.json(await releaseBuilds.start(requireWorkspace(), req.body));
+});
+app.post('/api/releases/run', async (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Run Release is available in the local app only.' });
+  const target = device(req.body.deviceId);
+  if (ideSessions.list().some(session => [target.id, target.flutterId].includes(session.deviceId))) throw Error('Stop debugging this device before running Release.');
+  res.json(await releaseBuilds.start(requireWorkspace(), { ...req.body, operation: 'run' }, target));
+});
 app.post('/api/releases/:id/cancel', async (req, res) => { await releaseBuilds.cancel(requireWorkspace(), req.params.id); res.json({ ok: true }); });
 app.post('/api/releases/:id/delete', async (req, res) => { await releaseBuilds.delete(requireWorkspace(), req.params.id); res.json({ ok: true }); });
 app.get('/api/releases/:id/artifacts/:artifactId', async (req, res) => { const artifact = await releaseBuilds.artifact(requireWorkspace(), req.params.id, req.params.artifactId); res.download(artifact.file, artifact.name); });

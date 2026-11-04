@@ -96,3 +96,19 @@ Trong **Thiết lập TestFlight & hướng dẫn lấy key**, chọn một tron
 FAQ giải thích quyền API, download một lần, mất file và Individual API key. Individual key chưa được hỗ trợ để upload trong Snapkit; không yêu cầu người dùng nhập Issuer ID giả hoặc xin key Admin. Chuyển luồng hướng dẫn/đổi ngôn ngữ giữ nguyên dữ liệu form và không bắt đầu tác vụ release.
 
 Tham khảo Apple: [Quản lý API access và key](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/), [Tạo API keys](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api). Nội dung/quyền hiện trên Apple có thể khác theo role và trạng thái tổ chức.
+
+
+## Chạy Release trên thiết bị thật (beta.26)
+
+1. Kết nối và mở khóa điện thoại; chấp nhận USB debugging (Android) hoặc trust/Developer Mode (iPhone). Có thể dùng thiết bị Wi-Fi đã pair và xuất hiện trong danh sách Flutter.
+2. Bấm **Chạy Release** trên card thiết bị để mở cấu hình với đúng điện thoại, hoặc vào **Build & phát hành → Chạy Release trên thiết bị thật** và chọn thiết bị.
+3. Chọn cấu hình/flavor, kiểm tra entrypoint và defines. Chạy Release dùng version trong `pubspec.yaml`; các ô version/build number và lựa chọn APK/AAB/IPA chỉ áp dụng khi tạo file build.
+4. Bấm **Chạy Release** để chạy `flutter run --release --no-resident --device-id <id>` với flavor/target/defines đã kiểm tra. Theo dõi log và hủy trong Build Activity. Chỉ một tác vụ release chạy mỗi lúc, dùng workspace/device snapshot từ khi bắt đầu.
+
+Android hỗ trợ macOS/Windows khi SDK và quyền USB/Wi-Fi đã sẵn sàng. iPhone cần macOS/Xcode cùng signing cài được lên thiết bị từ project, không cần App Store Connect API key. App Store IPA không dùng cho bước này. Thiết bị offline hoặc simulator/emulator bị từ chối; cần dừng session IDE debug đã kết nối Snapkit trên thiết bị trước.
+
+Cài đặt có thể thay thế app cùng bundle ID. Sau khi Flutter hoàn tất lệnh launch, Snapkit ngắt kết nối CLI và app hoạt động độc lập; không có hot reload/debugger hoặc giám sát liên tục trạng thái chạy của app. Hủy trong lúc build/cài chỉ dừng tác vụ CLI; không đảm bảo gỡ app đã cài hay đóng app đã mở.
+
+Build/cài/mở app chạy hoàn toàn trên máy người dùng. Output Flutter ở workspace `build/`, lịch sử/log ở dữ liệu Snapkit local. Run Release không tạo bản sao APK/IPA trong lịch sử download và không upload lên server Snapkit hoặc Apple. Upload TestFlight vẫn là thao tác riêng từ một IPA đã build.
+
+Đã kiểm tra command flags với Flutter CLI local, validation, API, task lifecycle và giao diện bằng adapter/demo. Chưa cài/chạy app trên thiết bị thật bằng luồng này.

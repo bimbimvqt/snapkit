@@ -43,3 +43,15 @@ export function redactBuildLog(value) {
     .replace(/(Bearer\s+)\S+/gi, '$1[redacted]')
     .replace(/((?:password|secret|api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]');
 }
+
+// Device metadata comes from discovery, never from renderer-provided names/platforms.
+export function runReleasePlan(plan, device, platform) {
+  if (!device || device.group !== 'physical' || device.state !== 'online' || !device.flutterId || !['android', 'ios'].includes(device.platform)) throw Error('Choose a connected physical Android or iOS device.');
+  if (device.platform === 'ios' && platform !== 'darwin') throw Error('Running on iPhone requires macOS and Xcode.');
+  if (typeof device.flutterId !== 'string' || device.flutterId.startsWith('-') || /[\x00-\x20]/.test(device.flutterId)) throw Error('Invalid device identifier. Refresh devices.');
+  const { flavor, target, defineFile } = plan;
+  return { ...plan, operation: 'run', purpose: '', exportOptions: '', device: { id: device.id, flutterId: device.flutterId, name: device.name, platform: device.platform },
+    args: ['run', '--release', '--no-resident', '--device-id', device.flutterId,
+      ...(flavor ? ['--flavor', flavor] : []), '--target', target,
+      ...(defineFile ? ['--dart-define-from-file', defineFile] : [])] };
+}

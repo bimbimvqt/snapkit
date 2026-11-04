@@ -91,3 +91,56 @@ test('Xcode launch is explicit, reports failure and is hidden on Windows',async(
   await page.route('**/api/state',async route=>{const response=await route.fetch();await route.fulfill({response,json:{...await response.json(),platform:'win32'}});});
   await page.reload();await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();await page.locator('#release-credentials summary').first().click();await page.locator('[data-apple-route="xcode"]').click();await expect(page.locator('#apple-open-xcode')).toBeHidden();
 });
+
+test('Run Release uses the chosen flavor and real phone, displays progress/history and does not offer IPA upload', async ({page}) => {
+  await page.goto('/?lang=en'); await page.locator('[data-app-page="releases"]').click();
+  await expect(page.locator('#release-profile')).toBeEnabled();
+  await expect(page.locator('#release-run-submit')).toBeDisabled();
+  await choose(page,'release-profile','1');
+  await choose(page,'release-run-device','demo-physical-1');
+  await expect(page.locator('#release-run-summary')).toContainText('iPhone 15 · prod · lib/main_prod.dart');
+  await expect(page.locator('#release-run-command')).toContainText('--release --no-resident --device-id demo-physical-1 --flavor prod');
+  await expect(page.locator('#release-run-command')).not.toContainText('--export-method');
+  await page.locator('#release-version').fill('2.0.0');await page.locator('#release-number').fill('42');
+  await expect(page.locator('#release-run-command')).not.toContainText('--build-number');
+  const request=page.waitForRequest(req=>req.url().endsWith('/api/releases/run'));
+  await page.locator('#release-run-submit').click();
+  const payload=(await request).postDataJSON();expect(payload.deviceId).toBe('demo-physical-1');expect(payload.flavor).toBe('prod');expect(payload.target).toBe('lib/main_prod.dart');
+  await expect(page.locator('#release-status')).toHaveText('Release launch complete');
+  await expect(page.locator('#release-monitor-title')).toContainText('Run Release · prod');
+  await expect(page.locator('#release-monitor-detail')).toContainText('iPhone 15');
+  await expect(page.locator('#release-log')).toContainText('Demo run only');
+  await expect(page.locator('[data-release-upload]')).toHaveCount(0);await expect(page.locator('[data-release-download]')).toHaveCount(0);
+  await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
+  await expect(page.locator('#release-run-title')).toHaveText('Chạy Release trên thiết bị thật');
+  await expect(page.locator('#release-status')).toHaveText('Đã hoàn tất chạy Release');
+  await page.setViewportSize({width:900,height:680});await page.locator('#theme-toggle').click();
+  await page.locator('#release-run-title').scrollIntoViewIfNeeded();
+  await page.locator('.release-run').screenshot({path:'/tmp/snapkit-run-release-vi.png',animations:'disabled'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('Run Release explains no connected phone and rejects iPhone launch from Windows UI', async ({page}) => {
+  let connected=false;
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch(),data=await response.json();
+    await route.fulfill({response,json:{...data,devices:data.devices.filter(device=>connected||device.group!=='physical')}});
+  });
+  await page.route('**/api/releases/catalog',async route=>{
+    const response=await route.fetch(),data=await response.json();await route.fulfill({response,json:{...data,platform:'win32'}});
+  });
+  await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();
+  await expect(page.locator('#release-run-submit')).toBeDisabled();await expect(page.locator('#release-run-note')).toContainText('Connect and unlock');
+  connected=true;await page.reload();await page.locator('[data-app-page="releases"]').click();await expect(page.locator('#release-profile')).toBeEnabled();
+  await choose(page,'release-run-device','demo-physical-1');
+  await expect(page.locator('#release-run-submit')).toBeDisabled();await expect(page.locator('#release-run-note')).toHaveText('Running on iPhone requires macOS and Xcode.');
+});
+
+test('physical device shortcut opens Run Release with that phone selected without starting installation', async ({page}) => {
+  let starts=0;page.on('request',request=>{if(request.url().endsWith('/api/releases/run'))starts++;});
+  await page.goto('/?lang=en');
+  await page.locator('[data-device="demo-physical-1"] [data-run-release]').click();
+  await expect(page.locator('#panel-releases')).toBeVisible();await expect(page.locator('#release-run-submit')).toBeEnabled();
+  await expect(page.locator('#release-run-device')).toHaveValue('demo-physical-1');
+  await expect(page.locator('#release-run-summary')).toContainText('iPhone 15');expect(starts).toBe(0);
+});

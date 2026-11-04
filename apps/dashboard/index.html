@@ -109,6 +109,16 @@
       <div id="release-ios-options" hidden><label for="release-export-options">ExportOptions.plist (optional)</label><div class="release-file-field"><input id="release-export-options" placeholder="Use automatic App Store export" autocomplete="off"><button type="button" class="button" data-release-file="export-options">Choose file</button></div><p class="release-note">Uses your Xcode signing configuration. An Apple Developer membership and App Store distribution signing are required. This IPA is distributed through TestFlight or the App Store, not installed directly on arbitrary devices.</p></div>
       <div class="release-review"><span>BUILD SUMMARY</span><p id="release-summary"></p><code id="release-command"></code></div>
       <p id="release-form-error" class="field-error" role="alert"></p><button class="button primary release-submit" id="release-submit" type="submit" disabled><i data-lucide="hammer"></i><span>Build APK</span></button><button type="submit" class="button release-submit" id="release-testflight-build" hidden><i data-lucide="send"></i><span>Build for TestFlight</span></button><p id="release-ipa-note" class="release-note" hidden>Both actions create an App Store-signed IPA locally. TestFlight preparation highlights the upload workflow; uploading is always a separate confirmation. No API key is required to build.</p>
+      <section class="release-run" aria-labelledby="release-run-title">
+        <div class="release-card-heading"><div><span class="release-kicker">ON YOUR DEVICE</span><h3 id="release-run-title" tabindex="-1">Run Release on a real device</h3></div><i data-lucide="smartphone"></i></div>
+        <p class="release-note">Build, install and open the app with the flavor, entrypoint and defines above. Run Release uses the version in pubspec.yaml; file format and version overrides apply only to file builds.</p>
+        <label for="release-run-device">Connected physical device</label><select id="release-run-device" aria-describedby="release-run-note"><option value="">Choose a device</option></select>
+        <p id="release-run-note" class="release-note" role="status"></p>
+        <p id="release-run-summary" class="release-run-summary"></p><code id="release-run-command" class="release-run-command" hidden></code>
+        <button type="button" class="button primary release-submit" id="release-run-submit" disabled><i data-lucide="play"></i><span>Run Release</span></button>
+        <p class="release-note">No hot reload or attached debugger. iPhone requires Developer Mode, trust and development signing in Xcode; no TestFlight API key is needed. Installing may replace the app with the same bundle ID.</p>
+        <p id="release-run-error" class="field-error" role="alert"></p>
+      </section>
       <p class="release-note release-local-note"><i data-lucide="hard-drive"></i>Builds run on this computer. Your source and signing keys stay local.</p>
     </form>
     <div class="release-results">

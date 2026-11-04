@@ -146,3 +146,17 @@ test('release API requires the local token, snapshots demo output and enforces w
   await post('/api/workspace',{path:workspace});assert.equal((await post(`/api/releases/${job.id}/upload`,{confirm:job.id})).status,400);
   await post(`/api/releases/${job.id}/delete`,{});
 });
+test('Run Release API accepts only discovered physical devices and keeps launch tasks separate from IPA uploads', async()=>{
+  const values={deviceId:'demo-physical-1',flavor:'prod',target:'lib/main_prod.dart',format:'aab'};
+  assert.equal((await post('/api/releases/run',values,'bad-token')).status,403);
+  assert.equal((await post('/api/releases/run',{...values,deviceId:'demo-ios-1'})).status,400);
+  assert.equal((await post('/api/releases/run',{...values,deviceId:'missing'})).status,400);
+  assert.equal((await post('/api/releases/build',{...values,operation:'run'})).status,400);
+  const response=await post('/api/releases/run',values); assert.equal(response.status,200);
+  const job=await response.json(); assert.equal(job.plan.device.id,'demo-physical-1'); assert.equal(job.plan.format,'ipa'); assert.equal(job.plan.operation,'run');
+  let completed;
+  for(let i=0;i<30;i++){completed=await fetch(base+'/api/releases/'+job.id).then(r=>r.json());if(completed.status==='succeeded')break;await new Promise(resolve=>setTimeout(resolve,50));}
+  assert.equal(completed.status,'succeeded');assert.deepEqual(completed.artifacts,[]);assert.match(completed.log,/Demo run only/);
+  assert.equal((await post(`/api/releases/${job.id}/upload`,{confirm:job.id})).status,400);
+  await post(`/api/releases/${job.id}/delete`,{});
+});
