@@ -1,10 +1,10 @@
 'use strict';
-const fs = require('node:fs/promises');
+const fs = require('./filesystem.cjs').promises;
 const path = require('node:path');
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
-const { createReadStream } = require('node:fs');
+const { createReadStream } = require('./filesystem.cjs');
 const { archiveEntries } = require('./policy.cjs');
 const run = promisify(execFile);
 async function verifyFile(file, expected) {
@@ -23,7 +23,7 @@ function appBundle(executable) { return path.resolve(path.dirname(executable), '
 async function prepareMac({ file, version, arch, executable, token }) {
   const target = appBundle(executable);
   if (!target.endsWith('.app') || target.startsWith('/Volumes/Snapkit') || target.includes('/AppTranslocation/')) throw Error('Move Snapkit to a writable Applications folder before updating.');
-  await fs.access(path.dirname(target), require('node:fs').constants.W_OK);
+  await fs.access(path.dirname(target), require('./filesystem.cjs').constants.W_OK);
   const stage = path.join(path.dirname(target), `.snapkit-update-${token}.app`);
   const extract = path.join(path.dirname(file), 'unpacked');
   try {
@@ -37,6 +37,12 @@ async function prepareMac({ file, version, arch, executable, token }) {
   } catch (error) { await fs.rm(stage, { recursive: true, force: true }); throw error; }
   finally { await fs.rm(extract, { recursive: true, force: true }); }
 }
+async function writeMacHelper(cache) {
+  const helper = path.join(cache, 'install-helper.cjs');
+  await fs.mkdir(cache, { recursive: true });
+  await fs.writeFile(helper, await require('node:fs/promises').readFile(path.join(__dirname, 'mac-helper.cjs')), { mode: 0o600 });
+  return helper;
+}
 async function startInstaller({ platform, executable, cache, file, asset, paths, token }) {
   await verifyFile(file, asset.sha256);
   if (platform === 'win32') {
@@ -44,10 +50,9 @@ async function startInstaller({ platform, executable, cache, file, asset, paths,
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); }); child.unref(); return;
   }
   await verifyBundle(paths.stage, asset.version, process.arch);
-  const helper = path.join(cache, 'install-helper.cjs'), plan = path.join(cache, 'install.json');
-  await fs.copyFile(path.join(__dirname, 'mac-helper.cjs'), helper);
+  const helper = await writeMacHelper(cache), plan = path.join(cache, 'install.json');
   await fs.writeFile(plan, JSON.stringify({ ...paths, pid: process.pid, token, cache }), { mode: 0o600 });
   const child = spawn(executable, [helper, plan], { detached: true, stdio: 'ignore', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
   await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); }); child.unref();
 }
-module.exports = { verifyFile, verifyBundle, appBundle, prepareMac, startInstaller };
+module.exports = { verifyFile, verifyBundle, appBundle, prepareMac, startInstaller, writeMacHelper };

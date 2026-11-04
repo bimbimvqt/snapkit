@@ -1,6 +1,6 @@
 'use strict';
 const path = require('node:path');
-const fs = require('node:fs/promises');
+const fs = require('./filesystem.cjs').promises;
 const { randomUUID } = require('node:crypto');
 const { selectRelease } = require('./policy.cjs');
 const network = require('./network.cjs');
@@ -37,12 +37,12 @@ class DesktopUpdater {
       if (signal.aborted) throw Error('Download cancelled.');
       return this.set('ready');
     } catch (error) {
-      await this.discard();
+      try { await this.discard(); } catch { /* Cleanup errors must never leave the UI stuck in verifying. */ }
       return this.set(signal.aborted ? 'available' : 'error', signal.aborted ? { size: this.asset.size } : { error: error.message, retry: 'download' });
     } finally { this.controller = null; }
   }
   cancel() { if (this.state.status === 'downloading') this.controller?.abort(); return this.snapshot(); }
-  beginDownload() { if (this.pending) return this.snapshot(); this.pending = this.download().finally(() => { this.pending = null; }); this.pending.catch(() => {}); return this.snapshot(); }
+  beginDownload() { if (this.pending) return this.snapshot(); this.pending = this.download().catch(error => this.set('error', { error: error.message, retry: 'download' })).finally(() => { this.pending = null; }); return this.snapshot(); }
   async discard() { if (this.paths?.stage) await fs.rm(this.paths.stage, { recursive: true, force: true }); this.paths = null; if (this.work) { await fs.rm(this.work, { recursive: true, force: true }); await fs.rm(path.join(this.cache, 'download.json'), { force: true }); } }
   async apply(canInstall) {
     if (this.state.status !== 'ready' || this.controller) throw Error('Download and verify the update first.');

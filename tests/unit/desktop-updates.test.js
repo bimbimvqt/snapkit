@@ -64,3 +64,14 @@ test('macOS installation swaps bundles only after parent exits and restores prev
     assert.equal(await readFile(path.join(target, 'version'), 'utf8'), 'new'); assert.equal(await stat(backup).catch(() => null), null);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+test('update preparation failures stay retryable even when temporary-file cleanup also fails', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'snapkit-update-cleanup-'));
+  const updater = new DesktopUpdater({ version: '0.2.0-beta.20', platform: 'darwin', arch: 'arm64', packaged: true, userData: root, download: async () => {}, prepare: async () => { throw Error('Signature verification failed'); } });
+  updater.asset = { version: '0.2.0-beta.21', name: 'update.zip', size: 100 }; updater.state.status = 'available';
+  updater.discard = async () => { throw Error('Cannot remove temporary files'); };
+  try {
+    updater.beginDownload(); await updater.pending;
+    assert.equal(updater.snapshot().status, 'error'); assert.match(updater.snapshot().error, /Signature verification failed/); assert.equal(updater.snapshot().retry, 'download');
+    assert.equal(updater.pending, null); assert.equal(updater.controller, null);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

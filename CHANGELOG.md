@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.21 — 2026-11-04
+
+- Sửa cập nhật macOS bị kẹt ở bước xác minh do Electron coi app.asar là thư mục ảo khi dọn bundle giải nén.
+- Dùng filesystem thật cho bundle/update cache, đọc script được đóng gói qua ASAR-aware fs, giữ khả năng rollback.
+- Lỗi chuẩn bị/dọn file luôn trả về trạng thái có thể thử lại, không để giao diện chờ vô hạn.
+- Thêm regression smoke chạy trong Electron thật vào kiểm tra phát hành trên macOS/Windows.
+
+
 ## 0.2.0-beta.20 — 2026-11-04
 
 - Gộp cấu hình build workspace/IDE trùng flavor, entrypoint và defines, kể cả đường dẫn tương đương qua symlink. Giữ cấu hình khác nhau dù cùng flavor.

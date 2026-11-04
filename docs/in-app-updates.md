@@ -39,3 +39,7 @@ Cài cập nhật bị chặn nếu đang build, upload TestFlight, quay màn h�
 Khi mở một version mới, Snapkit tự xóa HTTP cache cũ một lần. **Xóa cache** trong Preferences chỉ xóa HTTP cache của Electron, không xóa session/cookies/local storage, cấu hình hoặc file người dùng. Download bị hủy/thất bại được dọn; bản tải đã chuẩn bị được dọn khi thoát mà chưa cài. Sau crash, journal giúp dọn đúng staging/download do Snapkit tạo ở lần mở kế tiếp. Backup chưa khôi phục không bị tự dọn.
 
 `npm run clean` dọn các output có thể tạo lại trong repository: `release`, `dist`, `test-results`, `playwright-report`. Dùng `npm run clean -- --keep-release` để giữ bộ cài mới. Lệnh không xóa dependencies, SDK, workspace hoặc dữ liệu app.
+
+## Sửa lỗi chuẩn bị cập nhật (beta.21)
+
+Updater dùng `original-fs` để sao chép/xóa bundle tải về, tránh Electron coi `app.asar` là thư mục ảo. Script helper bên trong bundle vẫn được đọc qua filesystem hỗ trợ ASAR. Mọi lỗi chuẩn bị/dọn file chuyển sang trạng thái lỗi có thể thử lại. Bản beta.19/beta.20 có thể kẹt trước khi hiện nút cài đặt; cần phục hồi/cài bản beta.21 một lần để có bộ cập nhật đã sửa. File dự án và dữ liệu tài khoản không bị xóa.

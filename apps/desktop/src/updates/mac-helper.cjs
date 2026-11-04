@@ -1,6 +1,8 @@
 'use strict';
 // Runs outside the application bundle so replacement never edits a running bundle.
-const fs = require('node:fs/promises');
+let nativeFS;
+try { nativeFS = require('original-fs'); } catch { nativeFS = require('node:fs'); }
+const fs = nativeFS.promises;
 const path = require('node:path');
 const { promisify } = require('node:util');
 const run = promisify(require('node:child_process').execFile);
