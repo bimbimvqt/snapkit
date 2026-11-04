@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const sources = [];
 async function collect(directory) {
   for (const item of await readdir(path.join(root, directory), { withFileTypes: true })) {
-    if (item.name.startsWith('.') || item.name === 'node_modules' || item.name === 'data') continue;
+    if (item.name.startsWith('.') || item.name === 'node_modules' || item.name === 'data' || item.name === 'build') continue;
     const file = path.join(directory, item.name);
     if (item.isDirectory()) await collect(file);
     else if (/\.(c?js|mjs)$/.test(item.name)) sources.push(file);

@@ -303,6 +303,8 @@ window.SnapkitMessages = {
     "{0}% downloaded": "Đã tải {0}%",
     "{0} device(s) selected · Press F5 in your editor": "Đã chọn {0} thiết bị · Nhấn F5 trong editor",
     "In {0}, install Snapkit Debug Sync and press F5 to debug on your selected devices.": "Trong {0}, cài Snapkit Debug Sync và nhấn F5 để debug trên thiết bị đã chọn.",
+    "Loading Snapkit…": "Đang mở Snapkit…",
+    "Could not start Snapkit. Reload the app to try again.": "Không thể mở Snapkit. Hãy tải lại ứng dụng để thử lại.",
     "Your editor, your way.": "Editor quen thuộc. Cách làm của bạn.",
     "Device management works alongside any editor. Group debug integration is available through the Snapkit extension for compatible VS Code editors.": "Quản lý thiết bị cùng mọi editor. Debug nhiều thiết bị được tích hợp qua extension Snapkit cho các editor VS Code tương thích.",
     "Connect your editor": "Kết nối editor",

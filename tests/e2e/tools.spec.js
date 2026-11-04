@@ -18,7 +18,10 @@ test('device sets start offline members, then explicitly select ready devices fo
   await set.locator('[data-set-edit]').click(); await expect(page.locator('#set-editor-title')).toHaveText('Edit device set'); await page.locator('#set-cancel').click(); await expect(page.locator('#set-name')).toHaveValue('');
   await set.locator('[data-set-start]').focus(); const original = await set.locator('[data-set-start]').elementHandle(); await page.waitForResponse(response => response.url().endsWith('/api/tools')); expect(await original.evaluate(node => node.isConnected && document.activeElement === node)).toBe(true);
   await set.locator('[data-set-select]').click(); await expect(set.locator('.set-selection')).toContainText('1 of 2 devices selected');
-  await page.evaluate(async () => { const result = await api('/api/targets', { ids: ['demo-android-1'] }); state.settings = result.settings; render(); });
+  await page.locator('[data-app-page=devices]').click();
+  const manualTarget = page.locator('[data-device=demo-android-1] [data-action=select]');
+  await manualTarget.uncheck(); await expect(manualTarget).toBeEnabled(); await manualTarget.check(); await expect(manualTarget).toBeEnabled();
+  await page.locator('.sidebar [data-app-page=sets]').click();
   await expect(set.locator('.set-badge')).toHaveCount(0);
   await set.locator('[data-set-select]').click(); await expect(set.locator('.set-badge')).toBeVisible();
   await set.locator('[data-set-start]').click(); await expect(page.locator('#set-jobs')).toContainText('Finished');

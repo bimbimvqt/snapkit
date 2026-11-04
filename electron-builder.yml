@@ -6,15 +6,13 @@ directories:
   output: release
 files:
   - apps/desktop/**
-  - apps/dashboard/**
+  - apps/dashboard/build/**
   - apps/agent/**
   - packages/ui/**
   - package.json
   - snapkit-debug-sync.vsix
   - '!**/*.map'
 asar: true
-asarUnpack:
-  - node_modules/lucide/**
 mac:
   icon: apps/desktop/assets/icon.icns
   minimumSystemVersion: "13.0"

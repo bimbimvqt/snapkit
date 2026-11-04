@@ -1,3 +1,4 @@
+import { t, busy, state, connection } from '../../legacy/device-controller.js';
 /* Setup is optional for builds. Switching guidance never changes the release form. */
 (() => {
   const el = id => document.getElementById(id);
@@ -24,3 +25,5 @@
   document.addEventListener('snapkit:language', () => { if (el('apple-xcode-error').dataset.source) el('apple-xcode-error').textContent = t(el('apple-xcode-error').dataset.source); });
   document.addEventListener('snapkit:state', () => { el('apple-open-xcode').hidden = !window.snapkitDesktop?.openXcode || connection || window.SNAPKIT_CONTROLLER || window.SNAPKIT_PREVIEW || state.platform !== 'darwin'; });
 })();
+
+export {};

@@ -164,7 +164,7 @@ async function start() {
   if (development) {
     mainWindow.setTitle('Snapkit Dev');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
-    stopWatching = require('./development/live-reload.cjs').watchUI(mainWindow, [path.join(repositoryRoot, 'apps/dashboard'), path.join(repositoryRoot, 'packages/ui')]);
+    stopWatching = require('./development/live-reload.cjs').watchUI(mainWindow, [path.join(repositoryRoot, 'apps/dashboard/build')]);
     console.log(`[Snapkit Dev] Watching apps/dashboard/ + packages/ui/ · ${origin} · data: ${devRoot}`);
   }
   mainWindow.show();

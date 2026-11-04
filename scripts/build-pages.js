@@ -1,32 +1,31 @@
 import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'vite';
 import { demoDevices, demoCatalog } from '../apps/agent/src/fixtures/demo.js';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const out = path.join(root, 'dist');
+await build({ configFile: path.join(root, 'apps/dashboard/vite.config.ts') });
 await rm(out, { recursive: true, force: true });
-await mkdir(path.join(out, 'demo/vendor'), { recursive: true });
+await mkdir(path.join(out, 'demo'), { recursive: true });
 await cp(path.join(root, 'apps/website'), out, { recursive: true });
 await cp(path.join(root, 'packages/ui/i18n.js'), path.join(out, 'i18n.js'));
 await cp(path.join(root, 'packages/ui/language.css'), path.join(out, 'language.css'));
 await cp(path.join(root, 'packages/ui/favicon.svg'), path.join(out, 'favicon.svg'));
-await cp(path.join(root, 'apps/dashboard'), path.join(out, 'demo'), { recursive: true });
+await cp(path.join(root, 'apps/dashboard/build'), path.join(out, 'demo'), { recursive: true });
 await cp(path.join(root, 'packages/ui'), path.join(out, 'demo'), { recursive: true });
-await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.min.js'), path.join(out, 'demo/vendor/lucide.min.js'));
 const snapshot = {
   state: { demo: true, devices: demoDevices, warnings: [], jobs: [], settings: { workspace: '/Projects/flutter_app', targetIds: [] },
     storage: { iosDevices: '/Users/developer/Library/Developer/CoreSimulator/Devices', iosOnSSD: false, avd: '/SSD/SnapkitData/Android/avd', downloads: '/SSD/SnapkitData/downloads/iOS', iosReady: true }, host: 'Preview', platform: 'darwin', scannedAt: '2026-01-01T00:00:00.000Z' },
   catalog: demoCatalog
 };
 await writeFile(path.join(out, 'demo/preview-data.js'), `window.SNAPKIT_PREVIEW = ${JSON.stringify(snapshot)};\n`);
-const html = (await readFile(path.join(root, 'apps/dashboard/index.html'), 'utf8'))
-  .replaceAll('href="/', 'href="./').replaceAll('src="/', 'src="./')
-  .replace('<script src="./src/app.js"', '<script src="./preview-data.js" defer></script><script src="./src/app.js"');
+const html = (await readFile(path.join(root, 'apps/dashboard/build/index.html'), 'utf8'))
+  .replace('</head>', '<script src="./preview-data.js"></script></head>');
 await writeFile(path.join(out, 'demo/index.html'), html);
-await mkdir(path.join(out, 'control/vendor'), { recursive: true });
-await cp(path.join(root, 'apps/dashboard'), path.join(out, 'control'), { recursive: true });
+await mkdir(path.join(out, 'control'), { recursive: true });
+await cp(path.join(root, 'apps/dashboard/build'), path.join(out, 'control'), { recursive: true });
 await cp(path.join(root, 'packages/ui'), path.join(out, 'control'), { recursive: true });
-await cp(path.join(root, 'node_modules/lucide/dist/umd/lucide.min.js'), path.join(out, 'control/vendor/lucide.min.js'));
 await writeFile(path.join(out, 'control/controller-config.js'), 'window.SNAPKIT_CONTROLLER = true;\n');
 await writeFile(path.join(out, 'control/index.html'), html.replace('preview-data.js', 'controller-config.js'));
 // Preserve old bookmarks as a fully functional controller, including pairing fragments.

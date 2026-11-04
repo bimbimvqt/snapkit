@@ -190,7 +190,8 @@ test('unchanged devices and icons keep their DOM and focus across scans', async 
   expect(await svg.evaluate(el => el.isConnected)).toBe(true);
   // Scan with focus inside a card (the refresh button normally takes focus).
   await target.focus();
-  await page.evaluate(async () => { await refresh(); });
+  await page.evaluate(() => document.querySelector('#refresh-button').click());
+  await expect(page.locator('#refresh-button')).toBeEnabled();
   await expect(target).toBeFocused();
 });
 

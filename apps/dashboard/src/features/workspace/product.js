@@ -1,3 +1,4 @@
+import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, showWorkspace } from '../../legacy/device-controller.js';
 /* Product navigation and guided setup. Device operations remain in app.js. */
 let product = null, toolState = null, activePage = 'devices', productLoading = false;
 const productEditors = [
@@ -108,7 +109,7 @@ async function loadProduct() {
   productLoading = true;
   try {
     product = await api('/api/product');
-    $('#product-version').textContent = product.version;
+
     $('#setup-card').classList.toggle('hidden', !!product.preferences?.onboardingComplete);
     $('#pref-flutter').value = product.preferences?.flutterSDK || '';
     $('#pref-android').value = product.preferences?.androidSDK || '';
@@ -126,3 +127,6 @@ document.addEventListener('snapkit:language', () => {
   if (toolState) renderTools();
 });
 window.snapkitDesktop?.setLanguage?.(window.SnapkitI18n.language).catch(() => {});
+
+document.addEventListener('snapkit:navigate', event => showProductPage(event.detail));
+export { activePage, showProductPage };

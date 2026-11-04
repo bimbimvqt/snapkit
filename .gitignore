@@ -13,3 +13,5 @@ cloud-data/
 
 .snapkit-dev/
 apps/cloud/data/
+
+apps/dashboard/build/

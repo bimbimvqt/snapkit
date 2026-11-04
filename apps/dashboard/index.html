@@ -4,9 +4,10 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101214"><title>Snapkit — Device Control Center</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/src/features/updates/updates.css"><link rel="stylesheet" href="/src/features/releases/releases.css"><link rel="stylesheet" href="/src/features/workspace/product.css"><link rel="stylesheet" href="/language.css"><link rel="stylesheet" href="/src/features/account/account.css"><link rel="stylesheet" href="/src/features/device-tools/tools.css"><link rel="stylesheet" href="/src/shared/controls/dropdowns.css">
-  <script src="/vendor/lucide.min.js" defer></script><script src="/src/shared/i18n/messages.js" defer></script><script src="/i18n.js" defer></script><script src="/src/shared/controls/dropdowns.js" defer></script><script src="/src/app.js" defer></script><script src="/src/features/workspace/product.js" defer></script><script src="/src/features/device-tools/tools.js" defer></script><script src="/src/features/account/account.js" defer></script><script src="/src/features/releases/releases.js" defer></script><script src="/src/features/releases/apple-guide.js" defer></script><script src="/src/features/updates/updates.js" defer></script>
+  <script type="module" src="/src/main.tsx"></script>
 </head>
-<body>
+<body class="app-starting">
+  <div id="dashboard-startup" role="status"><img src="./favicon.svg" width="56" height="56" alt=""><p>Loading Snapkit…</p></div>
   <a class="skip-link" href="#devices-page">Skip to devices</a>
   <aside class="sidebar">
     <a class="brand" href="/" aria-label="Snapkit home"><span class="brand-mark"><i data-lucide="scan-line"></i></span>Snapkit<span class="beta">BETA</span></a>
@@ -36,7 +37,7 @@
 
     <header class="topbar"><div class="breadcrumbs"><i data-lucide="folder-open"></i><span>Workspace</span><span>/</span><strong id="breadcrumb-page">Device manager</strong></div><div class="topbar-right"><div class="language-picker"><button type="button" class="language-trigger" data-language-select data-language-current="en" aria-label="Language / Ngôn ngữ" aria-haspopup="menu" aria-expanded="false" aria-controls="language-menu"><span data-language-label>EN</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="language-menu" class="language-menu" role="menu" aria-label="Language / Ngôn ngữ" hidden><button type="button" role="menuitemradio" data-language="en" aria-checked="true"><span>English</span><span class="language-code" lang="en">EN</span></button><button type="button" role="menuitemradio" data-language="vi" aria-checked="false"><span lang="vi">Tiếng Việt</span><span class="language-code" lang="vi">VN</span></button></div></div><button class="button" id="connection-button">Connect website</button><span id="mode-badge" class="local-badge"><span class="dot green"></span>LOCAL ENVIRONMENT</span><button class="icon-button" id="help-button" aria-label="Open help"><i data-lucide="circle-help"></i></button><span class="avatar" aria-label="Local workspace"><i data-lucide="laptop"></i></span></div></header>
 
-    <aside id="update-banner" class="update-banner hidden" aria-label="App update"><i data-lucide="download"></i><p id="update-banner-text" role="status" aria-live="polite"></p><button type="button" class="button" id="update-view">View update</button><button type="button" class="icon-button" id="update-dismiss" aria-label="Dismiss update notice"><i data-lucide="x"></i></button></aside>
+    <aside id="update-banner" class="update-banner hidden" aria-label="App update"></aside>
     <main>
       <div id="panel-devices" class="app-panel">
       <div id="demo-notice" class="notice hidden"><i data-lucide="flask-conical"></i><span>Demo environment · Sample devices and simulated actions. No commands run on your machine.</span></div>
@@ -71,14 +72,10 @@
         <form id="preferences-form" class="preferences-card"><h2>Development tools</h2><p>SDKs are detected automatically. Choose a folder only if needed.</p><label for="pref-flutter">Flutter SDK folder</label><div class="sdk-folder-field"><input id="pref-flutter" placeholder="Folder containing bin/flutter" autocomplete="off"><button type="button" class="button" id="browse-flutter-sdk" aria-label="Choose Flutter SDK folder"><i data-lucide="folder-open"></i>Choose folder</button></div><small>Choose the SDK itself, rather than a project folder.</small><label for="pref-android">Android SDK folder</label><div class="sdk-folder-field"><input id="pref-android" placeholder="Folder containing platform-tools" autocomplete="off"><button type="button" class="button" id="browse-android-sdk" aria-label="Choose Android SDK folder"><i data-lucide="folder-open"></i>Choose folder</button></div><small>Find it in Android Studio → Settings → Android SDK.</small><div id="preferences-error" class="field-error" role="alert"></div><div class="preferences-actions"><button class="button primary" id="save-preferences">Save preferences</button><button class="button hidden" type="button" id="restart-desktop">Restart Snapkit</button></div><p id="preferences-result" role="status"></p></form>
         <div class="preferences-card"><h2>Storage</h2><p>Projects and files stay on this computer.</p><details><summary>Device storage locations</summary><dl id="storage-locations"></dl></details></div>
 
-        <div class="preferences-card"><div class="setup-overview"><div><h2>App cache</h2><p>Clear temporary files. Your data is kept.</p></div><button id="clear-app-cache" type="button" class="button">Clear cache</button></div><p id="cache-result" role="status"></p></div>
+        <div class="preferences-card" id="app-cache-root"></div>
+
       </section>
-      <section id="panel-updates" class="app-panel hidden updates-page" aria-labelledby="updates-title">
-        <header class="page-heading"><div><h1 id="updates-title">Updates</h1></div></header>
-        <div class="preferences-card update-card"><div class="updates-brand"><img src="/favicon.svg" alt="" width="56" height="56"><span class="release-tag">Snapkit Desktop</span></div><div class="setup-overview"><div><h2>Snapkit <span id="product-version">Beta</span></h2><p id="update-status" role="status" aria-live="polite">Check, download and install updates right here.</p></div><button class="button" type="button" id="check-updates"><i data-lucide="refresh-cw"></i>Check for updates</button></div><progress class="hidden" id="update-progress" max="100" value="0" aria-label="Update download progress"></progress><p id="update-detail" class="fine-print" role="status"></p><div class="preferences-actions"><button id="update-download" type="button" class="button primary hidden"><i data-lucide="download"></i>Download update</button><button id="update-install" type="button" class="button primary hidden"><i data-lucide="rotate-cw"></i>Restart and install</button><button id="update-cancel" type="button" class="button hidden">Cancel download</button></div><p class="fine-print">Snapkit will restart to install the update.</p></div>
-<details class="interface-details" id="update-details"><summary>Update details</summary><div class="interface-details-body"><p id="update-transfer-detail"></p>        <a class="button updates-notes" href="https://github.com/bimbimvqt/snapkit/releases" target="_blank" rel="noopener noreferrer"><i data-lucide="notebook-text"></i>Release notes<i data-lucide="arrow-up-right"></i></a>
-        <p class="updates-delta-note">Smart updates reuse unchanged data on this computer when possible. Snapkit verifies the complete package before installation and uses a full download when needed.</p><div class="updates-schedule"><i data-lucide="clock-3"></i><div><h2>Checked automatically every 10 minutes</h2><p id="update-schedule-note">Checks run in the background while Snapkit is open. Downloads and restarts always need your action.</p><p id="update-last-checked" role="status"></p></div></div></div></details>
-      </section>
+      <section id="panel-updates" class="app-panel hidden updates-page" aria-labelledby="updates-title"></section>
       <section id="panel-plan" class="app-panel hidden" aria-labelledby="plan-title">
         <div class="product-heading"><h1 id="plan-title">Your plan</h1><p>All features are free during beta.</p></div>
         <div class="beta-banner"><i data-lucide="gift"></i><div><strong>You’re on the free beta.</strong><p>No automatic subscription or charges.</p></div><span class="plan-pill">BETA ACCESS</span></div>
@@ -203,17 +200,6 @@
     <form id="delete-device-form"><p id="delete-device-error" class="field-error" role="alert"></p><div class="dialog-footer"><button type="button" class="button close-dialog" autofocus>Cancel</button><button type="submit" class="button danger" id="delete-device-submit"><i data-lucide="trash-2"></i>Delete device &amp; data</button></div></form>
   </dialog>
   <dialog id="capture-viewer" aria-labelledby="capture-viewer-title" aria-describedby="capture-viewer-meta"><header class="capture-viewer-heading"><div><h2 id="capture-viewer-title"></h2><p id="capture-viewer-meta"></p></div><button type="button" class="icon-button close-dialog" aria-label="Close preview"><i data-lucide="x"></i></button></header><div id="capture-viewer-content" class="capture-viewer-content"></div><footer class="capture-viewer-footer"><button type="button" class="button" id="capture-viewer-retry" hidden>Try again</button><button type="button" class="button" id="capture-viewer-download"><i data-lucide="download"></i>Download</button><button type="button" class="button close-dialog">Close</button></footer></dialog>
-  <dialog id="update-loading" aria-labelledby="update-loading-title" aria-describedby="update-loading-note" tabindex="-1">
-    <div class="update-loading-content">
-      <img src="/favicon.svg" width="72" height="72" alt="">
-      <span class="update-loading-brand">Snapkit</span>
-      <h2 id="update-loading-title">Preparing to restart…</h2>
-      <p id="update-loading-note">Snapkit will close to install the update. Please keep your computer on.</p>
-      <div class="update-loading-track" role="progressbar" aria-label="Installing update"><span></span></div>
-      <p class="update-loading-hint">Your projects, devices and account will be kept.</p>
-      <span class="update-loading-status" role="status" aria-live="polite"></span>
-    </div>
-  </dialog>
-  <div id="toast-region" class="toasts" aria-live="polite"></div>
+    <div id="toast-region" class="toasts" aria-live="polite"></div>
 </body>
 </html>

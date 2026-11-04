@@ -361,8 +361,7 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { clearInterval(timer); clients.delete(res); });
 });
 app.use('/api', (_req, res) => res.status(404).json({ error: 'API not available. Refresh Snapkit to access the latest device tools.' }));
-app.use('/vendor', express.static(path.join(root, 'node_modules/lucide/dist/umd')));
-app.use(express.static(path.join(root, 'apps/dashboard')));
+app.use(express.static(path.join(root, 'apps/dashboard/build')));
 app.use(express.static(path.join(root, 'packages/ui')));
 app.use((error, _req, res, _next) => { console.error(error.message); res.status(400).json({ error: error.message }); });
 const server = app.listen(port, '127.0.0.1', () => {

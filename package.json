@@ -1,6 +1,6 @@
 {
   "name": "snapkit-device-center",
-  "version": "0.2.0-beta.31",
+  "version": "0.2.0-beta.32",
   "private": true,
   "type": "module",
   "description": "Local Flutter device control center",
@@ -9,7 +9,7 @@
     "dev": "node --watch apps/agent/src/main.js",
     "demo": "node apps/agent/src/main.js --demo",
     "test": "node --test tests/unit/*.test.js",
-    "check": "node scripts/check.js",
+    "check": "node scripts/check.js && npm run check:dashboard",
     "test:ui": "playwright test",
     "build:pages": "node scripts/build-pages.js",
     "test:pages": "playwright test --config playwright.pages.config.js",
@@ -23,21 +23,41 @@
     "desktop:dev:smoke": "node tests/desktop/dev-smoke.cjs",
     "clean": "node scripts/clean-generated.cjs",
     "desktop:update:smoke": "node tests/desktop/update-smoke.cjs",
-    "desktop:update:fs-smoke": "node tests/desktop/update-fs-smoke.cjs"
+    "desktop:update:fs-smoke": "node tests/desktop/update-fs-smoke.cjs",
+    "build:dashboard": "vite build --config apps/dashboard/vite.config.ts",
+    "dev:dashboard": "vite --config apps/dashboard/vite.config.ts",
+    "check:dashboard": "tsc -p apps/dashboard/tsconfig.json",
+    "prestart": "npm run build:dashboard",
+    "predev": "npm run build:dashboard",
+    "predesktop": "npm run build:dashboard",
+    "predesktop:pack": "npm run build:dashboard",
+    "predesktop:dist": "npm run build:dashboard",
+    "pretest:ui": "npm run build:dashboard",
+    "pretest": "npm run build:dashboard",
+    "predesktop:smoke": "npm run build:dashboard",
+    "predesktop:dev:smoke": "npm run build:dashboard",
+    "predemo": "npm run build:dashboard"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "dependencies": {
     "express": "^5.1.0",
     "jose": "^6.2.15",
-    "jsonc-parser": "^3.3.1",
-    "lucide": "^0.468.0"
+    "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "electron": "^45.2.1",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "lucide": "^0.468.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7"
   },
   "main": "apps/desktop/src/main.cjs",
   "author": "Snapkit",

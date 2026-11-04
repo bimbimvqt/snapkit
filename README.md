@@ -42,7 +42,7 @@ Dữ liệu lưu trong `device-tools/` thuộc thư mục dữ liệu Snapkit, k
 
 ## Chạy agent từ source
 
-Cần Node.js 20+ (khuyến nghị 22), Flutter SDK trên PATH, Android SDK; iOS cần macOS + Xcode.
+Cần Node.js 22.12+, Flutter SDK trên PATH, Android SDK; iOS cần macOS + Xcode.
 
 ```sh
 git clone https://github.com/bimbimvqt/snapkit.git
@@ -111,6 +111,10 @@ GitHub Pages chỉ phục vụ giao diện; agent local phải tiếp tục ch�
 3. `/preview/` và `/control/` đều là Device Manager; `/demo/` chỉ có dữ liệu mẫu.
 
 Mã ghép đôi dùng một lần, hết hạn sau 5 phút; phiên hết hạn sau 8 giờ hoặc khi agent restart. Token ở sessionStorage, không trong query URL. Backend chỉ bind `127.0.0.1`, kiểm tra Host/Origin, mọi request website cần token. Đổi domain bằng `SNAPKIT_WEB_ORIGIN=https://your-domain`. Không tắt bảo mật trình duyệt.
+
+## Frontend
+
+Dashboard dùng React + TypeScript + Vite. `npm start` và các lệnh đóng gói tự build frontend trước khi chạy. Dùng `npm run dev:dashboard` với local agent để sửa React qua Vite, hoặc `npm run desktop:dev` để rebuild và xem trực tiếp trong desktop. Xem [kiến trúc frontend](docs/frontend-architecture.md) để biết các React features đã chuyển và các controller đang giữ qua adapter.
 
 ## Dữ liệu và SDK
 

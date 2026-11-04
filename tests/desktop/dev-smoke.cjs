@@ -4,7 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 (async () => {
   const root = path.resolve(__dirname, '../..'), data = await fs.mkdtemp(path.join(os.tmpdir(), 'snapkit-dev-verify-'));
-  const css = path.join(root, `apps/dashboard/dev-verify-${process.pid}.css`), js = path.join(root, `apps/dashboard/dev-verify-${process.pid}.js`);
+  const css = path.join(root, `apps/dashboard/build/dev-verify-${process.pid}.css`), js = path.join(root, `apps/dashboard/build/dev-verify-${process.pid}.js`);
   let app;
   try {
     app = await _electron.launch({ args: [root], env: { ...process.env, SNAPKIT_DEV: '1', SNAPKIT_DEV_PORT: '14326', SNAPKIT_DEV_DATA_ROOT: data, SNAPKIT_DESKTOP_DEMO: '1' } });

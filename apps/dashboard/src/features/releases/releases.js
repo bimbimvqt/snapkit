@@ -1,3 +1,5 @@
+import { activePage, showProductPage } from '../workspace/product.js';
+import { t, escape, icon, icons, busy, api, toast, state, connection } from '../../legacy/device-controller.js';
 /* Release UI talks only to the authenticated local agent. */
 (() => {
   let apple = { teams: [], selections: {} }, appleLoading = false, appleSaving = false, appleEpoch = 0, detectedTeams = [];
@@ -257,3 +259,5 @@
   setInterval(() => { if (!document.hidden && activePage === 'releases') refreshResults(); }, 1500);
   resetWorkspace();
 })();
+
+export {};

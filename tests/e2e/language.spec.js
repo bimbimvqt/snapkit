@@ -47,6 +47,7 @@ test('app switches language without losing search, workspace input or cached too
 test('language menu supports keyboard and every device fits inside its preview', async ({ page }) => {
   await page.goto('/?lang=en');
   const trigger = page.locator('[data-language-select]');
+  await expect(trigger).toBeVisible();
   await trigger.focus();
   await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('menu')).toBeVisible();

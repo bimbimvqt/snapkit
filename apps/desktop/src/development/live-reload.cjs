@@ -18,7 +18,7 @@ function watchUI(window, directories) {
         })))`);
         console.log('[Snapkit Dev] Styles updated');
       } else {
-        await window.webContents.executeJavaScript(`sessionStorage.setItem('snapkit-dev-view', JSON.stringify({page:typeof activePage === 'string' ? activePage : 'devices', search:document.querySelector('#device-search')?.value || ''}))`);
+        await window.webContents.executeJavaScript(`sessionStorage.setItem('snapkit-dev-view', JSON.stringify({page:document.querySelector('[data-app-page][aria-current=page]')?.dataset.appPage || 'devices', search:document.querySelector('#device-search')?.value || ''}))`);
         window.webContents.reloadIgnoringCache();
         console.log('[Snapkit Dev] UI reloaded');
       }
@@ -29,8 +29,12 @@ function watchUI(window, directories) {
     window.webContents.executeJavaScript(`(() => {
       const saved = sessionStorage.getItem('snapkit-dev-view'); if (!saved) return;
       sessionStorage.removeItem('snapkit-dev-view');
-      const view = JSON.parse(saved); if (typeof showProductPage === 'function') showProductPage(view.page);
-      const search = document.querySelector('#device-search'); if (search) { search.value = view.search; search.dispatchEvent(new Event('input', {bubbles:true})); }
+      const view = JSON.parse(saved);
+      const apply = () => {
+        document.dispatchEvent(new CustomEvent('snapkit:navigate', {detail:view.page}));
+        const search = document.querySelector('#device-search'); if (search) { search.value = view.search; search.dispatchEvent(new Event('input', {bubbles:true})); }
+      };
+      if(document.body.dataset.uiReady === 'true') apply(); else document.addEventListener('snapkit:ui-ready', apply, {once:true});
     })()`).catch(error => console.error('[Snapkit Dev] Could not restore view:', error.message));
   };
   window.webContents.on('did-finish-load', restore);

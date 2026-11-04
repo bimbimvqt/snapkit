@@ -1,3 +1,5 @@
+import { activePage, showProductPage } from '../workspace/product.js';
+import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace } from '../../legacy/device-controller.js';
 /* Project tools use the authenticated local agent, including paired website sessions. */
 let deviceToolsState = { sets: [], jobs: [], captures: [], recordings: [] }, toolsLoading = false;
 let editingSetId = '', currentLogStatus = 'stopped';
@@ -220,3 +222,5 @@ document.addEventListener('snapkit:page', event => { if (['sets', 'logs', 'captu
 document.addEventListener('snapkit:state', () => { renderToolDevices(); renderSets(); });
 document.addEventListener('snapkit:language', () => { renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
 setInterval(() => { if (!document.hidden && ['sets', 'captures'].includes(activePage)) refreshDeviceTools().catch(() => {}); if (activePage === 'logs') pollLogs(); }, 1500);
+
+export {};

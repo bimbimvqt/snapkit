@@ -14,15 +14,21 @@ snapkit/
 │   │   │   └── splash/
 │   │   └── assets/
 │   ├── dashboard/               # UI dùng trong Electron và web controller
-│   │   ├── index.html           # Shell, thứ tự tải script
+│   │   ├── index.html           # Shell và điểm vào Vite
 │   │   ├── src/
-│   │   │   ├── app.js           # Bootstrap, state và màn hình thiết bị
+│   │   │   ├── main.tsx          # Bootstrap module và React roots
+│   │   │   ├── legacy/           # Controller thiết bị đang chuyển đổi
 │   │   │   ├── features/
+│   │   │   │   ├── devices/      # React DeviceCard, model và adapter
+│   │   │   │   ├── updates/      # React UpdatePage, typed store, model
 │   │   │   │   ├── account/      # Login, account UI
 │   │   │   │   ├── releases/     # Build configuration, progress, artifacts, TestFlight UI
 │   │   │   │   ├── device-tools/ # Device sets, logs, captures
 │   │   │   │   └── workspace/    # Điều hướng, setup, preferences, plans
 │   │   │   └── shared/
+│   │   │       ├── api/          # HTTP client, lỗi và session context có kiểu
+│   │   │       ├── types/        # Hợp đồng renderer/native
+│   │   │       ├── ui/           # React hooks và icon chọn lọc
 │   │   │       ├── controls/     # Dropdown tuỳ chỉnh
 │   │   │       └── i18n/         # Nội dung EN/VI của dashboard
 │   │   └── styles/              # Reset, tokens, layout chung, fonts
@@ -77,9 +83,9 @@ Luồng chọn thiết bị IDE: HTTP trong `apps/agent/src/main.js` → use cas
 - `infrastructure/` chứa process, filesystem, persistence và tích hợp bên ngoài. Không import ngược application hay feature modules.
 - `packages/` không import ứng dụng. Chỉ đưa code vào đây khi thực sự có nhiều ứng dụng sử dụng.
 - Các ứng dụng giao tiếp qua HTTP/IPC và hợp đồng dữ liệu; không import source trực tiếp của nhau. Desktop khởi chạy agent như process, dashboard gọi API local, local account gọi cloud qua HTTPS.
-- Dashboard hiện dùng script JS thuần với thứ tự khởi tạo ở `index.html`; `app.js` và các feature cùng chia sẻ renderer state. Việc chia thư mục không biến chúng thành ES modules độc lập. Khi thay đổi bootstrap/state cần chạy test toàn dashboard.
+- Dashboard dùng React 19 + TypeScript strict + Vite. Thiết bị và Cập nhật là React features; các màn còn lại tạm giữ controller ES module với import/export rõ ràng. `legacy/device-controller.js` giữ điều phối thiết bị và SSE qua adapter; không ghi DOM vào vùng React quản lý. Đây là migration từng phần, chưa phải toàn bộ màn hình đã viết lại bằng React. Quy ước và lộ trình: [Frontend architecture](frontend-architecture.md).
 
-`npm run check` tự tìm file JavaScript mới, kiểm tra syntax, đường dẫn import và các ranh giới trên. Không cần thêm từng file vào một chuỗi lệnh dài trong `package.json`.
+`npm run check` tự tìm file JavaScript mới, kiểm tra syntax, đường dẫn import, các ranh giới trên và chạy TypeScript cho frontend mới. Không cần thêm từng file vào một chuỗi lệnh dài trong `package.json`.
 
 ## Đặt thay đổi mới ở đâu?
 

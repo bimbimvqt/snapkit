@@ -37,3 +37,7 @@ body[data-connection=offline] .local-status .dot,body[data-connection=offline] .
 @media(prefers-reduced-motion:reduce){.device-card button[aria-busy=true] svg{animation:none}}
 @media(max-width:760px){.ide-selection{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:start;gap:12px}.ide-selection>div{grid-column:2}.ide-selection>.ide-mode,.ide-selection>.button{grid-column:1/-1}.ide-selection p{line-height:1.7}.ide-selection>.button{justify-self:stretch}}
 .device-grid:not(.compact) .device-card{display:flex;flex-direction:column}.device-grid:not(.compact) .device-card .card-actions{margin-top:auto}
+
+.app-starting>.sidebar,.app-starting>.app-shell{visibility:hidden}
+#dashboard-startup{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);color:var(--muted);z-index:30}
+#dashboard-startup img{width:56px;height:56px}

@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.32 — 2026-11-04
+
+- Chuyển frontend sang nền tảng React + TypeScript + Vite; build production dùng chung cho desktop, dashboard local và web demo/controller.
+- Migrate card thiết bị và trang Cập nhật sang React, typed models/store/API adapter; các màn còn lại chạy qua ES module controllers trong quá trình chuyển đổi.
+- Chỉ bundle icon được dùng, chia module và minify; JavaScript tải trong kịch bản demo giảm 25,2% so với beta.31. Chưa có bằng chứng cải thiện thời gian khởi động hoặc RAM.
+- Giữ DOM/focus khi refresh, phản hồi lựa chọn thiết bị ngay khi lưu, thêm màn chờ khởi tạo và giữ các menu tùy biến EN/VI.
+- Desktop dev tự build/reload giao diện khi lưu; bổ sung tài liệu kiến trúc, lộ trình migration và benchmark có thể chạy lại.
+
 ## 0.2.0-beta.31 — 2026-11-04
 
 - Rút gọn giao diện toàn app: ưu tiên trạng thái, thao tác và thông tin cần thiết; bỏ các đoạn giới thiệu dài và khẩu hiệu trên màn hình chính.
