@@ -8,7 +8,8 @@ export const test = base.extend({
       result.preferences.developerProfile = { role: 'frontend', framework: 'flutter' };
       await route.fulfill({ json: result });
     });
-    await use(page);
+    try { await use(page); }
+    finally { await page.unrouteAll({ behavior: 'wait' }); }
   },
 });
 export { expect };
