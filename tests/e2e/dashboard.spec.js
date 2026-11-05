@@ -33,6 +33,8 @@ test('device manager boots devices and saves one or two IDE selections; app cont
 
 test('responsive dashboard, search, keyboard navigation, and light theme', async ({ page }) => {
   await page.goto('/');
+  // Cards render before the startup overlay releases focusable controls.
+  await expect(page.locator('body')).toHaveAttribute('data-ui-ready', 'true');
   await expect(page.locator('.device-card')).toHaveCount(6);
   await page.keyboard.press('/');
   await expect(page.getByRole('searchbox')).toBeFocused();
