@@ -64,7 +64,7 @@ Before enabling sales:
 
 `apps/cloud/compose.yaml` runs a separate 192 MiB / 0.35 CPU service on the existing edge network. The host serves release metadata and the public beta plan catalog; it never receives local device commands. `apps/cloud/.env.example` lists provider/identity settings. Real `.env` and data are ignored. Server data directory must be writable by UID 1000. Use one cloud replica while JSON persistence is in place; use a transactional database before scaled paid traffic.
 
-Temporary HTTPS host: `snapkit.45.119.214.94.sslip.io`. Website downloads remain on GitHub Releases. The existing GitHub Pages controller stays the default pairing origin. A future domain change must update the website origin and pairing configuration together.
+The primary website and account service are hosted at `https://snapkit.vn`. Installers remain on GitHub Releases. Desktop builds configured for this domain pair with `https://snapkit.vn/control/`; older builds may retain the previous website origin until updated.
 
 ## Release verification and remaining gates
 
