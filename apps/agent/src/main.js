@@ -1,10 +1,11 @@
 import express from 'express';
+import { WorkspaceSpaces } from './modules/workspace/spaces.js';
 import { ReleaseBuilds } from './modules/releases/release-builds.js';
 import { selectIDETargets } from './application/select-ide-targets.js';
 import { DeviceTools } from './modules/device-tools/device-tools.js';
 import { LocalAccount } from './modules/accounts/local-account.js';
 import { randomBytes } from 'node:crypto';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +63,10 @@ function rememberWorkspace() {
   };
 }
 rememberWorkspace();
+let savedSpaces = [];
+if (!demo) {try {savedSpaces = JSON.parse(await readFile(path.join(store, 'spaces.json'), 'utf8'));} catch {}}
+if(savedSpaces?.version === 1 && Array.isArray(savedSpaces.entries) && savedSpaces.settings && Array.isArray(savedSpaces.settings.targetIds)) {settings = {...settings, ...savedSpaces.settings}; savedSpaces = savedSpaces.entries;}
+const spaces = new WorkspaceSpaces(savedSpaces, settings);
 let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: [], scannedAt: null };
 let scanning = null;
 const locks = new Set();
@@ -70,10 +75,27 @@ let debugRevision = 0;
 const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list(), debugRevision: ++debugRevision }) });
 provisioner.on('jobs', jobs => emit('jobs', jobs));
 provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
-async function persist() { rememberWorkspace(); if (!demo) { await mkdir(store, { recursive: true }); await writeFile(path.join(store, 'settings.json'), JSON.stringify(settings, null, 2)); await writeFile(path.join(store, 'workspaces.json'), JSON.stringify(workspaceSetups, null, 2)); } }
+let persistence = Promise.resolve();
+async function persist() {
+  rememberWorkspace(); spaces.remember(settings);
+  if (!demo) {
+    const snapshot = structuredClone([['workspaces.json', workspaceSetups], ['settings.json', settings], ['spaces.json', {version: 1, entries: spaces.entries, settings}]]);
+    const next = persistence.catch(() => {}).then(async () => {
+    await mkdir(store, { recursive: true });
+    // The registry is the authoritative snapshot: active settings and all spaces
+    // commit together, even if the process exits between compatibility writes.
+    for (const [name, value] of snapshot) {
+      await writeFile(path.join(store, name + '.tmp'), JSON.stringify(value, null, 2));
+      await rename(path.join(store, name + '.tmp'), path.join(store, name));
+    }
+    });
+    persistence = next;
+    await next;
+  }
+}
 async function scan() {
   if (demo) { snapshot.scannedAt = new Date().toISOString(); return snapshot; }
-  if (!scanning) scanning = discover().then(async result => { const updates = await deviceStatus(result.devices); for (const d of result.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
+  if (!scanning) scanning = discover({framework: settings.spaceId ? settings.framework : undefined}).then(async result => { const updates = await deviceStatus(result.devices); for (const d of result.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
   return scanning;
 }
 function device(id) { const d = snapshot.devices.find(d => d.id === id); if (!d) throw new Error('Device not found. Refresh the device list.'); return d; }
@@ -130,7 +152,7 @@ app.get('/api/account/content', async (_req, res) => res.json(await account.requ
 app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: demo ? demoPreferences : getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
   { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' }
 ] }));
-app.get('/api/diagnostics', (req, res) => demo ? res.json({ ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checkedAt: Date.now(), checks: [(demoPreferences.developerProfile?.framework || settings.framework) === 'react-native' ? { id: 'node', title: 'Node.js', status: 'ready', detail: 'Node.js is ready', help: 'https://reactnative.dev/docs/set-up-your-environment' } : { id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Flutter is ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Android tools are ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Simulator is ready', help: 'https://developer.apple.com/xcode/' }], preferences: getPreferences(), storage: { root: 'Your computer', android: 'Android devices', ios: 'iOS devices' }, advice: 'Start only the devices you need.' }) : diagnostics({ fresh: req.query.fresh === '1' }).then(value => res.json(value)));
+app.get('/api/diagnostics', (req, res) => demo ? res.json({ ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checkedAt: Date.now(), checks: [(settings.spaceId ? settings.framework : demoPreferences.developerProfile?.framework || settings.framework) === 'react-native' ? { id: 'node', title: 'Node.js', status: 'ready', detail: 'Node.js is ready', help: 'https://reactnative.dev/docs/set-up-your-environment' } : { id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Flutter is ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Android tools are ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Simulator is ready', help: 'https://developer.apple.com/xcode/' }], preferences: getPreferences(), storage: { root: 'Your computer', android: 'Android devices', ios: 'iOS devices' }, advice: 'Start only the devices you need.' }) : diagnostics({ fresh: req.query.fresh === '1', framework: settings.spaceId ? settings.framework : undefined }).then(value => res.json(value)));
 let savingPreferences = false;
 app.post('/api/preferences', async (req, res) => {
   if (savingPreferences) return res.status(409).json({ error: 'Settings are being saved. Try again shortly.' });
@@ -251,13 +273,34 @@ app.get('/api/workspace/profiles', async (req, res) => {
   res.json({ ...await workspaceProfiles(workspace), savedSetup: workspaceSetups[workspace] || null });
 });
 let savingIDE = false;
+app.get('/api/workspaces', (_req, res) => res.json(spaces.list(settings)));
+async function changeSpace(req, res, create) {
+  if (savingIDE) return res.status(409).json({error: 'Another IDE configuration update is running'});
+  if (releaseBuilds.active || releaseBuilds.starting || deviceTools.recordings.size || ideSessions.list().length) return res.status(409).json({error: 'Stop active debug sessions, builds and recordings before switching workspaces'});
+  savingIDE = true;
+  const before = {settings: structuredClone(settings), entries: structuredClone(spaces.entries), setups: structuredClone(workspaceSetups)};
+  try {
+    const id = create ? spaces.create(req.body) : req.body.id;
+    settings = spaces.activate(id, settings);
+    await persist(); emit('settings', settings);
+    res.json({...spaces.list(settings), settings});
+    if (!demo) void scan().catch(error => console.error(error.message));
+  } catch(error) {
+    settings = before.settings; spaces.entries = before.entries; workspaceSetups = before.setups;
+    throw error;
+  } finally {savingIDE = false;}
+}
+app.post('/api/workspaces/create', (req, res) => changeSpace(req, res, true));
+app.post('/api/workspaces/activate', (req, res) => changeSpace(req, res, false));
 app.post('/api/workspace', async (req, res) => {
   if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
   savingIDE = true;
   try {
     const workspace = demo ? req.body.path || settings.workspace : await validateWorkspace(req.body.path);
     const build = demo ? { framework: req.body.framework === 'react-native' ? 'react-native' : 'flutter' } : await validateBuild(workspace, req.body);
-    const previous = workspaceSetups[workspace];
+    const activeSpace = spaces.get(settings.spaceId);
+    if (activeSpace && activeSpace.type !== build.framework) throw Error('The project does not match this workspace type. Switch or create a matching workspace.');
+    const previous = settings.spaceId ? null : workspaceSetups[workspace];
     const targetIds = workspace === settings.workspace ? settings.targetIds : previous?.targetIds || [];
     const ideEnabled = workspace === settings.workspace ? settings.ideEnabled !== false : previous?.ideEnabled !== false;
     const selectedSetId = workspace === settings.workspace ? settings.selectedSetId || '' : previous?.selectedSetId || '';
@@ -266,6 +309,7 @@ app.post('/api/workspace', async (req, res) => {
   } finally { savingIDE = false; }
 });
 app.post('/api/targets', async (req, res) => {
+  if (settings.framework === 'backend') return res.status(409).json({error: 'Backend tools are coming soon'});
   if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
   savingIDE = true;
   try {

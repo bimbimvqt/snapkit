@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
-import { api, connection } from '../../legacy/device-controller.js';
+import { api, connection, state } from '../../legacy/device-controller.js';
 import { showProductPage } from '../workspace/product.js';
 import { Icon } from '../../shared/ui/icons';
 import { t, useLanguage } from '../../shared/ui/use-language';
@@ -12,13 +12,17 @@ import './onboarding.css';
 type Profile = { role: 'frontend' | 'backend'; framework: 'flutter' | 'react-native' | null };
 function DeveloperProfile() {
   useLanguage();
+  const [workspace, setWorkspace] = useState({...state.settings});
+  useEffect(() => {const sync = () => setWorkspace({...state.settings}); document.addEventListener('snapkit:state', sync); return () => document.removeEventListener('snapkit:state', sync);}, []);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Profile>({ role: 'frontend', framework: null });
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
   const loaded = useRef(false);
   const apply = (value: Profile) => {
-    setProfile(value); document.body.dataset.developerRole = value.role;
+    setProfile(value);
+    if (state.settings.spaceId) {const kind = state.settings.framework; value = {role: kind === 'backend' ? 'backend' : 'frontend', framework: kind === 'backend' ? null : kind === 'react-native' ? 'react-native' : 'flutter'};}
+    document.body.dataset.developerRole = value.role;
     document.body.dataset.framework = value.framework || '';
     document.dispatchEvent(new CustomEvent('snapkit:profile', { detail: value }));
     if (value.role === 'backend') showProductPage('backend');
@@ -52,8 +56,8 @@ function DeveloperProfile() {
     finally { setBusy(false); }
   }
   return <>
-    {createPortal(<section className="profile-preference tool-card"><div><span className="product-kicker">{t('DEVELOPER PROFILE')}</span><h2>{profile?.role === 'backend' ? 'Backend' : profile?.framework === 'react-native' ? 'Frontend · React Native' : profile ? 'Frontend · Flutter' : t('Choose your workspace')}</h2><p>{t('Personalize Snapkit for your stack. Change this anytime.')}</p></div><button className="button" onClick={edit}><Icon name="sliders-horizontal" />{t('Change profile')}</button></section>, document.getElementById('profile-preference-root')!)}
-    {createPortal(<section className="backend-welcome"><span className="profile-terminal"><Icon name="terminal" /> snapkit / backend</span><span className="profile-soon">{t('Coming soon')}</span><h1>{t('Your backend workspace is on its way.')}</h1><p>{t('A home for your services, APIs and local environments. Backend tools are not available yet.')}</p><div className="backend-features">{[['code-xml', 'API workspace'], ['layers', 'Local services'], ['terminal', 'Service logs']].map(([icon, title]) => <article key={title}><Icon name={icon} /><h2>{t(title)}</h2><span>{t('Coming soon')}</span></article>)}</div><button className="button primary" onClick={edit}>{t('Explore Frontend tools')}<Icon name="arrow-right" /></button><p className="profile-footnote">{t('Your choice is saved on this computer.')}</p></section>, document.getElementById('backend-root')!)}
+    {createPortal(<section className="profile-preference tool-card"><div><span className="product-kicker">{t('DEVELOPER PROFILE')}</span><h2>{workspace.spaceId ? workspace.spaceName : profile?.role === 'backend' ? 'Backend' : profile?.framework === 'react-native' ? 'Frontend · React Native' : profile ? 'Frontend · Flutter' : t('Choose your workspace')}</h2><p>{t(workspace.spaceId ? 'Each workspace keeps its own stack, project and device selection.' : 'Personalize Snapkit for your stack. Change this anytime.')}</p></div><button className="button" onClick={() => workspace.spaceId ? document.dispatchEvent(new Event('snapkit:workspaces')) : edit()}><Icon name="sliders-horizontal" />{t(workspace.spaceId ? 'Switch workspace' : 'Change profile')}</button></section>, document.getElementById('profile-preference-root')!)}
+    {createPortal(<section className="backend-welcome"><span className="profile-terminal"><Icon name="terminal" /> snapkit / backend</span><span className="profile-soon">{t('Coming soon')}</span><h1>{t('Your backend workspace is on its way.')}</h1><p>{t('A home for your services, APIs and local environments. Backend tools are not available yet.')}</p><div className="backend-features">{[['code-xml', 'API workspace'], ['layers', 'Local services'], ['terminal', 'Service logs']].map(([icon, title]) => <article key={title}><Icon name={icon} /><h2>{t(title)}</h2><span>{t('Coming soon')}</span></article>)}</div><button className="button primary" onClick={() => state.settings.spaceId ? document.dispatchEvent(new Event('snapkit:workspaces')) : edit()}>{t(workspace.spaceId ? 'Switch workspace' : 'Explore Frontend tools')}<Icon name="arrow-right" /></button><p className="profile-footnote">{t('Your choice is saved on this computer.')}</p></section>, document.getElementById('backend-root')!)}
     <dialog ref={dialog} id="developer-onboarding" aria-labelledby="profile-title" aria-describedby="profile-description" onCancel={event => { if (!profile || busy) event.preventDefault(); else setOpen(false); }}>
       <div className="profile-dialog-top"><span className="profile-terminal"><Icon name="terminal" /> snapkit / setup</span><span className="profile-step">{t('MAKE IT YOURS')}</span>{profile && <button className="icon-button" aria-label={t('Close')} disabled={busy} onClick={() => setOpen(false)}><Icon name="x" /></button>}</div>
       <h1 id="profile-title">{t('What do you build?')}</h1><p id="profile-description">{t('Pick your role. We’ll prepare the right tools for your workflow.')}</p>

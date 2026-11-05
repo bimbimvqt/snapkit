@@ -6,12 +6,11 @@ import { getPreferences } from '../../infrastructure/storage/preferences.js';
 import { clearSDKDiscovery } from '../../infrastructure/tooling/sdk-discovery.js';
 
 let cached, pending, cachedFramework, pendingFramework;
-export async function diagnostics({ fresh = false } = {}) {
-  const framework = getPreferences().developerProfile?.framework || 'flutter';
+export async function diagnostics({ fresh = false, framework = getPreferences().developerProfile?.framework || 'flutter' } = {}) {
   if (pending) {
     if (pendingFramework === framework) return pending;
     await pending;
-    return diagnostics({ fresh });
+    return diagnostics({ fresh, framework });
   }
   if (cachedFramework !== framework) { cached = null; cachedFramework = framework; }
   if (!fresh && cached && Date.now() - cached.checkedAt < 60000) return cached;

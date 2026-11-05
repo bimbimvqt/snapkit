@@ -7,8 +7,10 @@ import { run, parseJsonOutput } from '../../infrastructure/process/cli.js';
 import { parseIni, mergeDevices } from '../../domain/device-catalog.js';
 export { parseIni, mergeDevices } from '../../domain/device-catalog.js';
 
-export async function discover() {
-  const native = (await import('../../infrastructure/storage/preferences.js')).getPreferences().developerProfile?.framework === 'react-native';
+export async function discover({framework} = {}) {
+  framework ||= (await import('../../infrastructure/storage/preferences.js')).getPreferences().developerProfile?.framework || 'flutter';
+  if(framework === 'backend') return {devices: [], warnings: [], scannedAt: new Date().toISOString()};
+  const native = framework === 'react-native';
   const warnings = [];
   const attempt = async (name, task, fallback) => { try { return await task(); } catch (e) { warnings.push(`${name}: ${e.message}`); return fallback; } };
   const [flutter, simulators, avdList] = await Promise.all([

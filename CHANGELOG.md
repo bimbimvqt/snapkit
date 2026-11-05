@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.35 — 2026-11-05
+
+- Tạo nhiều không gian làm việc Flutter, React Native hoặc Backend ngay trong menu ở sidebar; đặt tên và chuyển nhanh giữa các không gian.
+- Lưu riêng dự án, cấu hình chạy và thiết bị đã chọn; khôi phục không gian đang dùng sau khi mở lại app.
+- Giữ logo framework chính thức, viền chọn gọn, giao diện sáng/tối, tiếng Việt và hỗ trợ bàn phím/màn hình nhỏ.
+- Backend hiển thị Sắp ra mắt; chặn chuyển không gian khi đang debug, build hoặc ghi hình. Không gian mới kết nối dự án có sẵn, không tạo hoặc di chuyển mã nguồn.
+
 ## 0.2.0-beta.34 — 2026-11-05
 
 - Chỉnh viền chọn/focus trong onboarding, bỏ vòng viền ngoài trùng lặp và giữ focus bàn phím rõ ràng.

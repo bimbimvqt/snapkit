@@ -24,13 +24,15 @@ try {
   await accountReady;
   const { mountDeveloperProfile } = await import('./features/onboarding/DeveloperProfile');
   const unmountDeveloperProfile = mountDeveloperProfile();
+  const { mountWorkspaceSwitcher } = await import('./features/workspace/WorkspaceSwitcher');
+  const unmountWorkspaces = mountWorkspaceSwitcher();
   document.body.dataset.uiReady = 'true';
   document.body.classList.remove('app-starting');
   document.getElementById('dashboard-startup')?.remove();
   document.dispatchEvent(new Event('snapkit:ui-ready'));
   window.snapkitDesktop?.ready?.();
   if (import.meta.hot) {
-    import.meta.hot.dispose(() => { unmountUpdates(); unmountDeveloperProfile(); });
+    import.meta.hot.dispose(() => { unmountUpdates(); unmountDeveloperProfile(); unmountWorkspaces(); });
     // Legacy controllers use native listeners; full reload prevents duplicate subscriptions.
     import.meta.hot.accept(() => location.reload());
   }

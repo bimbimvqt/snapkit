@@ -12,7 +12,7 @@ const icons = () => {
 };
 const booting = new Set(), shuttingDown = new Set(), stoppingDebug = new Set();
 let compact = localStorage.getItem('snapkit-view') === 'compact';
-let state = { devices: [], settings: { targetIds: [] }, warnings: [], jobs: [] };
+let state = { devices: [], settings: /** @type {import('../features/workspace/types.ts').WorkspaceSettings} */ ({ targetIds: [] }), warnings: [], jobs: [] };
 let filter = 'all', search = '', onlyOnline = false;
 let refreshing = false;
 /** @type {import('../shared/api/client.ts').AgentConnection | null} */
@@ -64,9 +64,6 @@ function render() {
   $('#stat-selected').textContent = selected.length; $('#nav-device-count').textContent = devices.length;
   $('#all-count').textContent = devices.length;
   const workspace = state.settings.workspace;
-  $('#workspace-name').textContent = workspace ? workspace.split(/[\\/]/).filter(Boolean).at(-1) : t("Select workspace");
-  $('#workspace-switch small').textContent = state.settings.workspace ? (state.settings.framework === 'react-native' ? 'React Native' : 'Flutter') + ' workspace' : t('Choose a project');
-  $('#workspace-switch').title = workspace || t("Choose a project");
   $('#demo-notice').classList.toggle('hidden', !state.demo);
   if (state.demo) $('#mode-badge').innerHTML = `<span class="dot green"></span>${t("DEMO ENVIRONMENT")}`;
   $('#host-label').textContent = t("Connected to {0}", [state.host || 'localhost']);
@@ -155,7 +152,7 @@ $('#workspace-form').addEventListener('submit', e => {
     catch (error) { $('#workspace-error').textContent = t(error.message); }
   });
 });
-['#workspace-switch', '#settings-button', '#ide-setup'].forEach(id => $(id).addEventListener('click', showWorkspace));
+['#settings-button', '#ide-setup'].forEach(id => $(id).addEventListener('click', showWorkspace));
 ['#help-button'].forEach(id => $(id).addEventListener('click', () => showProductPage('guide')));
 $$('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $('#theme-toggle').addEventListener('click', () => { document.documentElement.classList.toggle('light'); localStorage.setItem('snapkit-theme', document.documentElement.classList.contains('light') ? 'light' : 'dark'); });
@@ -641,6 +638,6 @@ document.addEventListener('snapkit:language', () => {
   }
 });
 
-export { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace, init };
+export { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace, loadState, init };
 
 document.addEventListener('snapkit:profile', () => render());
