@@ -1,5 +1,10 @@
 # Snapkit changelog
 
+## 0.2.0-beta.34 — 2026-11-05
+
+- Chỉnh viền chọn/focus trong onboarding, bỏ vòng viền ngoài trùng lặp và giữ focus bàn phím rõ ràng.
+- Thay ký hiệu Fl/Rn bằng SVG logo Flutter và React Native từ nguồn chính thức, đóng gói sẵn để hiển thị offline.
+
 ## 0.2.0-beta.33 — 2026-11-05
 
 - Thêm thiết lập lần đầu: Frontend (Flutter/React Native) hoặc Backend với trạng thái sắp ra mắt; đổi lựa chọn trong Preferences.

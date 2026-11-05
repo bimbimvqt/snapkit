@@ -23,7 +23,7 @@ test('onboarding selects React Native, persists on reload, and can change to Bac
   await page.keyboard.press('Escape'); await expect(modal).toBeVisible();
   await modal.getByRole('button', { name: 'React Native JavaScript / TypeScript' }).click();
   await expect(modal).toContainText('Expo Go');
-  await page.screenshot({ path: '/tmp/snapkit-onboarding-dark.png' });
+  await page.screenshot({ path: '/tmp/snapkit-onboarding-dark.png', animations: 'disabled' });
   await modal.getByRole('button', { name: 'Open my workspace' }).click();
   await expect(modal).not.toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-framework', 'react-native');
@@ -67,7 +67,7 @@ test('onboarding is accessible at small widths, supports light mode and Vietname
   await modal.getByRole('button', { name: 'Bắt đầu làm việc' }).click();
   await expect(modal.getByRole('alert')).toContainText('Could not save profile');
   await expect(modal.getByRole('button', { name: 'Bắt đầu làm việc' })).toBeEnabled();
-  await page.screenshot({ path: '/tmp/snapkit-onboarding-mobile.png' });
+  await page.screenshot({ path: '/tmp/snapkit-onboarding-mobile.png', animations: 'disabled' });
 });
 
 test('onboarding React Native connects a detected native workspace and blocks Flutter release actions', async ({ page }) => {
