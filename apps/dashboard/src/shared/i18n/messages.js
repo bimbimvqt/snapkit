@@ -2,6 +2,11 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Detecting project framework…": "Đang nhận diện framework…",
+    "Detected: {0}": "Đã nhận diện: {0}",
+    "Workspace: {0} · {1}": "Không gian: {0} · {1}",
+    "This is a {0} project. The current workspace uses {1}. Create a matching workspace to continue.": "Đây là dự án {0}. Không gian hiện tại dùng {1}. Hãy tạo không gian phù hợp để tiếp tục.",
+    "Create matching workspace": "Tạo không gian phù hợp",
     "Workspaces": "Không gian làm việc",
     "Create workspace": "Tạo không gian làm việc",
     "Workspace type": "Loại không gian làm việc",

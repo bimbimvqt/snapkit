@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.36 — 2026-11-05
+
+- Hiển thị loại workspace hiện tại và framework nhận diện ngay trong thiết lập dự án; báo rõ khi chọn dự án Flutter trong workspace React Native hoặc ngược lại.
+- Thêm nút tạo workspace phù hợp, chọn sẵn framework/tên từ thư mục; giữ đường dẫn, flavor, entrypoint và defines khi tiếp tục hoặc hủy bước tạo workspace.
+- Chặn lưu khi đang nhận diện, thư mục không hợp lệ hoặc khác framework; bỏ qua kết quả nhận diện đến muộn từ thư mục cũ.
+- Mở rộng form thiết lập và giữ nút lưu/hủy hiển thị khi cuộn.
+
 ## 0.2.0-beta.35 — 2026-11-05
 
 - Tạo nhiều không gian làm việc Flutter, React Native hoặc Backend ngay trong menu ở sidebar; đặt tên và chuyển nhanh giữa các không gian.

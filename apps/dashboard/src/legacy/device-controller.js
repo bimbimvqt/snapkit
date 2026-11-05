@@ -97,6 +97,16 @@ async function refresh(button = $('#refresh-button')) {
 }
 let workspaceProfiles = [];
 let detectedFramework = 'flutter';
+let workspaceMismatch = false;
+let workspaceDetectionTimer;
+const frameworkLabel = framework => framework === 'react-native' ? 'React Native' : framework === 'backend' ? 'Backend' : 'Flutter';
+function updateWorkspaceMatch() {
+  workspaceMismatch = !!state.settings.spaceId && state.settings.framework !== detectedFramework;
+  $('#workspace-mismatch').classList.toggle('hidden', !workspaceMismatch);
+  $('#workspace-path').setAttribute('aria-invalid', String(workspaceMismatch));
+  if(workspaceMismatch) $('#workspace-mismatch-message').textContent = t('This is a {0} project. The current workspace uses {1}. Create a matching workspace to continue.', [frameworkLabel(detectedFramework), frameworkLabel(state.settings.framework)]);
+  $('#workspace-form button[type=submit]').disabled = workspaceMismatch;
+}
 function workspaceFrameworkUI(framework) {
   detectedFramework = framework;
   $('#flutter-project-fields').classList.toggle('hidden', framework === 'react-native');
@@ -104,19 +114,27 @@ function workspaceFrameworkUI(framework) {
 }
 let workspaceProfileRequest = 0;
 let workspaceProfilePath = '';
-async function loadWorkspaceProfiles() {
+async function loadWorkspaceProfiles(restoreSaved = true) {
+  clearTimeout(workspaceDetectionTimer);
   const request = ++workspaceProfileRequest;
   const path = $('#workspace-path').value.trim();
   workspaceProfilePath = path;
   workspaceProfiles = [];
+  workspaceMismatch = false;
+  $('#workspace-mismatch').classList.add('hidden');
+  $('#workspace-detection').textContent = path ? t('Detecting project framework…') : '';
+  $('#workspace-form button[type=submit]').disabled = !!path;
   $('#workspace-profile').innerHTML = `<option value="">${t("Custom configuration")}</option>`;
   $('#workspace-flavors').innerHTML = '';
   if (!path || window.SNAPKIT_PREVIEW) return;
   try {
     const result = await api('/api/workspace/profiles?path=' + encodeURIComponent(path));
     if (request !== workspaceProfileRequest) return;
+    $('#workspace-error').textContent = '';
     workspaceFrameworkUI(result.framework || 'flutter');
-    if (result.savedSetup && path !== state.settings.workspace) {
+    $('#workspace-detection').textContent = t('Detected: {0}', [frameworkLabel(detectedFramework)]);
+    updateWorkspaceMatch();
+    if (restoreSaved && result.savedSetup && path !== state.settings.workspace) {
       $('#workspace-flavor').value = result.savedSetup.flavor || '';
       $('#workspace-target').value = result.savedSetup.target || 'lib/main.dart';
       $('#workspace-defines').value = result.savedSetup.defineFile || '';
@@ -124,16 +142,32 @@ async function loadWorkspaceProfiles() {
     workspaceProfiles = result.profiles;
     $('#workspace-profile').innerHTML += workspaceProfiles.map((p, i) => `<option value="${i}">${escape(p.name)}</option>`).join('');
     $('#workspace-flavors').innerHTML = result.flavors.map(f => `<option value="${escape(f)}"></option>`).join('');
-  } catch (error) { if (request === workspaceProfileRequest) $('#workspace-error').textContent = t(error.message); }
+  } catch (error) { if (request === workspaceProfileRequest) {$('#workspace-detection').textContent = ''; $('#workspace-error').textContent = t(error.message);} }
 }
-function showWorkspace() {
+function showWorkspace(draft) {
+  const restoring = draft && typeof draft.path === 'string';
+  $('#workspace-context').textContent = state.settings.spaceId ? t('Workspace: {0} · {1}', [state.settings.spaceName, frameworkLabel(state.settings.framework)]) : '';
+  $('#workspace-path').removeAttribute('aria-invalid');
   workspaceFrameworkUI(document.body.dataset.framework || state.settings.framework || 'flutter');
-  $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || '');
-  $('#workspace-flavor').value = state.settings.flavor || '';
-  $('#workspace-target').value = state.settings.target || 'lib/main.dart';
-  $('#workspace-defines').value = state.settings.defineFile || '';
-  $('#workspace-error').textContent = ''; $('#workspace-dialog').showModal(); loadWorkspaceProfiles();
+  $('#workspace-path').value = restoring ? draft.path : state.demo ? '' : (state.settings.workspace || '');
+  $('#workspace-flavor').value = restoring ? draft.flavor || '' : state.settings.flavor || '';
+  $('#workspace-target').value = restoring ? draft.target || 'lib/main.dart' : state.settings.target || 'lib/main.dart';
+  $('#workspace-defines').value = restoring ? draft.defineFile || '' : state.settings.defineFile || '';
+  $('#workspace-error').textContent = ''; $('#workspace-dialog').showModal(); loadWorkspaceProfiles(!restoring);
 }
+$('#workspace-path').addEventListener('input', () => {
+  ++workspaceProfileRequest; clearTimeout(workspaceDetectionTimer);
+  $('#workspace-form button[type=submit]').disabled = true;
+  $('#workspace-mismatch').classList.add('hidden'); $('#workspace-error').textContent = '';
+  $('#workspace-detection').textContent = t('Detecting project framework…');
+  workspaceDetectionTimer = setTimeout(() => loadWorkspaceProfiles(), 250);
+});
+$('#create-matching-workspace').addEventListener('click', () => {
+  if(!workspaceMismatch || $('#workspace-path').value.trim() !== workspaceProfilePath) return;
+  const draft = {path: $('#workspace-path').value.trim(), flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim()};
+  $('#workspace-dialog').close();
+  document.dispatchEvent(new CustomEvent('snapkit:create-workspace', {detail: {type: detectedFramework, draft}}));
+});
 $('#workspace-path').addEventListener('change', () => {
   if ($('#workspace-path').value.trim() === workspaceProfilePath) return;
   $('#workspace-error').textContent = '';
@@ -147,6 +181,7 @@ $('#workspace-profile').addEventListener('change', e => {
 });
 $('#workspace-form').addEventListener('submit', e => {
   e.preventDefault(); const button = e.submitter;
+  if(workspaceMismatch) return;
   busy(button, async () => {
     try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), framework: detectedFramework, flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
     catch (error) { $('#workspace-error').textContent = t(error.message); }

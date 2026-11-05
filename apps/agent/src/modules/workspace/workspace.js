@@ -32,7 +32,7 @@ export async function workspaceProfiles(root) {
   }
   const schemes = await readdir(path.join(root, 'ios/Runner.xcodeproj/xcshareddata/xcschemes')).catch(() => []);
   const flavors = [...new Set([...profiles.map(p => p.flavor), ...schemes.filter(s => s.endsWith('.xcscheme') && s !== 'Runner.xcscheme').map(s => s.slice(0, -9))].filter(Boolean))];
-  return { profiles, flavors };
+  return { profiles, flavors, framework: 'flutter' };
 }
 export async function validateBuild(root, input = {}) {
   root = await realpath(root);

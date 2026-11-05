@@ -8,6 +8,7 @@ import {t, useLanguage} from '../../shared/ui/use-language';
 import flutterLogo from '../onboarding/assets/flutter.svg';
 import reactLogo from '../onboarding/assets/react-native.svg';
 import './workspaces.css';
+import type {ProjectDraft} from './types';
 
 type Kind = 'flutter' | 'react-native' | 'backend';
 type Space = {id:string; name:string; type:Kind; project:string};
@@ -21,6 +22,19 @@ function WorkspaceSwitcher() {
   const [menu,setMenu] = useState(false), [creating,setCreating] = useState(false);
   const [loading,setLoading] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState('');
   const [kind,setKind] = useState<Kind>('flutter'), [name,setName] = useState('');
+  const pendingDraft = useRef<ProjectDraft | null>(null);
+  useEffect(() => {
+    const recover = (event: Event) => {
+      const {type, draft} = (event as CustomEvent<{type:Kind; draft:ProjectDraft}>).detail;
+      pendingDraft.current = draft; setKind(type); setName(draft.path.split(/[\\/]/).filter(Boolean).at(-1)?.slice(0,80) || ''); setError(''); setMenu(false); setCreating(true);
+    };
+    document.addEventListener('snapkit:create-workspace', recover);
+    return () => document.removeEventListener('snapkit:create-workspace', recover);
+  }, []);
+  function closeCreate() {
+    setCreating(false); const draft = pendingDraft.current; pendingDraft.current = null;
+    if(draft) requestAnimationFrame(() => showWorkspace(draft));
+  }
   const trigger=useRef<HTMLButtonElement>(null), picker=useRef<HTMLDialogElement>(null), form=useRef<HTMLDialogElement>(null);
   useEffect(()=>{
     const sync=()=>{
@@ -56,7 +70,7 @@ function WorkspaceSwitcher() {
     catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
   }
   async function create(event:React.FormEvent){event.preventDefault();setBusy(true);setError('');
-    try {await api('/api/workspaces/create',{name:name.trim(),type:kind});await loadState();setCreating(false);showProductPage(kind==='backend'?'backend':'devices');}
+    try {await api('/api/workspaces/create',{name:name.trim(),type:kind});await loadState();const draft=pendingDraft.current;pendingDraft.current=null;setCreating(false);showProductPage(kind==='backend'?'backend':'devices');if(draft&&kind!=='backend')requestAnimationFrame(()=>showWorkspace(draft));}
     catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
   }
   const type:Kind=current.framework === 'backend'?'backend':current.framework === 'react-native'?'react-native':'flutter';
@@ -75,14 +89,14 @@ function WorkspaceSwitcher() {
       {error&&<p className="field-error" role="alert">{t(error)}</p>}
       <div className="space-picker-actions"><button className="space-row" disabled={busy} onClick={openCreate}><Icon name="plus"/><span>{t('Create workspace')}</span></button>{type!=='backend'&&<button className="space-row" disabled={busy} onClick={()=>{setMenu(false);showWorkspace();}}><Icon name="folder-code"/><span>{t('Project settings')}</span></button>}</div>
     </dialog>
-    <dialog ref={form} id="create-workspace-dialog" aria-labelledby="create-space-title" onClose={()=>setCreating(false)} onCancel={e=>{if(busy)e.preventDefault();}}>
+    <dialog ref={form} id="create-workspace-dialog" aria-labelledby="create-space-title" onClose={closeCreate} onCancel={e=>{if(busy)e.preventDefault();}}>
       <form onSubmit={event=>void create(event)}>
-        <div className="space-form-heading"><span className="profile-terminal"><Icon name="folder-open"/> snapkit / workspace</span><button type="button" className="icon-button" aria-label={t('Close')} disabled={busy} onClick={()=>setCreating(false)}><Icon name="x"/></button></div>
+        <div className="space-form-heading"><span className="profile-terminal"><Icon name="folder-open"/> snapkit / workspace</span><button type="button" className="icon-button" aria-label={t('Close')} disabled={busy} onClick={closeCreate}><Icon name="x"/></button></div>
         <h2 id="create-space-title">{t('Create workspace')}</h2><p className="space-description">{t('Keep each stack and its project settings in a separate workspace.')}</p>
         <fieldset disabled={busy}><legend>{t('Workspace type')}</legend><div className="space-types">{(['flutter','react-native','backend'] as Kind[]).map(value=><button type="button" key={value} className="space-type" aria-pressed={kind===value} onClick={()=>setKind(value)}><Mark type={value}/><strong>{label(value)}</strong><small>{value==='backend'?t('Coming soon'):value==='flutter'?'Dart':'JavaScript / TypeScript'}</small><span className="space-type-check">{kind===value&&<Icon name="check"/>}</span></button>)}</div></fieldset>
         <label htmlFor="space-name">{t('Workspace name')}</label><input id="space-name" value={name} onChange={e=>setName(e.target.value)} placeholder={t('e.g. Mobile team')} maxLength={80} required disabled={busy} autoComplete="off"/>
         <div className="space-note"><Icon name={kind==='backend'?'clock-3':'folder-open'}/><p>{t(kind==='backend'?'You can create this workspace now. Backend tools are coming soon.':'Connect an existing project after creating the workspace. Your source files stay in their current folder.')}</p></div>
-        <p className="field-error" role="alert">{error?t(error):''}</p><div className="space-form-footer"><button type="button" className="button" disabled={busy} onClick={()=>setCreating(false)}>{t('Cancel')}</button><button type="submit" className="button primary" disabled={busy||!name.trim()}>{t(busy?'Creating…':'Create workspace')}<Icon name="arrow-right"/></button></div>
+        <p className="field-error" role="alert">{error?t(error):''}</p><div className="space-form-footer"><button type="button" className="button" disabled={busy} onClick={closeCreate}>{t('Cancel')}</button><button type="submit" className="button primary" disabled={busy||!name.trim()}>{t(busy?'Creating…':'Create workspace')}<Icon name="arrow-right"/></button></div>
       </form>
     </dialog>
   </>;

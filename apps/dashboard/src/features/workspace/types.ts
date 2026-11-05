@@ -10,3 +10,5 @@ export type WorkspaceSettings = {
   selectedSetId?: string;
   ideEnabled?: boolean;
 };
+
+export type ProjectDraft = {path: string; flavor: string; target: string; defineFile: string};
