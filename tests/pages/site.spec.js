@@ -44,6 +44,11 @@ test('hosted controller pairs across origins, runs commands and stops access aft
   await page.locator('#agent-code').fill(pair.code);
   await page.locator('#pairing-submit').click();
   await expect(page.locator('.device-card')).toHaveCount(6);
+  const onboarding = page.locator('#developer-onboarding');
+  await expect(onboarding).toBeVisible();
+  await onboarding.getByRole('button', { name: 'Flutter Dart' }).click();
+  await onboarding.getByRole('button', { name: 'Open my workspace' }).click();
+  await expect(onboarding).not.toBeVisible();
   const target = page.getByRole('checkbox', { name: 'Select iPhone 16 Pro for IDE debug', exact: true });
   await target.check(); await expect(page.locator('#stat-selected')).toHaveText('1');
   await page.getByRole('checkbox', { name: 'Select Pixel 9 Pro for IDE debug', exact: true }).check();
