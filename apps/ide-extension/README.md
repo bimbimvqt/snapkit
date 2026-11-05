@@ -29,7 +29,7 @@ The extension is optional for creating, starting and turning off simulators/emul
 | Development tools | Flutter SDK and Android SDK; iOS Simulator also requires macOS and Xcode |
 | Other editors | Android Studio/IntelliJ keep their own debug controls; this VSIX does not run there |
 
-Windows supports Android device management. Native desktop packages for Linux and Windows ARM are not part of the current beta. This extension does not provide React Native, Metro or JetBrains group-debug integration. Remote SSH, WSL and Dev Containers are not verified: loopback refers to the machine running the extension host, which may differ from the desktop app’s machine.
+Windows supports Android device management. Native desktop packages for Linux and Windows ARM are not part of the current beta. React Native Hermes projects use Snapkit’s launcher and the built-in JavaScript debugger (see below). JetBrains group-debug integration is not available. Remote SSH, WSL and Dev Containers are not verified: loopback refers to the machine running the extension host, which may differ from the desktop app’s machine.
 
 ## Install or update
 
@@ -96,3 +96,16 @@ Debug plans and session reports travel to the loopback agent. Reports contain th
 | Source folder moved | Select the new folder in Snapkit’s IDE debug setup. |
 
 Open **View → Output → Snapkit Debug Sync** for integration logs. See [Support](SUPPORT.md) for reporting a reproducible problem, or [Changelog](CHANGELOG.md) for version history.
+
+
+## React Native · 1.4.0
+
+Install Snapkit Debug Sync 1.5.0 in your editor. Connect a React Native project with the community CLI and native `android` / `ios` folders. Expo projects need prebuild; Expo Go is not supported.
+
+Select online devices in Snapkit. In Run and Debug choose **Snapkit React Native**, then press F5. You can also run **Snapkit: Debug React Native on Selected Devices** from the command palette. Snapkit builds with the project’s CLI, starts or reuses Metro for that project, and attaches a separate Hermes debugger to each device. Set source breakpoints and inspect variables in your editor. Stopping one session keeps the other devices debugging. React Native/Metro provides Fast Refresh on save. Use **Snapkit: Reload All React Native Debug Sessions** to reload the running group.
+
+```json
+{"name":"Snapkit: React Native selected devices","type":"snapkit-react-native","request":"launch","metroPort":8081}
+```
+
+React Native Tools is not required for this profile. Legacy `reactnative` profiles still use that extension. Android devices and iOS simulators are supported; use Xcode for physical iPhones. iOS launch requires macOS. React Native release builds remain in your project’s CLI. Metro on a port belonging to another project is rejected; choose a free `metroPort`. The project must enable Hermes. Native build failures appear in **Output → Snapkit Debug Sync**.

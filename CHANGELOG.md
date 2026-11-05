@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.33 — 2026-11-05
+
+- Thêm thiết lập lần đầu: Frontend (Flutter/React Native) hoặc Backend với trạng thái sắp ra mắt; đổi lựa chọn trong Preferences.
+- Hỗ trợ nhận diện dự án, công cụ và thiết bị React Native mà không cần Flutter.
+- Snapkit Debug Sync 1.5.0 dùng CLI của project và debugger JavaScript trong IDE để F5 trên nhiều thiết bị Hermes, breakpoint/biến riêng, Fast Refresh giữ state, Restart nhóm và Stop từng thiết bị.
+- Đã kiểm tra trực tiếp VS Code với React Native 0.88.1 trên Android Emulator và iOS Simulator; Expo Go và iPhone thật chưa được hỗ trợ trong luồng này.
+- Sửa tải ảnh/video khi thư mục dữ liệu có thành phần ẩn; giữ cập nhật delta và dữ liệu người dùng.
+- Bao gồm migration React + TypeScript + Vite của beta.32 chưa phát hành trước đó.
+
 ## 0.2.0-beta.32 — 2026-11-04
 
 - Chuyển frontend sang nền tảng React + TypeScript + Vite; build production dùng chung cho desktop, dashboard local và web demo/controller.

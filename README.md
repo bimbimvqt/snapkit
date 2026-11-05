@@ -161,3 +161,12 @@ Trang quản trị: https://snapkit.45.119.214.94.sslip.io/admin/ (website tĩnh
 Cấu hình server theo `apps/cloud/.env.example`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SNAPKIT_PUBLIC_URL`, `SNAPKIT_ADMIN_EMAILS`. Redirect URI: `https://snapkit.45.119.214.94.sslip.io/auth/google/callback`. Không đưa client secret vào Git hoặc bộ cài. Dữ liệu tài khoản lưu trong `apps/cloud/data/accounts.json` trên server; cần sao lưu volume cùng dữ liệu billing. RevenueCat vẫn ở giai đoạn chuẩn bị, checkout tắt.
 
 Cập nhật ngay trong desktop app và quy trình phát hành: [In-app updates](docs/in-app-updates.md). Dọn output có thể tạo lại: `npm run clean` (xóa cả `release/`), hoặc `npm run clean -- --keep-release`.
+
+
+### Developer profiles and React Native
+
+On first launch, choose Frontend (Flutter or React Native) or Backend. Snapkit saves this profile on the current computer; change it in Preferences. Backend currently shows a Coming soon workspace.
+
+React Native supports Android devices and iOS simulators, device sets, system logs and captures. Install the bundled Snapkit Debug Sync 1.5.0 extension, connect a native React Native project with Hermes and community CLI, select online devices, and press F5 with **Snapkit React Native** (`type: "snapkit-react-native"`). Snapkit builds/launches the selected devices, starts or reuses the project’s Metro, and attaches a JavaScript debugger per device. React Native Tools is not required for this profile. Stop each debug session independently; React Native/Metro handles Fast Refresh.
+
+Expo projects need prebuild; Expo Go, physical iPhone IDE launch and React Native release builds in Snapkit are not supported yet. Use Xcode for a physical iPhone and your project’s CLI for release builds.

@@ -15,7 +15,9 @@ let compact = localStorage.getItem('snapkit-view') === 'compact';
 let state = { devices: [], settings: { targetIds: [] }, warnings: [], jobs: [] };
 let filter = 'all', search = '', onlyOnline = false;
 let refreshing = false;
-let connection = null, remotePoll = null, remotePolling = false;
+/** @type {import('../shared/api/client.ts').AgentConnection | null} */
+let connection = null;
+let remotePoll = null, remotePolling = false;
 let remoteOffline = false;
 function agentURL(value) {
   const url = new URL(value);
@@ -63,7 +65,8 @@ function render() {
   $('#all-count').textContent = devices.length;
   const workspace = state.settings.workspace;
   $('#workspace-name').textContent = workspace ? workspace.split(/[\\/]/).filter(Boolean).at(-1) : t("Select workspace");
-  $('#workspace-switch').title = workspace || t("Choose a Flutter workspace");
+  $('#workspace-switch small').textContent = state.settings.workspace ? (state.settings.framework === 'react-native' ? 'React Native' : 'Flutter') + ' workspace' : t('Choose a project');
+  $('#workspace-switch').title = workspace || t("Choose a project");
   $('#demo-notice').classList.toggle('hidden', !state.demo);
   if (state.demo) $('#mode-badge').innerHTML = `<span class="dot green"></span>${t("DEMO ENVIRONMENT")}`;
   $('#host-label').textContent = t("Connected to {0}", [state.host || 'localhost']);
@@ -74,7 +77,7 @@ function render() {
   $('#view-toggle').setAttribute('aria-label', compact ? t("Switch to card view") : t("Switch to compact view"));
   $('#reset-filters').classList.toggle('hidden', !search && !onlyOnline && filter === 'all');
   $('#filter-summary').textContent = t("{0} of {1} devices", [shown.length, devices.length]);
-  const views = shown.map(device => ({ device, selected: selected.includes(device.id), starting: booting.has(device.id), shutting: shuttingDown.has(device.id), debugging: (state.debugSessions || []).some(session => session.deviceId === device.id || session.deviceId === device.flutterId), debugStopping: stoppingDebug.has(device.id) || (state.debugSessions || []).some(session => (session.deviceId === device.id || session.deviceId === device.flutterId) && session.stopping), selectionSaving: targetSaving, showRunRelease: device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER, canRunRelease: device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER && !!state.settings.workspace && !window.SNAPKIT_PREVIEW }));
+  const views = shown.map(device => ({ device, selected: selected.includes(device.id), starting: booting.has(device.id), shutting: shuttingDown.has(device.id), debugging: (state.debugSessions || []).some(session => session.deviceId === device.id || session.deviceId === device.flutterId), debugStopping: stoppingDebug.has(device.id) || (state.debugSessions || []).some(session => (session.deviceId === device.id || session.deviceId === device.flutterId) && session.stopping), selectionSaving: targetSaving, showRunRelease: state.settings.framework !== 'react-native' && document.body.dataset.framework !== 'react-native' && device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER, canRunRelease: device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER && !!state.settings.workspace && !window.SNAPKIT_PREVIEW }));
   renderDeviceGrid(views, { title: refreshing || state.scanning ? t('Discovering your devices…') : devices.length ? t('No matching devices') : t('Your device lab starts here'), detail: refreshing || state.scanning ? t('Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.') : devices.length ? t('Clear the filters to see all your devices.') : t('Add a simulator or emulator, or connect a physical device to get started.'), actions: devices.length ? [{ id: 'empty-reset', label: t('Clear filters') }] : !refreshing && !state.scanning ? [{ id: 'empty-add', label: t('Add device') }, { id: 'empty-refresh', label: t('Refresh devices') }] : [] });
   $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Device status checked every 2s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
@@ -96,6 +99,12 @@ async function refresh(button = $('#refresh-button')) {
   refreshing = false; $('#devices-grid').removeAttribute('aria-busy'); $('#refresh-button svg')?.classList.remove('spin'); render();
 }
 let workspaceProfiles = [];
+let detectedFramework = 'flutter';
+function workspaceFrameworkUI(framework) {
+  detectedFramework = framework;
+  $('#flutter-project-fields').classList.toggle('hidden', framework === 'react-native');
+  $('#react-native-project-help').classList.toggle('hidden', framework !== 'react-native');
+}
 let workspaceProfileRequest = 0;
 let workspaceProfilePath = '';
 async function loadWorkspaceProfiles() {
@@ -109,6 +118,7 @@ async function loadWorkspaceProfiles() {
   try {
     const result = await api('/api/workspace/profiles?path=' + encodeURIComponent(path));
     if (request !== workspaceProfileRequest) return;
+    workspaceFrameworkUI(result.framework || 'flutter');
     if (result.savedSetup && path !== state.settings.workspace) {
       $('#workspace-flavor').value = result.savedSetup.flavor || '';
       $('#workspace-target').value = result.savedSetup.target || 'lib/main.dart';
@@ -120,6 +130,7 @@ async function loadWorkspaceProfiles() {
   } catch (error) { if (request === workspaceProfileRequest) $('#workspace-error').textContent = t(error.message); }
 }
 function showWorkspace() {
+  workspaceFrameworkUI(document.body.dataset.framework || state.settings.framework || 'flutter');
   $('#workspace-path').value = state.demo ? '' : (state.settings.workspace || '');
   $('#workspace-flavor').value = state.settings.flavor || '';
   $('#workspace-target').value = state.settings.target || 'lib/main.dart';
@@ -140,7 +151,7 @@ $('#workspace-profile').addEventListener('change', e => {
 $('#workspace-form').addEventListener('submit', e => {
   e.preventDefault(); const button = e.submitter;
   busy(button, async () => {
-    try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
+    try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), framework: detectedFramework, flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
     catch (error) { $('#workspace-error').textContent = t(error.message); }
   });
 });
@@ -631,3 +642,5 @@ document.addEventListener('snapkit:language', () => {
 });
 
 export { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace, init };
+
+document.addEventListener('snapkit:profile', () => render());

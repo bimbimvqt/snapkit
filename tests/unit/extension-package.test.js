@@ -19,6 +19,9 @@ with ZipFile(sys.argv[1]) as z:
     names = set(z.namelist())
     package = json.loads(z.read('extension/package.json'))
     assert package['icon'] == 'icon.png'
+    for file in ['react-native-debug.cjs', 'react-native-runtime.cjs', 'react-native-transport.cjs', 'node_modules/ws/index.js', 'node_modules/ws/lib/websocket.js', 'node_modules/ws/LICENSE']:
+        assert 'extension/' + file in names, file
+    assert package['dependencies']['ws']
     assert z.read('extension/icon.png') == Path('apps/desktop/assets/icon.png').read_bytes()
     manifest = ET.fromstring(z.read('extension.vsixmanifest'))
     assets = {a.attrib['Type']: a.attrib['Path'] for a in manifest.iter() if a.tag.endswith('Asset')}

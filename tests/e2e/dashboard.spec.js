@@ -1,5 +1,5 @@
 import { choose } from './choices.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 test('device manager boots devices and saves one or two IDE selections; app controls are absent', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -150,7 +150,7 @@ test('workspace imports a debug profile and submits flavor, entrypoint and defin
   expect(await page.locator('#workspace-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Save IDE setup' }).click();
   await expect(page.locator('#workspace-dialog')).not.toBeVisible();
-  expect(saved).toEqual({ path: '/Projects/merchant', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' });
+  expect(saved).toEqual({ path: '/Projects/merchant', framework: 'flutter', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '../dashboard/dev.json' });
 });
 
 test('compact view persists, tabs support arrow keys, and empty filters recover', async ({ page }) => {

@@ -209,6 +209,7 @@ test('IDE plans stay in memory and legacy cleanup preserves native JSONC profile
 test('IDE profile import retains flavor, entrypoint and defines path and validates existing files', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'snapkit-flavors-'));
   try {
+    await writeFile(path.join(root, 'pubspec.yaml'), 'dependencies:\n  flutter:\n    sdk: flutter\n');
     await mkdir(path.join(root, 'lib')); await mkdir(path.join(root, '.vscode'));
     await writeFile(path.join(root, 'lib/main_dev.dart'), 'void main() {}');
     await writeFile(path.join(root, 'defines.json'), '{}');

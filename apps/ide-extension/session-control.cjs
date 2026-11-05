@@ -30,7 +30,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         if (typeof state.token !== 'string') throw new Error('No local session token');
         credentials = { base, token: state.token };
       }
-      const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'Flutter debug' }));
+      const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug' }));
       const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed }, credentials.token);
       for (const id of result.stopSessionIds || []) {
         const session = sessions.get(id);
@@ -45,7 +45,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
   }
   return {
     started(session) {
-      if (!vscode.workspace.isTrusted || session.type !== 'dart' || session.configuration.noDebug || typeof session.configuration.deviceId !== 'string' || !session.configuration.deviceId) return;
+      if (!vscode.workspace.isTrusted || !(['dart', 'reactnative', 'reactnativedirect'].includes(session.type) || (session.type === 'pwa-node' && session.configuration.__snapkitNativeGroup)) || session.configuration.noDebug || typeof session.configuration.deviceId !== 'string' || !session.configuration.deviceId) return;
       sessions.set(session.id, session); dirty = true; void tick();
     },
     terminated(session) { if (!sessions.has(session.id)) return; sessions.delete(session.id); stopping.delete(session.id); clearTimeout(timer); dirty = true; void tick(); },

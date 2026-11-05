@@ -5,15 +5,22 @@ import { storage, refreshAndroidSDK } from '../../infrastructure/storage/device-
 import { getPreferences } from '../../infrastructure/storage/preferences.js';
 import { clearSDKDiscovery } from '../../infrastructure/tooling/sdk-discovery.js';
 
-let cached, pending;
+let cached, pending, cachedFramework, pendingFramework;
 export async function diagnostics({ fresh = false } = {}) {
+  const framework = getPreferences().developerProfile?.framework || 'flutter';
+  if (pending) {
+    if (pendingFramework === framework) return pending;
+    await pending;
+    return diagnostics({ fresh });
+  }
+  if (cachedFramework !== framework) { cached = null; cachedFramework = framework; }
   if (!fresh && cached && Date.now() - cached.checkedAt < 60000) return cached;
-  if (pending) return pending;
   if (fresh) { clearSDKDiscovery(); refreshAndroidSDK(); }
-  pending = collect().then(result => { cached = result; return result; }).finally(() => { pending = null; });
+  pendingFramework = framework;
+  pending = collect(framework).then(result => { cached = result; return result; }).finally(() => { pending = null; });
   return pending;
 }
-async function collect() {
+async function collect(framework) {
   const check = async (id, title, command, args, help, required = true) => {
     try {
       const result = await run(command, args, { timeout: 15000 });
@@ -24,11 +31,12 @@ async function collect() {
       const parsed = id === 'flutter' ? parseJsonOutput(result) : null;
       return { id, title, status: 'ready', detail: parsed?.frameworkVersion ? `Flutter ${parsed.frameworkVersion}` : result.trim().split('\n')[0].slice(0, 180), required, help, executable: executable(command) };
     } catch {
-      return { id, title, status: 'attention', detail: id === 'flutter' ? 'Choose your Flutter SDK, or install Flutter to connect your project.' : id === 'android' ? 'Install Android SDK Platform-Tools in Android Studio, or choose your SDK folder.' : id === 'emulator' ? 'Install Android Emulator from Android Studio → SDK Manager → SDK Tools.' : 'Open Xcode once, finish setup and install an iOS Simulator runtime.', required, help };
+      return { id, title, status: 'attention', detail: id === 'flutter' ? 'Choose your Flutter SDK, or install Flutter to connect your project.' : id === 'android' ? 'Install Android SDK Platform-Tools in Android Studio, or choose your SDK folder.' : id === 'node' ? 'Install Node.js LTS for React Native and Metro.' : id === 'emulator' ? 'Install Android Emulator from Android Studio → SDK Manager → SDK Tools.' : 'Open Xcode once, finish setup and install an iOS Simulator runtime.', required, help };
     }
   };
+  const native = framework === 'react-native';
   const checks = await Promise.all([
-    check('flutter', 'Flutter', 'flutter', ['--version', '--machine'], 'https://docs.flutter.dev/get-started/install'),
+    native ? check('node', 'Node.js', 'node', ['--version'], 'https://reactnative.dev/docs/set-up-your-environment') : check('flutter', 'Flutter', 'flutter', ['--version', '--machine'], 'https://docs.flutter.dev/get-started/install'),
     check('android', 'Android tools', 'adb', ['version'], 'https://developer.android.com/studio', false),
     check('emulator', 'Android Emulator', 'emulator', ['-version'], 'https://developer.android.com/studio/run/managing-avds', false),
     ...(process.platform === 'darwin' ? [check('ios', 'iOS Simulator', 'xcrun', ['simctl', 'list', 'runtimes', '--json'], 'https://developer.apple.com/xcode/', false)] : [])
@@ -38,7 +46,7 @@ async function collect() {
   const memoryGB = Math.round(os.totalmem() / 1073741824);
   return { checkedAt: Date.now(), platform: process.platform, arch: process.arch, memoryGB, freeDiskGB,
     checks, preferences: getPreferences(), storage: { root: storage.root, android: storage.avd, ios: process.platform === 'darwin' ? storage.iosDevices : null },
-    ready: checks.find(c => c.id === 'flutter')?.status === 'ready' && checks.some(c => c.id !== 'flutter' && c.status === 'ready'),
+    ready: checks.find(c => c.id === (native ? 'node' : 'flutter'))?.status === 'ready' && checks.some(c => !['flutter', 'node'].includes(c.id) && c.status === 'ready'),
     advice: freeDiskGB !== null && freeDiskGB < 15 ? 'Storage is running low. Free space before downloading an OS runtime or creating more devices.' : memoryGB < 16 ? 'Start with one virtual device. Running several at once may slow down this computer.' : 'Start only the devices you need. Each virtual device uses additional memory.',
     resolvedFlutter: executable('flutter') };
 }

@@ -45,7 +45,7 @@ test('updater reports progress, keeps ready state, blocks installation during ac
     assert.equal((await updater.check()).status, 'ready');
     await assert.rejects(updater.apply(async () => { throw Error('Active build'); }), /Active build/); assert.equal(installed, false); assert.equal(updater.snapshot().status, 'ready');
     await updater.apply(async () => {}); assert.equal(installed, true);
-    const cancel = new DesktopUpdater({ version: '0.2.0-beta.19', platform: 'win32', arch: 'x64', packaged: true, userData: root, releases: async () => [release('0.2.0-beta.20', 'win', 'x64')], download: async (_a, file, signal) => { await writeFile(file, 'partial'); await new Promise((_, reject) => signal.addEventListener('abort', () => reject(Error('Abort')), { once: true })); } });
+    const cancel = new DesktopUpdater({ version: '0.2.0-beta.19', platform: 'win32', arch: 'x64', packaged: true, userData: root, releases: async () => [release('0.2.0-beta.20', 'win', 'x64')], download: async (_a, file, signal) => { await writeFile(file, 'partial'); if (signal.aborted) throw Error('Abort'); await new Promise((_, reject) => signal.addEventListener('abort', () => reject(Error('Abort')), { once: true })); } });
     await cancel.check(); cancel.beginDownload(); while (!await stat(cancel.file).catch(() => null)) await new Promise(resolve => setTimeout(resolve, 5)); cancel.cancel(); await cancel.pending; assert.equal(cancel.snapshot().status, 'available'); assert.equal(await stat(cancel.work).catch(() => null), null);
     await cancel.close();
   } finally { await rm(root, { recursive: true, force: true }); }

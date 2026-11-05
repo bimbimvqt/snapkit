@@ -8,15 +8,21 @@ import { parseIni, mergeDevices } from '../../domain/device-catalog.js';
 export { parseIni, mergeDevices } from '../../domain/device-catalog.js';
 
 export async function discover() {
+  const native = (await import('../../infrastructure/storage/preferences.js')).getPreferences().developerProfile?.framework === 'react-native';
   const warnings = [];
   const attempt = async (name, task, fallback) => { try { return await task(); } catch (e) { warnings.push(`${name}: ${e.message}`); return fallback; } };
   const [flutter, simulators, avdList] = await Promise.all([
-    attempt('Flutter', async () => parseJsonOutput(await run('flutter', ['devices', '--machine'], { timeout: 45000 })), []),
+    native ? [] : attempt('Flutter', async () => parseJsonOutput(await run('flutter', ['devices', '--machine'], { timeout: 45000 })), []),
     // Access checks need every registered device, including those with missing runtimes.
     // mergeDevices filters unavailable devices from the dashboard separately.
     process.platform === 'darwin' ? attempt('iOS', async () => parseJsonOutput(await run('xcrun', ['simctl', 'list', 'devices', '--json'])), {}) : {},
     attempt('Android', () => run('emulator', ['-list-avds']), '')
   ]);
+  const adb = await attempt('ADB', () => run('adb', ['devices', '-l']), '');
+  for (const line of adb.split(/\r?\n/)) {
+    const match = /^(\S+)\s+device(?:\s|$)/.exec(line);
+    if (match && !flutter.some(d => d.id === match[1])) flutter.push({ id: match[1], name: /model:(\S+)/.exec(line)?.[1]?.replaceAll('_', ' ') || match[1], targetPlatform: 'android', emulator: match[1].startsWith('emulator-') });
+  }
   const runningAvds = {};
   await Promise.all(flutter.filter(d => d.emulator && d.targetPlatform?.startsWith('android')).map(async d => {
     const name = await attempt('AVD identity', () => run('adb', ['-s', d.id, 'emu', 'avd', 'name']), '');
@@ -33,6 +39,7 @@ export async function discover() {
     return { id, name: config['avd.ini.displayname'] || id.replaceAll('_', ' '), os: api ? `Android API ${api}` : 'Android', ram: config['hw.ramSize'] ? `${config['hw.ramSize']} MB` : null, cpu: config['hw.cpu.ncore'] ? `${config['hw.cpu.ncore']} cores` : null, resolution: config['hw.lcd.width'] && config['hw.lcd.height'] ? `${config['hw.lcd.width']} × ${config['hw.lcd.height']}` : null };
   }));
   const devices = mergeDevices(flutter, simulators, avds, runningAvds);
+  if (native) for (const device of devices) if (device.platform === 'ios' && device.state === 'online') device.flutterId ||= device.id;
   await Promise.all(devices.filter(d => d.platform === 'android' && d.flutterId).map(async d => {
     try {
       const [size, mem, cpu, version] = await Promise.all([

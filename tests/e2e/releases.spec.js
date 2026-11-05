@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { choose } from './choices.js';
 test('release screen applies workspace profiles, builds APK and AAB with downloadable saved artifacts', async ({page}) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/?lang=en');await page.locator('[data-app-page="releases"]').click();

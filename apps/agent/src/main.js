@@ -57,7 +57,7 @@ try {
 } catch {}
 function rememberWorkspace() {
   if (settings.workspace) workspaceSetups[settings.workspace] = {
-    flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '',
+    framework: settings.framework || 'flutter', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '',
     selectedSetId: settings.selectedSetId || '', targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
   };
 }
@@ -77,7 +77,7 @@ async function scan() {
   return scanning;
 }
 function device(id) { const d = snapshot.devices.find(d => d.id === id); if (!d) throw new Error('Device not found. Refresh the device list.'); return d; }
-function requireWorkspace() { if (!settings.workspace) throw new Error('Select a Flutter workspace in Workspace settings first'); return settings.workspace; }
+function requireWorkspace() { if (!settings.workspace) throw new Error('Select a workspace in Workspace settings first'); return settings.workspace; }
 app.disable('x-powered-by');
 app.use((req, res, next) => {
   // Loopback binding + exact Host/Origin checking protects against DNS rebinding and CSRF.
@@ -130,7 +130,7 @@ app.get('/api/account/content', async (_req, res) => res.json(await account.requ
 app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: demo ? demoPreferences : getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
   { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' }
 ] }));
-app.get('/api/diagnostics', (req, res) => demo ? res.json({ ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checkedAt: Date.now(), checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Flutter is ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Android tools are ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Simulator is ready', help: 'https://developer.apple.com/xcode/' }], preferences: getPreferences(), storage: { root: 'Your computer', android: 'Android devices', ios: 'iOS devices' }, advice: 'Start only the devices you need.' }) : diagnostics({ fresh: req.query.fresh === '1' }).then(value => res.json(value)));
+app.get('/api/diagnostics', (req, res) => demo ? res.json({ ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, checkedAt: Date.now(), checks: [(demoPreferences.developerProfile?.framework || settings.framework) === 'react-native' ? { id: 'node', title: 'Node.js', status: 'ready', detail: 'Node.js is ready', help: 'https://reactnative.dev/docs/set-up-your-environment' } : { id: 'flutter', title: 'Flutter', status: 'ready', detail: 'Flutter is ready', help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: 'Android tools', status: 'ready', detail: 'Android tools are ready', help: 'https://developer.android.com/studio' }, { id: 'ios', title: 'iOS Simulator', status: 'ready', detail: 'Simulator is ready', help: 'https://developer.apple.com/xcode/' }], preferences: getPreferences(), storage: { root: 'Your computer', android: 'Android devices', ios: 'iOS devices' }, advice: 'Start only the devices you need.' }) : diagnostics({ fresh: req.query.fresh === '1' }).then(value => res.json(value)));
 let savingPreferences = false;
 app.post('/api/preferences', async (req, res) => {
   if (savingPreferences) return res.status(409).json({ error: 'Settings are being saved. Try again shortly.' });
@@ -152,7 +152,8 @@ app.post('/api/apple/teams', async (req, res) => { if (releaseBuilds.active || r
 app.post('/api/apple/teams/:teamId/refresh', async (req, res) => { await releaseBuilds.apple.refresh(req.params.teamId); res.json(releaseBuilds.apple.catalog(requireWorkspace())); });
 app.post('/api/apple/teams/:teamId/remove', async (req, res) => { if (releaseBuilds.active || releaseBuilds.starting) throw Error('Another release task is running.'); await releaseBuilds.apple.remove(req.params.teamId); res.json(releaseBuilds.apple.catalog(requireWorkspace())); });
 app.post('/api/apple/selection', async (req, res) => res.json(await releaseBuilds.apple.select(requireWorkspace(), req.body)));
-app.get('/api/releases/catalog', async (_req, res) => res.json(await releaseBuilds.catalog(settings.workspace, settings)));
+app.use('/api/releases', (req, res, next) => { if (req.method !== 'GET' && settings.framework === 'react-native') return res.status(409).json({ error: 'React Native build and release is coming soon. Use your project CLI or Xcode.' }); next(); });
+app.get('/api/releases/catalog', async (_req, res) => res.json(settings.framework === 'react-native' ? { workspace: settings.workspace, android: false, ios: false, flavors: [], profiles: [], framework: 'react-native' } : await releaseBuilds.catalog(settings.workspace, settings)));
 app.get('/api/releases', (_req, res) => res.json(releaseBuilds.list(settings.workspace)));
 app.get('/api/releases/:id', (req, res) => res.json(releaseBuilds.publicJob(releaseBuilds.find(requireWorkspace(), req.params.id), true)));
 app.post('/api/releases/build', async (req, res) => {
@@ -198,7 +199,7 @@ app.post('/api/tools/captures/:id/delete', async (req, res) => { await deviceToo
 app.get('/api/tools/captures/:id/file', (req, res) => {
   const item = deviceTools.captures.find(x => x.id === req.params.id && x.project === deviceTools.project(requireWorkspace()) && x.status === 'ready');
   if (!item) return res.status(404).json({ error: 'Capture not found.' });
-  res.download(deviceTools.file(item), `Snapkit-${item.createdAt.replace(/[:.]/g, '-')}.${item.kind === 'image' ? 'png' : 'mp4'}`);
+  res.download(deviceTools.file(item), `Snapkit-${item.createdAt.replace(/[:.]/g, '-')}.${item.kind === 'image' ? 'png' : 'mp4'}`, { dotfiles: 'allow' });
 });
 app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
@@ -255,7 +256,7 @@ app.post('/api/workspace', async (req, res) => {
   savingIDE = true;
   try {
     const workspace = demo ? req.body.path || settings.workspace : await validateWorkspace(req.body.path);
-    const build = demo ? {} : await validateBuild(workspace, req.body);
+    const build = demo ? { framework: req.body.framework === 'react-native' ? 'react-native' : 'flutter' } : await validateBuild(workspace, req.body);
     const previous = workspaceSetups[workspace];
     const targetIds = workspace === settings.workspace ? settings.targetIds : previous?.targetIds || [];
     const ideEnabled = workspace === settings.workspace ? settings.ideEnabled !== false : previous?.ideEnabled !== false;

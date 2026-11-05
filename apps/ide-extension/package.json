@@ -1,8 +1,8 @@
 {
   "name": "snapkit-debug-sync",
   "displayName": "Snapkit Debug Sync",
-  "description": "Debug Dashboard-selected Flutter devices without modifying project files; fall back to normal IDE debugging offline.",
-  "version": "1.3.1",
+  "description": "Debug Dashboard-selected Flutter and React Native devices without modifying project files; fall back to normal IDE debugging offline.",
+  "version": "1.5.0",
   "publisher": "snapkit-local",
   "engines": {
     "vscode": "^1.85.0"
@@ -20,6 +20,14 @@
       {
         "command": "snapkit.toggleDashboardTargets",
         "title": "Snapkit: Toggle Dashboard Targets"
+      },
+      {
+        "command": "snapkit.debugReactNative",
+        "title": "Snapkit: Debug React Native on Selected Devices"
+      },
+      {
+        "command": "snapkit.reloadReactNative",
+        "title": "Snapkit: Reload All React Native Debug Sessions"
       }
     ],
     "configuration": {
@@ -43,7 +51,41 @@
           "description": "The IDE Restart button also hot restarts other running Flutter debug sessions."
         }
       }
-    }
+    },
+    "debuggers": [
+      {
+        "type": "snapkit-react-native",
+        "label": "Snapkit React Native",
+        "languages": [
+          "javascript",
+          "typescript",
+          "javascriptreact",
+          "typescriptreact"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [],
+            "properties": {
+              "metroPort": {
+                "type": "number",
+                "default": 8081
+              },
+              "nodePath": {
+                "type": "string",
+                "default": "node"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Snapkit: React Native selected devices",
+            "type": "snapkit-react-native",
+            "request": "launch"
+          }
+        ]
+      }
+    ]
   },
   "icon": "icon.png",
   "homepage": "https://bimbimvqt.github.io/snapkit/",
@@ -65,5 +107,8 @@
   "galleryBanner": {
     "color": "#101214",
     "theme": "dark"
+  },
+  "dependencies": {
+    "ws": "^8.22.1"
   }
 }

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 const photo = { id:'preview-image',deviceName:'Test phone',kind:'image',status:'ready',createdAt:'2026-11-03T03:00:00Z' };
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 async function mockGallery(page,captures,file){

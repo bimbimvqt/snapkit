@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 test('desktop splash loads the shared logo, localizes status and respects reduced motion', async ({page}) => {
   const file = new URL('../../apps/desktop/src/splash/splash.html',import.meta.url);

@@ -7,7 +7,7 @@ let preferences = {};
 try { preferences = JSON.parse(readFileSync(file, 'utf8')); } catch {}
 if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) preferences = {};
 const supportedEditors = ['vscode', 'cursor', 'antigravity'];
-export const getPreferences = () => ({ flutterSDK: preferences.flutterSDK || '', androidSDK: preferences.androidSDK || '', editor: supportedEditors.includes(preferences.editor) ? preferences.editor : 'vscode', onboardingComplete: preferences.onboardingComplete === true });
+export const getPreferences = () => ({ flutterSDK: preferences.flutterSDK || '', androidSDK: preferences.androidSDK || '', developerProfile: preferences.developerProfile || null, editor: supportedEditors.includes(preferences.editor) ? preferences.editor : 'vscode', onboardingComplete: preferences.onboardingComplete === true });
 export async function savePreferences(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid preferences');
   const next = getPreferences();
@@ -20,6 +20,11 @@ export async function savePreferences(input) {
       if (!(await stat(executable).catch(() => null))?.isFile()) throw new Error(key === 'flutterSDK' ? 'Choose the Flutter SDK folder containing bin/flutter' : 'Choose the Android SDK folder containing platform-tools/adb');
     }
     next[key] = value;
+  }
+  if (input.developerProfile !== undefined) {
+    const profile = input.developerProfile;
+    if (!profile || !['frontend', 'backend'].includes(profile.role) || (profile.role === 'frontend' && !['flutter', 'react-native'].includes(profile.framework))) throw new Error('Choose a developer role and framework');
+    next.developerProfile = { role: profile.role, framework: profile.role === 'frontend' ? profile.framework : null };
   }
   if (input.editor !== undefined) {
     if (!supportedEditors.includes(input.editor)) throw new Error('Choose a supported editor');

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 async function chooseLanguage(page, language) {
   await page.locator('[data-language-select]').click();
   await page.locator(`[data-language="${language}"]`).click();

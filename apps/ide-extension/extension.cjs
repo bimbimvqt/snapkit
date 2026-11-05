@@ -48,6 +48,7 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Snapkit Debug Sync');
   const report = message => output.appendLine(`${new Date().toISOString()} ${message}`);
   const dashboard = require('./dashboard-debug.cjs').createDashboardDebug(vscode, { report });
+  const native = require('./react-native-debug.cjs').createNativeDebug(vscode, {report});
   const control = require('./session-control.cjs').createSessionControl(vscode, { report });
   const sync = createRestartSync({
     onStarting: session => dashboard.started(session),
@@ -58,18 +59,28 @@ function activate(context) {
       if (failed) void vscode.window.showWarningMessage(`Snapkit: ${message}`);
     },
   });
-  context.subscriptions.push(output, dashboard, control,
+  context.subscriptions.push(output, dashboard, control, native,
+    vscode.debug.registerDebugConfigurationProvider('snapkit-react-native', native.provider),
+    vscode.debug.registerDebugAdapterTrackerFactory('pwa-node', native),
+    vscode.commands.registerCommand('snapkit.reloadReactNative', () => native.reloadAll()),
+    vscode.commands.registerCommand('snapkit.debugReactNative', async () => {
+      const folders = vscode.workspace.workspaceFolders || [];
+      const folder = folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick({placeHolder: 'Select the React Native project connected to Snapkit'});
+      if (folder) return vscode.debug.startDebugging(folder, {name: 'Snapkit: React Native', type: 'snapkit-react-native', request: 'launch'});
+    }),
     vscode.debug.registerDebugAdapterTrackerFactory('dart', sync),
     vscode.debug.registerDebugConfigurationProvider('dart', dashboard.provider),
-    vscode.debug.onDidStartDebugSession(session => { control.started(session); void dashboard.started(session); }),
-    vscode.debug.onDidTerminateDebugSession(session => { control.terminated(session); void dashboard.terminated(session); }),
+    vscode.debug.registerDebugConfigurationProvider('reactnative', native.legacyProvider),
+    vscode.debug.registerDebugConfigurationProvider('reactnativedirect', native.legacyProvider),
+    vscode.debug.onDidStartDebugSession(session => { control.started(session); void native.started(session); void dashboard.started(session); }),
+    vscode.debug.onDidTerminateDebugSession(session => { control.terminated(session); native.terminated(session); void dashboard.terminated(session); }),
     vscode.commands.registerCommand('snapkit.toggleDashboardTargets', async () => {
       const settings = vscode.workspace.getConfiguration('snapkit');
       const enabled = !settings.get('useDashboardTargets', true);
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Snapkit Debug Sync 1.3.1 ready. Parallel launches begin before adapter initialization.');
+  output.appendLine('Snapkit Debug Sync 1.5.0 ready. Parallel launches begin before adapter initialization.');
 }
 
 module.exports = { activate, createRestartSync };

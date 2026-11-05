@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { createCloud } from '../../apps/cloud/src/index.js';
 import { defaultContent } from '../../apps/cloud/src/accounts.js';
 

@@ -38,7 +38,7 @@ function getPlan(base) {
   });
 }
 
-function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonicalWorkspace, report = () => {}, flutterProject = async root => /^\s*flutter\s*:/m.test(await readFile(path.join(root, 'pubspec.yaml'), 'utf8')) } = {}) {
+function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonicalWorkspace, report = () => {}, reactNativeProject = async root => { const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')); return !!(pkg.dependencies?.['react-native'] || pkg.devDependencies?.['react-native']); }, flutterProject = async root => /^\s*flutter\s*:/m.test(await readFile(path.join(root, 'pubspec.yaml'), 'utf8')) } = {}) {
   const groups = new Map();
   const normal = config => !config.__snapkitGroup;
   async function stop(group) {
@@ -54,31 +54,36 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
     async resolveDebugConfiguration(folder, config, token) {
       if (!normal(config)) return groups.has(config.__snapkitGroup) ? config : undefined;
       const settings = vscode.workspace.getConfiguration('snapkit', folder?.uri);
+      const native = ['reactnative', 'reactnativedirect'].includes(config.type);
       const program = String(config.program || '').replaceAll('\\', '/');
       if (!folder || !vscode.workspace.isTrusted || !settings.get('useDashboardTargets', true)
-          || (config.type && config.type !== 'dart') || (config.request && config.request !== 'launch')
+          || (config.type && !['dart', 'reactnative', 'reactnativedirect'].includes(config.type)) || (config.request && config.request !== 'launch')
           || config.noDebug || (config.flutterMode && config.flutterMode !== 'debug')
           || config.testName || config.testSuite || config.runTestsOnDevice
           || /(^|\/)(test|integration_test)\//.test(program) || /_test\.dart(?:\?|$)/.test(program)) return config;
       let plan, root;
       try {
         root = await canonical(folder.uri.fsPath);
-        if (!await flutterProject(root)) return config;
+        if (!await (native ? reactNativeProject(root) : flutterProject(root))) return config;
         plan = await readPlan(settings.get('agentUrl', 'http://127.0.0.1:4310'));
         if (plan.protocol !== 1 || !plan.workspace || root !== await canonical(plan.workspace) || plan.status === 'inactive') return config;
       } catch {
         report('Snapkit unavailable; using the original IDE debug configuration.');
         return config;
       }
+      if ((plan.framework === 'react-native') !== native) return config;
       if (token?.isCancellationRequested) return undefined;
       if (plan.status !== 'ready' || !Array.isArray(plan.configurations) || !plan.configurations.length) {
         void vscode.window.showErrorMessage(`Snapkit: ${plan.reason || 'Update the device selection in Dashboard.'}`);
         return undefined;
       }
-      // Accept a narrow Flutter launch schema, never adapter executables or commands.
-      if (plan.configurations.some(c => c.type !== 'dart' || c.request !== 'launch' || c.flutterMode !== 'debug'
-          || c.cwd !== plan.workspace || !path.isAbsolute(c.program) || typeof c.deviceId !== 'string'
-          || !Array.isArray(c.toolArgs) || c.toolArgs.some(a => typeof a !== 'string'))) {
+      // Accept only device launch data, never adapter executables or commands.
+      if (plan.configurations.some(c => c.request !== 'launch' || c.cwd !== plan.workspace || typeof c.deviceId !== 'string' || !c.deviceId
+          || (native ? c.type !== 'reactnative' || !['android', 'ios'].includes(c.platform) || c.target !== c.deviceId
+            || !Array.isArray(c.runArguments) || c.runArguments.length !== 2
+            || c.runArguments[0] !== (c.platform === 'ios' ? '--udid' : '--deviceId') || c.runArguments[1] !== c.deviceId
+            : c.type !== 'dart' || c.flutterMode !== 'debug' || !path.isAbsolute(c.program)
+              || !Array.isArray(c.toolArgs) || c.toolArgs.some(a => typeof a !== 'string')))) {
         void vscode.window.showErrorMessage('Snapkit: Invalid IDE configuration from local agent.');
         return undefined;
       }
@@ -88,6 +93,7 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       }
       const group = { id: randomUUID(), root, folder, sessions: new Map(), queue: [], stopping: false };
       const configs = plan.configurations.map(c => {
+        if (native) return member({ ...config, ...c, type: config.type }, group);
         const combined = { ...config, name: c.name, type: 'dart', request: 'launch', flutterMode: 'debug',
           program: c.program, cwd: c.cwd, deviceId: c.deviceId, args: [], toolArgs: c.toolArgs };
         delete combined.dartCodeDebugSessionID;

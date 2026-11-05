@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 test('in-app update controls show progress, separate install action and cache feedback in EN/VI', async ({ page }) => {
   await page.addInitScript(() => {
     let state = { status: 'idle', current: '0.2.0-beta.19' };

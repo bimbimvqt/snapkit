@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { choose } from './choices.js';
 test('all selects use themed menus, keyboard selection, localized labels and outside dismissal', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message)); await page.goto('/?lang=en');

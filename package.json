@@ -1,9 +1,9 @@
 {
   "name": "snapkit-device-center",
-  "version": "0.2.0-beta.32",
+  "version": "0.2.0-beta.33",
   "private": true,
   "type": "module",
-  "description": "Local Flutter device control center",
+  "description": "Local Flutter and React Native device control center",
   "scripts": {
     "start": "node apps/agent/src/main.js",
     "dev": "node --watch apps/agent/src/main.js",
@@ -44,7 +44,8 @@
   "dependencies": {
     "express": "^5.1.0",
     "jose": "^6.2.15",
-    "jsonc-parser": "^3.3.1"
+    "jsonc-parser": "^3.3.1",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

@@ -23,7 +23,7 @@ Extension kết nối Snapkit Desktop với trình debug Flutter của IDE. Bạ
 - Cài Flutter SDK, Android SDK riêng; iOS Simulator cần macOS và Xcode.
 - Android Studio/IntelliJ dùng bộ điều khiển debug riêng, không cài VSIX này.
 
-Windows quản lý Android. Chưa có gói desktop Linux/Windows ARM trong beta; chưa tích hợp React Native/Metro hoặc debug nhóm JetBrains. Remote SSH, WSL và Dev Containers chưa được xác minh: địa chỉ localhost có thể thuộc máy chạy extension host thay vì máy đang mở Snapkit Desktop.
+Windows quản lý Android. Chưa có gói desktop Linux/Windows ARM trong beta; hỗ trợ React Native Hermes bằng launcher Snapkit (xem bên dưới), chưa tích hợp debug nhóm JetBrains. Remote SSH, WSL và Dev Containers chưa được xác minh: địa chỉ localhost có thể thuộc máy chạy extension host thay vì máy đang mở Snapkit Desktop.
 
 ## Cài đặt và cập nhật
 
@@ -76,3 +76,16 @@ Extension không ghi `launch.json`, source hoặc ID thiết bị vào repo dự
 Nếu nút Dừng debug chưa hiện: kiểm tra bản extension, reload IDE rồi bắt đầu debug lại. Nếu F5 dùng thiết bị khác: kiểm tra thư mục dự án khớp, Dashboard targets đang bật và thiết bị online. Nếu đã di chuyển source, chọn lại đường dẫn mới.
 
 Xem **View → Output → Snapkit Debug Sync** để đọc log. Hướng dẫn báo lỗi ở [SUPPORT.md](SUPPORT.md); lịch sử phiên bản ở [CHANGELOG.md](CHANGELOG.md).
+
+
+## React Native · 1.4.0
+
+Cài Snapkit Debug Sync 1.5.0. Kết nối dự án React Native có community CLI, Hermes và thư mục native `android` hoặc `ios`. Expo cần prebuild; chưa hỗ trợ Expo Go.
+
+Chọn các thiết bị online trong Snapkit. Trong Run and Debug chọn **Snapkit React Native** rồi nhấn F5, hoặc chạy lệnh **Snapkit: Debug React Native on Selected Devices**. Snapkit build bằng CLI của project, khởi động hoặc dùng lại Metro đúng project, rồi gắn debugger Hermes riêng cho mỗi thiết bị. Đặt breakpoint, xem biến và call stack trong IDE. Stop một phiên vẫn giữ các phiên còn lại. Fast Refresh khi lưu do React Native/Metro xử lý. Dùng lệnh **Snapkit: Reload All React Native Debug Sessions** để reload cả nhóm đang debug.
+
+```json
+{"name":"Snapkit: React Native selected devices","type":"snapkit-react-native","request":"launch","metroPort":8081}
+```
+
+Profile này không cần React Native Tools. Các profile legacy `reactnative` vẫn dùng extension đó. Hỗ trợ Android và iOS Simulator; iOS cần macOS, iPhone thật dùng Xcode. Build release chạy qua CLI của project. Nếu cổng Metro thuộc project khác, chọn `metroPort` còn trống. Xem lỗi build trong **Output → Snapkit Debug Sync**.
