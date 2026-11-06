@@ -7,10 +7,12 @@ test('feedback preserves failed drafts, submits reviews and works in both langua
     if(fail) await route.fulfill({status:503,json:{error:'Unavailable'}});
     else await route.fulfill({status:201,json:{received:true,id:'test-id'}});
   });
+  await page.route('**/v1/public/reviews?*',route=>route.fulfill({json:{total:0,reviews:[]}}));
   await page.goto('./?lang=vi#feedback');
-  await page.locator('#feedback-type').selectOption('review');
-  await expect(page.locator('#feedback-rating')).toBeVisible();
-  await page.locator('#feedback-rating').selectOption('4');
+  await page.locator('#feedback-type [role=combobox]').click();
+  await page.getByRole('option',{name:'Đánh giá trải nghiệm'}).click();
+  await expect(page.locator('.star-picker')).toBeVisible();
+  await page.getByRole('radio',{name:'4 sao',exact:true}).check();
   await page.locator('#feedback-message').fill('Thiết bị chạy tốt, mong có thêm nhóm thiết bị.');
   await page.locator('#feedback-email').fill('developer@example.com');
   await page.locator('#feedback-form button[type=submit]').click();
@@ -61,4 +63,49 @@ test('SEO includes canonical, social cards, valid software schema, robots and si
   expect(JSON.stringify(schema)).not.toContain('aggregateRating');
   expect(await (await request.get('robots.txt')).text()).toContain('Sitemap: https://snapkit.vn/sitemap.xml');
   expect(await (await request.get('sitemap.xml')).text()).toContain('<loc>https://snapkit.vn/</loc>');
+});
+
+test('custom feedback choices support keyboard, star input and publication permission', async ({page}) => {
+  await page.route('**/v1/public/reviews?*',route=>route.fulfill({json:{total:0,reviews:[]}}));
+  let sent;
+  await page.route('**/v1/feedback',route=>{sent=route.request().postDataJSON();return route.fulfill({status:201,json:{received:true,id:'review-id'}});});
+  await page.goto('./?lang=vi#feedback');
+  await expect(page.locator('#feedback-form select')).toHaveCount(0);
+  const choice = page.locator('#feedback-type [role=combobox]');
+  await choice.focus(); await choice.press('ArrowDown');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await page.getByRole('option',{name:'Đề xuất tính năng',exact:true}).press('Escape');
+  await expect(choice).toBeFocused();
+  await choice.click(); await page.getByRole('option',{name:'Đánh giá trải nghiệm'}).click();
+  const firstStar = page.getByRole('radio',{name:'1 sao',exact:true});
+  await firstStar.check(); await firstStar.press('ArrowRight');
+  await expect(page.getByRole('radio',{name:'2 sao',exact:true})).toBeChecked();
+  await page.getByRole('radio',{name:'5 sao',exact:true}).check();
+  await expect(page.locator('.rating-choice.filled')).toHaveCount(5);
+  await page.locator('#review-consent').check();
+  await page.locator('#feedback-message').fill('Snapkit helps me test my Flutter projects.');
+  await page.locator('#feedback-form').scrollIntoViewIfNeeded();
+  await page.screenshot({path:'/tmp/snapkit-review-stars-desktop.png'});
+  await page.setViewportSize({width:390,height:950});
+  await page.locator('#feedback-form').scrollIntoViewIfNeeded();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:'/tmp/snapkit-review-stars-mobile.png'});
+  await page.locator('#feedback-form button[type=submit]').click();
+  await expect(page.locator('#feedback-status')).toContainText('sau khi được duyệt');
+  expect(sent).toMatchObject({type:'review',rating:5,publishConsent:true});
+  await expect(page.locator('.rating-choice.filled')).toHaveCount(0);
+});
+
+test('published review cards escape content and show star ratings; empty state invents no reviews',async({page})=>{
+  const sample={id:'published-review',name:'<img src=x>',message:'Useful application <script>alert(1)</script>',rating:4,createdAt:'2026-11-06T00:00:00Z'};
+  await page.route('**/v1/public/reviews?*',route=>route.fulfill({json:{total:1,reviews:[sample]}}));
+  await page.goto('./?lang=vi#reviews');
+  await expect(page.locator('.review-card')).toHaveCount(1);
+  await expect(page.locator('.review-card')).toContainText(sample.message);
+  await expect(page.locator('.review-card img,.review-card script')).toHaveCount(0);
+  await expect(page.locator('.review-card [role=img]')).toHaveAttribute('aria-label','4/5 sao');
+  await expect(page.locator('.review-card svg.filled')).toHaveCount(4);
+  await page.route('**/v1/public/reviews?*',route=>route.fulfill({json:{total:0,reviews:[]}}));
+  await page.reload(); await expect(page.locator('#reviews-status')).toContainText('Chưa có đánh giá được duyệt');
+  await expect(page.locator('.review-card')).toHaveCount(0);
 });

@@ -4,7 +4,7 @@
   const $ = s => document.querySelector(s); let content, offset = 0, total = 0, feedbackOffset = 0;
   async function api(route, body) {
     const res = await fetch('/v1/' + route, { credentials: 'same-origin', method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Snapkit-Request': '1' }, signal: AbortSignal.timeout(15000), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    const data = await res.json(); if (!res.ok) { const e = Error(res.status === 409 ? 'Nội dung đã đổi ở cửa sổ khác. Tải lại trước khi lưu.' : data.error); e.status = res.status; throw e; } return data;
+    const data = await res.json(); if (!res.ok) { const e = Error(res.status === 409 && route === 'admin/content' ? 'Nội dung đã đổi ở cửa sổ khác. Tải lại trước khi lưu.' : data.error); e.status = res.status; throw e; } return data;
   }
   function authState(state, message = '') {
     document.body.dataset.view = 'auth'; $('#login').hidden = false; $('#dashboard').hidden = true;
@@ -23,19 +23,56 @@
   }
   async function feedback() {
     const data = await api('admin/feedback?offset=' + feedbackOffset);
-    $('#feedback-count').textContent = data.total + ' góp ý · Chỉ quản trị viên có thể xem.';
+    $('#feedback-count').textContent = data.total + ' góp ý · Chỉ đánh giá đã duyệt và được cho phép chia sẻ mới xuất hiện trên website.';
     $('#feedback-inbox').replaceChildren();
     for (const entry of data.entries) {
       const card = document.createElement('article'); card.className = 'feedback-entry';
-      const heading = document.createElement('h3'); heading.textContent = ({review:'Đánh giá',bug:'Báo lỗi',feature:'Đề xuất tính năng',other:'Góp ý khác'}[entry.type] || entry.type) + (entry.rating ? ' · ' + entry.rating + '/5' : '');
-      const meta = document.createElement('p'); meta.textContent = [entry.name, entry.email, new Date(entry.createdAt).toLocaleString('vi-VN')].filter(Boolean).join(' · ');
-      const message = document.createElement('p'); message.textContent = entry.message;
-      const label = document.createElement('label'); label.textContent = 'Trạng thái';
-      const select = document.createElement('select'); select.setAttribute('aria-label', 'Trạng thái góp ý ' + entry.id);
-      for (const [value, text] of [['new','Mới'],['reviewing','Đang xem xét'],['done','Đã xử lý']]) { const option = new Option(text, value); select.add(option); }
-      select.value = entry.status;
-      select.onchange = async () => { select.disabled = true; try { await api('admin/feedback/status',{id:entry.id,status:select.value}); entry.status = select.value; } catch (e) { select.value = entry.status; fail(e); } finally { select.disabled = false; } };
-      label.append(select); card.append(heading,meta,message,label); $('#feedback-inbox').append(card);
+      const heading = document.createElement('h3'); heading.textContent = ({review:'Đánh giá',bug:'Báo lỗi',feature:'Đề xuất tính năng',other:'Góp ý khác'}[entry.type] || entry.type);
+      const meta = document.createElement('p'); meta.className = 'feedback-meta'; meta.textContent = [entry.name, entry.email, new Date(entry.createdAt).toLocaleString('vi-VN')].filter(Boolean).join(' · ');
+      const message = document.createElement('p'); message.className = 'feedback-body'; message.textContent = entry.message;
+      card.append(heading);
+      if (entry.type === 'review' && entry.rating) {
+        const stars = document.createElement('span'); stars.className = 'rating-stars'; stars.setAttribute('role','img'); stars.setAttribute('aria-label',entry.rating + '/5 sao');
+        stars.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.19l-5.56 2.93 1.06-6.2L3 9.53l6.22-.9z"/></svg>'.repeat(5);
+        [...stars.children].forEach((star,index) => star.classList.toggle('filled',index < entry.rating)); card.append(stars);
+      }
+      card.append(meta,message);
+      const controls = document.createElement('div'); controls.className = 'feedback-controls';
+      const label = document.createElement('span'); label.id = 'feedback-status-' + entry.id; label.className = 'feedback-control-label'; label.textContent = 'Tiến độ xử lý';
+      const select = document.createElement('snapkit-select'); select.configure({ labelledby:label.id, value:entry.status, items:[{value:'new',label:'Mới'},{value:'reviewing',label:'Đang xem xét'},{value:'done',label:'Đã xử lý'}], onChange: async value => {
+        select.disabled = true;
+        try { await api('admin/feedback/status',{id:entry.id,status:value}); entry.status = value; }
+        catch (e) { select.value = entry.status; fail(e); }
+        finally { select.disabled = false; }
+      } });
+      controls.append(label,select); card.append(controls);
+      if (entry.type === 'review') {
+        const moderation = document.createElement('div'); moderation.className = 'review-moderation';
+        const badge = document.createElement('span'); badge.className = 'moderation-badge'; badge.dataset.state = entry.moderation || 'pending';
+        badge.textContent = ({approved:'Đã duyệt · Đang hiển thị',rejected:'Không công khai',pending:'Chờ duyệt'}[entry.moderation || 'pending']);
+        moderation.append(badge);
+        const note = document.createElement('p'); note.className = 'moderation-note';
+        note.textContent = entry.publishConsent ? 'Người gửi đồng ý công khai tên, nội dung và số sao. Email được giữ riêng.' : 'Đánh giá riêng tư: người gửi chưa đồng ý công khai.';
+        moderation.append(note);
+        const actions = document.createElement('div'); actions.className = 'moderation-actions';
+        const status = document.createElement('p'); status.setAttribute('role','status');
+        const addAction = (text, value, primary = false) => {
+          const button = document.createElement('button'); button.type = 'button'; button.textContent = text; if (primary) button.className = 'primary';
+          button.onclick = async () => {
+            actions.querySelectorAll('button').forEach(node => { node.disabled = true; }); status.textContent = 'Đang lưu…';
+            try { await api('admin/feedback/moderation',{id:entry.id,moderation:value}); await feedback(); }
+            catch (e) { status.textContent = 'Chưa thể cập nhật. Vui lòng thử lại.'; actions.querySelectorAll('button').forEach(node => { node.disabled = false; }); fail(e); }
+          }; actions.append(button);
+        };
+        if (entry.moderation === 'approved') addAction('Ẩn khỏi landing page','pending');
+        else {
+          if (entry.publishConsent) addAction('Duyệt & hiển thị','approved',true);
+          if (entry.moderation !== 'rejected') addAction('Không công khai','rejected');
+          else addAction('Đưa về chờ duyệt','pending');
+        }
+        moderation.append(actions,status); card.append(moderation);
+      }
+      $('#feedback-inbox').append(card);
     }
     $('#feedback-previous').disabled = feedbackOffset === 0; $('#feedback-next').disabled = feedbackOffset + 50 >= data.total; $('#feedback-page').textContent = 'Trang ' + (feedbackOffset / 50 + 1);
   }

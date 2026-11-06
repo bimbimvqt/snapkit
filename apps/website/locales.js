@@ -193,6 +193,21 @@ window.SnapkitMessages = {
     "Đang gửi góp ý…": "Sending feedback…",
     "Đã nhận góp ý. Cảm ơn bạn đã giúp Snapkit tốt hơn!": "Feedback received. Thank you for helping improve Snapkit!",
     "Bạn đã gửi nhiều góp ý. Vui lòng thử lại sau một giờ.": "You have sent several submissions. Please try again in an hour.",
-    "Chưa thể gửi góp ý. Nội dung vẫn được giữ lại, bạn hãy thử lại.": "Could not send feedback. Your draft is still here; please try again."
+    "Chưa thể gửi góp ý. Nội dung vẫn được giữ lại, bạn hãy thử lại.": "Could not send feedback. Your draft is still here; please try again.",
+    "Chọn một mục": "Choose an option",
+    "{0} sao": "{0} stars",
+    "{0}/5 sao": "{0}/5 stars",
+    "Chọn số sao để đánh giá": "Choose a star rating",
+    "Tôi đồng ý hiển thị tên, nội dung và số sao trên website sau khi được duyệt.": "I agree to share my name, review and star rating on the website after approval.",
+    "Đánh giá chỉ được công khai khi bạn đồng ý và quản trị viên duyệt. Email, báo lỗi và đề xuất tính năng được giữ riêng. Không gửi mật khẩu, token hoặc dữ liệu nhạy cảm.": "Reviews are published only with your permission and administrator approval. Email, bug reports and feature requests remain private. Do not include passwords, tokens or sensitive data.",
+    "TỪ NGƯỜI DÙNG SNAPKIT": "FROM SNAPKIT USERS",
+    "Lắng nghe để tốt hơn.": "Listening to improve.",
+    "Những trải nghiệm được người dùng cho phép chia sẻ và đội ngũ Snapkit duyệt.": "Experiences shared with users’ permission and approved by the Snapkit team.",
+    "Đang tải đánh giá…": "Loading reviews…",
+    "Xem thêm đánh giá": "More reviews",
+    "Người dùng Snapkit": "Snapkit user",
+    "Chưa có đánh giá được duyệt. Hãy chia sẻ trải nghiệm đầu tiên của bạn.": "No approved reviews yet. Be the first to share your experience.",
+    "Chưa tải được đánh giá. Vui lòng thử lại.": "Could not load reviews. Please try again.",
+    "Đã nhận đánh giá. Nội dung sẽ hiển thị sau khi được duyệt.": "Review received. It will appear after approval."
   }
 };

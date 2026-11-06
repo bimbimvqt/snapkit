@@ -73,8 +73,9 @@ test('admin edits bilingual content with optimistic revision and renders account
     await expect(page.locator('#users img')).toHaveCount(0);
     await expect(page.locator('#feedback-inbox')).toContainText('<img src=x onerror=alert(1)>');
     await expect(page.locator('#feedback-inbox img')).toHaveCount(0);
-    await page.locator('#feedback-inbox select').selectOption('reviewing');
-    await expect(page.locator('#feedback-inbox select')).toBeEnabled();
+    await page.locator('#feedback-inbox [role=combobox]').click();
+    await page.getByRole('option',{name:'Đang xem xét',exact:true}).click();
+    await expect(page.locator('#feedback-inbox [role=combobox]')).toBeEnabled();
     expect(feedbackStatus).toEqual({id:'test-feedback',status:'reviewing'});
     await page.screenshot({path:'/tmp/snapkit-admin-beta10.png',fullPage:true});
   } finally { server.close(); }
@@ -176,4 +177,39 @@ test('account service transport errors show actionable Vietnamese feedback and p
   await page.locator('#google-signin').click();
   await expect(page.locator('#account-message')).toContainText('Không thể kết nối dịch vụ tài khoản Snapkit');
   await expect(page.locator('#google-signin')).toBeEnabled();
+});
+
+test('admin shows review stars, uses custom progress menu and explicitly approves or withdraws public reviews', async ({page}) => {
+  const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(resolve=>server.once('listening',resolve));
+  let moderation = 'pending';
+  try {
+    await page.route('**/v1/**',async route=>{
+      const path = new URL(route.request().url()).pathname;
+      if(path==='/v1/auth/config')return route.fulfill({json:{configured:true}});
+      if(path==='/v1/account')return route.fulfill({json:{user:{email:'admin@example.com',role:'admin'}}});
+      if(path==='/v1/admin/overview')return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
+      if(path==='/v1/admin/users')return route.fulfill({json:{total:0,users:[]}});
+      if(path==='/v1/admin/feedback')return route.fulfill({json:{total:1,entries:[{id:'review-1',type:'review',rating:4,message:'Useful tool for Flutter development.',name:'Developer',email:'private@example.com',status:'new',moderation,publishConsent:true,createdAt:'2026-11-06T00:00:00Z'}]}});
+      if(path==='/v1/admin/feedback/moderation'){moderation=route.request().postDataJSON().moderation;return route.fulfill({json:{saved:true}});}
+      return route.fulfill({status:404,json:{error:'Not found'}});
+    });
+    await page.goto('http://127.0.0.1:'+server.address().port+'/admin/');
+    await expect(page.locator('#dashboard')).toBeVisible();
+    await expect(page.locator('#feedback-inbox select')).toHaveCount(0);
+    await expect(page.locator('#feedback-inbox [role=img]')).toHaveAttribute('aria-label','4/5 sao');
+    await expect(page.locator('#feedback-inbox svg.filled')).toHaveCount(4);
+    await expect(page.locator('.moderation-badge')).toHaveText('Chờ duyệt');
+    await page.getByRole('button',{name:'Duyệt & hiển thị',exact:true}).click();
+    await expect(page.locator('.moderation-badge')).toContainText('Đang hiển thị'); expect(moderation).toBe('approved');
+    await page.getByRole('button',{name:'Ẩn khỏi landing page',exact:true}).click();
+    await expect(page.locator('.moderation-badge')).toHaveText('Chờ duyệt'); expect(moderation).toBe('pending');
+    await page.locator('#feedback-inbox').scrollIntoViewIfNeeded();
+    await page.locator('#feedback-inbox [role=combobox]').click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await page.screenshot({path:'/tmp/snapkit-admin-review-moderation.png'});
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({width:390,height:950});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.locator('#feedback-inbox').scrollIntoViewIfNeeded(); await page.screenshot({path:'/tmp/snapkit-admin-review-mobile.png'});
+  } finally { server.close(); }
 });

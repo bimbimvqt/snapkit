@@ -47,7 +47,33 @@ test('Google OAuth binds browser, verifies nonce/email, enforces admin, CSRF, re
   assert.equal((await post('/v1/admin/feedback/status',{id:receipt.id,status:'reviewing'},admin.cookie)).status,200);
   const persisted = JSON.parse(await readFile(path.join(dir,'accounts.json'),'utf8'));
   assert.equal(persisted.feedback[0].status,'reviewing');
-  for (let index = 0; index < 4; index++) assert.equal((await post('/v1/feedback',{...feedback,type:'review',rating:5})).status,201);
+  const reviewIds = [];
+  for (let index = 0; index < 4; index++) {
+    const response = await post('/v1/feedback',{...feedback,type:'review',rating:5,publishConsent:index === 0,moderation:'approved'});
+    assert.equal(response.status,201); reviewIds.push((await response.json()).id);
+  }
+  const publicReviews = async () => (await request('/v1/public/reviews')).json();
+  assert.equal((await publicReviews()).total,0, 'client moderation fields cannot publish reviews');
+  const moderation = {id:reviewIds[0],moderation:'approved'};
+  assert.equal((await post('/v1/admin/feedback/moderation',moderation)).status,401);
+  assert.equal((await post('/v1/admin/feedback/moderation',moderation,member.cookie)).status,403);
+  assert.equal((await post('/v1/admin/feedback/moderation',moderation,admin.cookie,false)).status,403);
+  assert.equal((await post('/v1/admin/feedback/moderation',{...moderation,id:receipt.id},admin.cookie)).status,409, 'feature requests stay private');
+  assert.equal((await post('/v1/admin/feedback/moderation',{...moderation,id:reviewIds[1]},admin.cookie)).status,409, 'private reviews cannot be published');
+  await post('/v1/admin/feedback/status',{id:reviewIds[0],status:'done'},admin.cookie);
+  assert.equal((await publicReviews()).total,0, 'processing status does not approve a review');
+  assert.equal((await post('/v1/admin/feedback/moderation',moderation,admin.cookie)).status,200);
+  const published = await publicReviews(); assert.equal(published.total,1); assert.equal(published.reviews[0].rating,5);
+  assert.deepEqual(Object.keys(published.reviews[0]).sort(),['createdAt','id','message','name','rating']);
+  assert.equal(JSON.stringify(published).includes(feedback.email),false);
+  const restarted = createCloud({env}).listen(0,'127.0.0.1'); await new Promise(resolve => restarted.once('listening',resolve)); t.after(() => restarted.close());
+  const afterRestart = await fetch('http://127.0.0.1:' + restarted.address().port + '/v1/public/reviews').then(response => response.json());
+  assert.equal(afterRestart.total,1, 'approval persists across service restart');
+  assert.equal((await post('/v1/admin/feedback/moderation',{...moderation,moderation:'pending'},admin.cookie)).status,200);
+  assert.equal((await publicReviews()).total,0, 'withdrawing approval removes the public review');
+  await post('/v1/admin/feedback/moderation',{...moderation,moderation:'rejected'},admin.cookie);
+  assert.equal((await publicReviews()).total,0);
+
   assert.equal((await post('/v1/feedback',feedback)).status,429);
   const overview = await (await request('/v1/admin/overview',{headers:{Cookie:admin.cookie}})).json(); assert.equal(overview.users,2);
   const content = overview.content; content.landing.vi.headline = 'Nội dung mới';

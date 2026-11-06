@@ -67,9 +67,15 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       await transaction(next => {
         next.feedback ||= [];
         if (next.feedback.length >= 20000) throw Error('Feedback inbox is full.');
-        next.feedback.push({ id, type: input.type, message: input.message.trim(), name: (input.name || '').trim(), email: (input.email || '').trim(), rating: input.rating ?? null, status: 'new', createdAt: new Date().toISOString() });
+        next.feedback.push({ id, type: input.type, message: input.message.trim(), name: (input.name || '').trim(), email: (input.email || '').trim(), rating: input.rating ?? null, status: 'new', moderation: 'pending', publishConsent: input.type === 'review' && input.publishConsent === true, createdAt: new Date().toISOString() });
       });
       res.status(201).json({ received: true, id });
+    });
+    app.get('/v1/public/reviews', async (req, res) => {
+      await loaded;
+      const reviews = (db.feedback || []).filter(entry => entry.type === 'review' && entry.moderation === 'approved' && entry.publishConsent === true && Number.isInteger(entry.rating) && entry.rating >= 1 && entry.rating <= 5).slice().reverse();
+      const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+      res.json({ total: reviews.length, reviews: reviews.slice(offset, offset + 6).map(({ id, name, message, rating, createdAt }) => ({ id, name, message, rating, createdAt })) });
     });
     app.get('/v1/public/content', async (_req, res) => res.json(await content()));
     app.post('/v1/auth/desktop/start', (_req, res) => {
@@ -161,6 +167,16 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       await transaction(next => {
         const entry = next.feedback?.find(item => item.id === req.body.id); if (!entry) throw Error('Feedback not found.');
         entry.status = req.body.status; audit(next, req.account.user, 'feedback-' + entry.status, entry.id);
+      }); res.json({ saved: true });
+    });
+    app.post('/v1/admin/feedback/moderation', async (req, res) => {
+      if (typeof req.body?.id !== 'string' || !['pending', 'approved', 'rejected'].includes(req.body.moderation)) return res.status(400).json({ error: 'Invalid review moderation.' });
+      await transaction(next => {
+        const entry = next.feedback?.find(item => item.id === req.body.id);
+        if (!entry || entry.type !== 'review') { const error = Error('Only reviews can be published.'); error.status = 409; throw error; }
+        if (req.body.moderation === 'approved' && (entry.publishConsent !== true || !Number.isInteger(entry.rating) || entry.rating < 1 || entry.rating > 5)) { const error = Error('This review has no permission for publication.'); error.status = 409; throw error; }
+        entry.moderation = req.body.moderation; entry.moderatedAt = new Date().toISOString();
+        audit(next, req.account.user, 'review-' + entry.moderation, entry.id);
       }); res.json({ saved: true });
     });
     app.get('/v1/admin/overview', async (_req, res) => { await loaded; const users = Object.values(db.users); res.json({ users: users.length, activeUsers: users.filter(u => !u.disabled).length, sessions: Object.values(db.sessions).filter(s => s.expires > Date.now()).length, content: db.content, audit: db.audit.slice(-30).reverse() }); });

@@ -104,11 +104,30 @@ for (const [index, button] of workflowTabs.entries()) {
 
 const feedbackForm = document.querySelector('#feedback-form');
 const feedbackType = document.querySelector('#feedback-type');
+feedbackType.configure({ name: 'type', value: 'feature', labelledby: 'feedback-type-label', items: [
+  {value:'feature',label:'Đề xuất tính năng'},{value:'bug',label:'Báo lỗi'},{value:'review',label:'Đánh giá trải nghiệm'},{value:'other',label:'Góp ý khác'}
+] });
+const ratingField = document.querySelector('#feedback-rating-field');
+const ratingInputs = [...document.querySelectorAll('input[name=rating]')];
+function renderStars(previewValue) {
+  const chosen = Number(ratingInputs.find(input => input.checked)?.value || 0);
+  ratingInputs.forEach(input => {
+    input.closest('label').classList.toggle('filled', Number(input.value) <= (previewValue ?? chosen));
+    input.setAttribute('aria-label', t('{0} sao', [input.value]));
+  });
+  document.querySelector('#rating-description').textContent = chosen ? t('{0}/5 sao', [chosen]) : t('Chọn số sao để đánh giá');
+}
 function updateRating() {
   const review = feedbackType.value === 'review';
-  document.querySelector('#feedback-rating-field').hidden = !review;
-  document.querySelector('#feedback-rating').required = review;
+  ratingField.hidden = !review; ratingField.disabled = !review;
+  ratingInputs.forEach(input => { input.required = review; });
+  renderStars();
 }
+ratingInputs.forEach(input => {
+  input.addEventListener('change', () => renderStars());
+  input.closest('label').addEventListener('pointerenter', () => renderStars(Number(input.value)));
+});
+document.querySelector('.star-picker').addEventListener('pointerleave', () => renderStars());
 feedbackType.addEventListener('change', updateRating);
 let feedbackMessage = '';
 function showFeedback(message, state) {
@@ -121,18 +140,19 @@ feedbackForm.addEventListener('submit', async event => {
   if (button.disabled) return;
   const fields = new FormData(feedbackForm); const body = Object.fromEntries(fields);
   body.rating = body.type === 'review' ? Number(body.rating) : null;
+  body.publishConsent = body.type === 'review' && fields.get('publishConsent') === 'on';
   button.disabled = true; feedbackForm.setAttribute('aria-busy', 'true'); showFeedback('Đang gửi góp ý…', 'pending');
   try {
     const origin = location.hostname === 'bimbimvqt.github.io' ? 'https://snapkit.vn' : location.origin;
     const response = await fetch(origin + '/v1/feedback', { method:'POST', headers:{'Content-Type':'application/json','X-Snapkit-Request':'1'}, body:JSON.stringify(body), signal:AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(response.status === 429 ? 'rate' : 'failed');
     const data = await response.json(); if (data.received !== true) throw new Error('failed');
-    feedbackForm.reset(); updateRating(); showFeedback('Đã nhận góp ý. Cảm ơn bạn đã giúp Snapkit tốt hơn!', 'success');
+    feedbackForm.reset(); feedbackType.value = 'feature'; updateRating(); showFeedback(body.publishConsent ? 'Đã nhận đánh giá. Nội dung sẽ hiển thị sau khi được duyệt.' : 'Đã nhận góp ý. Cảm ơn bạn đã giúp Snapkit tốt hơn!', 'success');
   } catch (error) {
     showFeedback(error.message === 'rate' ? 'Bạn đã gửi nhiều góp ý. Vui lòng thử lại sau một giờ.' : 'Chưa thể gửi góp ý. Nội dung vẫn được giữ lại, bạn hãy thử lại.', 'error');
   } finally { button.disabled = false; feedbackForm.removeAttribute('aria-busy'); }
 });
-document.addEventListener('snapkit:language', () => { if (feedbackMessage) document.querySelector('#feedback-status').textContent = t(feedbackMessage); });
+document.addEventListener('snapkit:language', () => { renderStars(); if (feedbackMessage) document.querySelector('#feedback-status').textContent = t(feedbackMessage); });
 updateRating();
 
 function updateSocialMetadata() {
@@ -144,3 +164,42 @@ function updateSocialMetadata() {
 }
 document.addEventListener('snapkit:language', updateSocialMetadata);
 updateSocialMetadata();
+
+const starShape = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.19l-5.56 2.93 1.06-6.2L3 9.53l6.22-.9z"/></svg>';
+let publicReviews = [], reviewTotal = 0, reviewsBusy = false, reviewsMessage = '', lastReviewsCheck = 0;
+function renderReviews() {
+  const list = document.querySelector('#reviews-list'); list.replaceChildren();
+  for (const review of publicReviews) {
+    const card = document.createElement('article'); card.className = 'review-card';
+    const stars = document.createElement('span'); stars.className = 'rating-stars'; stars.setAttribute('role','img'); stars.setAttribute('aria-label',t('{0}/5 sao',[review.rating]));
+    stars.innerHTML = starShape.repeat(5); [...stars.children].forEach((star,index) => star.classList.toggle('filled',index < review.rating));
+    const message = document.createElement('p'); message.className = 'review-message'; message.textContent = review.message;
+    const name = document.createElement('strong'); name.textContent = review.name || t('Người dùng Snapkit');
+    const date = document.createElement('time'); date.dateTime = review.createdAt; date.textContent = new Date(review.createdAt).toLocaleDateString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-US');
+    card.append(stars,message,name,date); list.append(card);
+  }
+  document.querySelector('#reviews-status').textContent = t(reviewsMessage);
+  document.querySelector('#reviews-more').hidden = publicReviews.length >= reviewTotal;
+}
+async function loadReviews(append = false) {
+  if (reviewsBusy) return;
+  reviewsBusy = true; lastReviewsCheck = Date.now();
+  const list = document.querySelector('#reviews-list'); list.setAttribute('aria-busy','true');
+  const more = document.querySelector('#reviews-more'); more.disabled = true;
+  document.querySelector('#reviews-retry').hidden = true;
+  try {
+    const response = await fetch('/v1/public/reviews?offset=' + (append ? publicReviews.length : 0), {signal:AbortSignal.timeout(10000)});
+    if (!response.ok) throw Error('Reviews unavailable');
+    const data = await response.json(); if (!Array.isArray(data.reviews)) throw Error('Invalid reviews');
+    publicReviews = append ? [...publicReviews,...data.reviews.filter(review => !publicReviews.some(existing => existing.id === review.id))] : data.reviews;
+    reviewTotal = data.total; reviewsMessage = reviewTotal ? '' : 'Chưa có đánh giá được duyệt. Hãy chia sẻ trải nghiệm đầu tiên của bạn.'; renderReviews();
+  } catch {
+    reviewsMessage = 'Chưa tải được đánh giá. Vui lòng thử lại.'; document.querySelector('#reviews-status').textContent = t(reviewsMessage); document.querySelector('#reviews-retry').hidden = false;
+  } finally { reviewsBusy = false; more.disabled = false; list.removeAttribute('aria-busy'); }
+}
+document.querySelector('#reviews-more').onclick = () => void loadReviews(true);
+document.querySelector('#reviews-retry').onclick = () => void loadReviews();
+document.addEventListener('snapkit:language', renderReviews);
+function refreshReviews() { if (!document.hidden && Date.now() - lastReviewsCheck > 60000) void loadReviews(); }
+window.addEventListener('focus', refreshReviews); document.addEventListener('visibilitychange', refreshReviews); setInterval(refreshReviews,300000);
+void loadReviews();
