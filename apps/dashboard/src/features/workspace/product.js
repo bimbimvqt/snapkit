@@ -28,14 +28,21 @@ $$('[data-app-page]').forEach(button => button.addEventListener('click', () => s
 $$('[data-go]').forEach(button => button.addEventListener('click', () => showProductPage(button.dataset.go)));
 $('#journey-project').addEventListener('click', showWorkspace);
 $('#journey-device').addEventListener('click', () => { $('#add-device').click(); });
+let journeyInitialized = false, journeyHasState = !!state.scannedAt;
+$('#setup-card>summary').addEventListener('click', () => { journeyInitialized = true; });
 function updateJourney() {
   $('#journey-workspace').textContent = state.settings.workspace ? state.settings.workspace.split(/[\\/]/).filter(Boolean).at(-1) : t(document.body.dataset.framework === 'react-native' ? "Connect a React Native project" : "Connect a Flutter project");
   const online = state.devices.filter(device => device.state === 'online').length;
   $('#journey-devices').textContent = online ? t("{0} device{1} ready to use", [online, online === 1 ? '' : 's']) : t("Create one or connect your phone");
   $('#journey-project .step-number').classList.toggle('complete', !!state.settings.workspace);
   $('#journey-device .step-number').classList.toggle('complete', online > 0);
+  $('#journey-progress').textContent = state.settings.workspace && online ? t('Project connected · {0} online', [online]) : t('Connect project → Start devices → Debug');
+  if (product && journeyHasState && !journeyInitialized) {
+    $('#setup-card').open = !product.preferences?.onboardingComplete && !(state.settings.workspace && online > 0);
+    journeyInitialized = true;
+  }
 }
-document.addEventListener('snapkit:state', updateJourney);
+document.addEventListener('snapkit:state', () => { journeyHasState = true; updateJourney(); });
 function renderEditors() {
   const selected = productEditors.some(([id]) => id === product?.preferences?.editor) ? product.preferences.editor : 'vscode';
   $('#editor-options').innerHTML = productEditors.map(([id, name, detail, symbol]) => `<button type="button" class="editor-option ${selected === id ? 'chosen' : ''}" data-editor="${id}" aria-pressed="${selected === id}">${icon(symbol)}<strong>${escape(t(name))}</strong><small>${escape(t(detail))}</small>${selected === id ? icon('circle-check') : ''}</button>`).join('');
@@ -55,7 +62,7 @@ $('#editor-options').addEventListener('click', event => {
 });
 $('#hide-welcome').addEventListener('click', event => busy(event.currentTarget, async () => {
   const result = await api('/api/preferences', { onboardingComplete: true });
-  product.preferences = result.preferences; $('#setup-card').classList.add('hidden'); toast(t("You can find this guidance in Setup & tools."));
+  product.preferences = result.preferences; $('#setup-card').open = false; toast(t("You can reopen Quick setup anytime."));
 }));
 function updateSetupView() {
   const ready = !!product && !!toolState;
@@ -66,6 +73,8 @@ function updateSetupView() {
   $('#setup-error').classList.toggle('hidden', !toolError);
   $('#setup-error-message').textContent = toolError ? t(toolError) + ' ' + t('Reconnect your local Snapkit app, then check again.') : '';
   $('#setup-status').textContent = loading || (!ready && !toolError) ? t(ready ? 'Refreshing tool checks…' : 'Checking your tools…') : '';
+  $('#refresh-tools').disabled = loading;
+  $('#refresh-tools').setAttribute('aria-busy', String(loading));
   $('#check-tools').disabled = loading;
   $('#check-tools').setAttribute('aria-busy', String(loading));
   $('#setup-retry').disabled = loading;
@@ -108,14 +117,17 @@ function renderTools() {
       $('#computer-os-name').textContent = osName;
       $('#computer-os-version').textContent = computer.osVersion || t('Version unavailable');
       $('#computer-advice').textContent = t(toolState.advice);
-      $('#tool-checks').innerHTML = toolState.checks.map(check => `<article class="tool-check ${check.status}"><span class="tool-symbol">${icon(check.status === 'ready' ? 'check' : 'wrench')}</span><div><div class="tool-title"><h3>${escape(t(check.title))}</h3><span>${check.status === 'ready' ? t("Ready") : t("Needs setup")}</span></div>${check.status === 'ready' ? `<details class="interface-details"><summary>${t("More details")}</summary><p>${escape(t(check.detail))}</p></details>` : `<p>${escape(t(check.detail))}</p>`}${check.status !== 'ready' ? `<a class="text-link" href="${escape(check.help)}" target="_blank" rel="noopener noreferrer">${t("Open setup guide")} ${icon('arrow-up-right')}</a>` : ''}</div></article>`).join('');
+      $('#tool-checks').innerHTML = [...toolState.checks].sort((a, b) => Number(a.status === 'ready') - Number(b.status === 'ready')).map(check => `<article class="tool-check ${check.status}"><span class="tool-symbol">${icon(check.status === 'ready' ? 'check' : 'wrench')}</span><div><div class="tool-title"><h3>${escape(t(check.title))}</h3><span>${check.status === 'ready' ? t("Ready") : t("Needs setup")}</span></div>${check.status === 'ready' ? `<details class="interface-details"><summary>${t("More details")}</summary><p>${escape(t(check.detail))}</p></details>` : `<p>${escape(t(check.detail))}</p>`}${check.status !== 'ready' ? `<a class="text-link" href="${escape(check.help)}" target="_blank" rel="noopener noreferrer">${t("Open setup guide")} ${icon('arrow-up-right')}</a>` : ''}</div></article>`).join('');
       const ready = toolState.checks.filter(check => check.status === 'ready').length;
+      const missing = toolState.checks.length - ready;
+      $('#readiness-summary').textContent = t(missing ? '{0} ready · {1} need setup' : '{0} tools ready. Choose your project and devices.', missing ? [ready, missing] : [ready]);
       $('#journey-tools').textContent = t("{0} of {1} tools ready", [ready, toolState.checks.length]);
       $('[data-go="setup"] .step-number').classList.toggle('complete', toolState.ready);
       $('#storage-locations').innerHTML = Object.entries(toolState.storage || {}).filter(([,value]) => value).map(([name,value]) => `<dt>${escape({ root: t("Snapkit settings"), android: t("Android devices"), ios: t("iOS devices") }[name] || name)}</dt><dd>${escape(value)}</dd>`).join('');
       icons();
 }
 $('#check-tools').addEventListener('click', () => checkTools({ fresh: true }));
+$('#refresh-tools').addEventListener('click', () => checkTools({ fresh: true }));
 for (const kind of ['flutter', 'android']) {
   $(`#browse-${kind}-sdk`).addEventListener('click', event => busy(event.currentTarget, async () => {
     $('#preferences-error').textContent = ''; $('#preferences-result').textContent = '';
@@ -154,7 +166,6 @@ async function loadProduct() {
   try {
     product = await api('/api/product');
 
-    $('#setup-card').classList.toggle('hidden', !!product.preferences?.onboardingComplete);
     $('#pref-flutter').value = product.preferences?.flutterSDK || '';
     $('#pref-android').value = product.preferences?.androidSDK || '';
     renderEditors(); updateJourney();

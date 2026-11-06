@@ -8,10 +8,10 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', r => { if (r.url().includes('/api/')) apiRequests.push(r.url()); });
   await page.goto('./?lang=vi');
-  await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Debug nhiều thiết bị.*Ngay từ editor của bạn/ })).toBeVisible();
   await expect(page.locator('#debug-video')).toBeVisible();
   await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images45');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images46');
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
   await page.goto('demo/?lang=en');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
@@ -97,12 +97,12 @@ test('landing switches EN/VN, keeps preview and links, and remembers the languag
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('./?lang=en');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Every device.');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Debug multiple devices.');
   const downloads = await page.locator('.download-button').evaluateAll(links => links.map(link => link.href));
   await page.getByRole('button', { name: 'Setup & tools', exact: true }).click();
   await chooseLanguage(page, 'vi');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Mọi thiết bị.');
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images45');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Debug nhiều thiết bị.');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images46');
   expect(await page.locator('.download-button').evaluateAll(links => links.map(link => link.href))).toEqual(downloads);
   await page.goto('./');
   await expect(page.locator('[data-language-select]')).toHaveAttribute('data-language-current', 'vi');
@@ -132,7 +132,7 @@ test('current workflows and app gallery work in both languages with keyboard nav
     await chooseLanguage(page,language);
     for(const key of ['devices','setup','captures','releases']) {
       await page.locator(`[data-preview="${key}"]`).click();
-      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261106-images45`);
+      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261106-images46`);
       await expect.poll(()=>page.locator('#app-preview').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
     }
     for(const width of [375,768,1024,1440]) {
@@ -155,11 +155,11 @@ test('downloads show the discovered release and keep installers matched to each 
   await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases?*',route=>route.fulfill({json:[{tag_name:'v'+version,published_at:'2026-11-05T00:00:00Z',assets:names.map(name=>({name,browser_download_url:`https://github.com/bimbimvqt/snapkit/releases/download/v${version}/${name}`}))}]}));
   await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/*',route=>route.fulfill({status:404,json:{}}));
   await page.goto('./?lang=en');
-  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  await expect(page.locator('#release-version')).toHaveText('v'+version.replace(/-beta\.(\d+)$/, ' ($1)'));
   const links=await page.locator('.download-button').evaluateAll(nodes=>nodes.map(n=>n.href));
   names.forEach((name,index)=>expect(links[index]).toContain(name));
   await chooseLanguage(page,'vi');
-  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  await expect(page.locator('#release-version')).toHaveText('v'+version.replace(/-beta\.(\d+)$/, ' ($1)'));
 });
 
 test('an open landing page discovers newly published installers without a reload',async({page})=>{
@@ -169,9 +169,9 @@ test('an open landing page discovers newly published installers without a reload
   await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/*',route=>route.fulfill({status:404,json:{}}));
   await page.clock.install();
   await page.goto('./?lang=vi');
-  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  await expect(page.locator('#release-version')).toHaveText('v'+version.replace(/-beta\.(\d+)$/, ' ($1)'));
   version='0.2.0-beta.38';
   await page.clock.fastForward(300001);
-  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  await expect(page.locator('#release-version')).toHaveText('v'+version.replace(/-beta\.(\d+)$/, ' ($1)'));
   for(const link of await page.locator('.download-button').all()) await expect(link).toHaveAttribute('href',new RegExp('v0\\.2\\.0-beta\\.38/'));
 });

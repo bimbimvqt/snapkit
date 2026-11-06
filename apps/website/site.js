@@ -36,10 +36,10 @@ async function loadDesktopDownloads() {
     }
     const versions = [...new Set([...document.querySelectorAll('.download-button')].map(button => button.dataset.version).filter(Boolean))];
     const versionLabel = document.querySelector('#release-version');
-    if (versionLabel) versionLabel.textContent = versions.map(version => 'v' + version).join(' · ');
+    if (versionLabel) versionLabel.textContent = versions.map(version => 'v' + version.replace(/-beta\.(\d+)$/, ' ($1)')).join(' · ');
     const status = document.querySelector('#download-status');
-    if (status) { downloadMessage = count === 3 ? 'Bản desktop beta đã sẵn sàng. Chọn đúng loại máy của bạn.' : 'Một số bộ cài chưa sẵn sàng. Hãy chọn hệ điều hành phù hợp hoặc thử lại sau.'; status.textContent = t(downloadMessage); }
-  } catch { const status = document.querySelector('#download-status'); if (status) { downloadMessage = 'Không thể kiểm tra phiên bản mới. Các nút tải vẫn dùng bản beta hiện có.'; status.textContent = t(downloadMessage); } }
+    if (status) { downloadMessage = count === 3 ? 'Bản desktop đã sẵn sàng. Chọn đúng loại máy của bạn.' : 'Một số bộ cài chưa sẵn sàng. Hãy chọn hệ điều hành phù hợp hoặc thử lại sau.'; status.textContent = t(downloadMessage); }
+  } catch { const status = document.querySelector('#download-status'); if (status) { downloadMessage = 'Không thể kiểm tra phiên bản mới. Các nút tải vẫn dùng bộ cài hiện có.'; status.textContent = t(downloadMessage); } }
   finally { downloadsPending = false; }
 }
 loadContent().finally(loadDesktopDownloads);
@@ -106,7 +106,7 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261106-images45`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261106-images46`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();

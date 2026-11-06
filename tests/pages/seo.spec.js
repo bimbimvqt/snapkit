@@ -31,9 +31,9 @@ test('English landing stays English with JavaScript and its guide links, preview
  await page.goto('en/');await expect(page.locator('html')).toHaveAttribute('lang','en');
  await expect(page.locator('.hero-product')).toContainText('desktop app');
  await expect(page.locator('#guides a').first()).toHaveAttribute('href','en/guides/flutter-multi-device-debugging/');
- await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261106-images45');
+ await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261106-images46');
  await page.locator('[data-language-select]').click();await page.locator('[data-language=vi]').click();
- await expect(page.locator('.hero-product')).toContainText('ứng dụng desktop');
+ await expect(page.locator('.hero-product')).toContainText('Ứng dụng desktop');
  expect(errors).toEqual([]);
 });
 test('guides are usable on small screens, provide related links and keyboard navigation',async({page})=>{

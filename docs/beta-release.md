@@ -1,3 +1,9 @@
+New in 0.2.0 (46): Devices and IDE selection feedback now lead the workspace. Quick setup collapses when the project and devices are ready, stays available from its summary, and respects manual reopening. Device artwork is smaller so names, readiness and actions appear sooner. Setup & tools puts missing tools first, summarizes readiness and keeps macOS/Windows hardware information in a compact card. Both refresh controls share the existing diagnostics request and pending state. Light/dark appearance, English/Vietnamese and narrow windows are covered.
+
+The landing page now explains multi-device debugging directly, brings the existing clearly labeled demonstration higher, adds a direct interactive-preview link and removes remaining promotional beta labels. Existing release identifiers and platform limitations are preserved.
+
+Validation: JavaScript/TypeScript checks, unit coverage, browser workflows and desktop startup smoke. Packaging checks run on macOS arm64/x64 and Windows x64. These checks do not establish time saved on real projects or a universal developer need.
+
 New in 0.2.0 (45): Replaced the CSS-drawn computer and generic laptop icon with bundled Apple and Microsoft product photographs for Mac mini, Mac Studio, MacBook and Windows. Mac Studio now has a separate detected hardware form. Images work offline and retain transparent backgrounds in light and dark themes. The website preview no longer reports its expected read-only device actions as errors.
 
 Validation: JavaScript/TypeScript checks, hardware identification unit tests and browser coverage for all four image families in light/dark themes. Actual Windows hardware detection remains unverified locally; its platform startup and packaging are checked by the release workflow.

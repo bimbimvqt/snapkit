@@ -2,6 +2,13 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Collapse guide": "Thu gọn hướng dẫn",
+    "You can reopen Quick setup anytime.": "Bạn có thể mở lại Thiết lập nhanh bất cứ lúc nào.",
+    "Quick setup": "Thiết lập nhanh",
+    "Project connected · {0} online": "Đã kết nối project · {0} thiết bị online",
+    "Connect project → Start devices → Debug": "Kết nối project → Mở thiết bị → Debug",
+    "{0} ready · {1} need setup": "{0} sẵn sàng · {1} cần thiết lập",
+    "{0} tools ready. Choose your project and devices.": "{0} công cụ sẵn sàng. Chọn project và thiết bị.",
     "You’ll choose a plan and confirm your purchase before anything is charged. Paid plans will include purchase recovery and a place to manage or cancel your subscription. Payments are not available yet.": "Bạn chọn gói và xác nhận mua trước khi bị tính phí. Gói trả phí sẽ có khôi phục giao dịch và nơi quản lý hoặc hủy đăng ký. Hiện chưa mở thanh toán.",
     "Apple validates and processes the build. Manage test groups and export compliance in App Store Connect; external testing may require Apple review. TestFlight builds expire after 90 days.": "Apple xác minh và xử lý bản build. Quản lý nhóm test và khai báo mã hóa trong App Store Connect; thử nghiệm bên ngoài có thể cần Apple xét duyệt. Bản TestFlight hết hạn sau 90 ngày.",
 

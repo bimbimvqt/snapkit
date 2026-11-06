@@ -8,16 +8,32 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const DAY = 86400000;
 const safeUser = user => ({ id: user.id, name: user.name, email: user.email, picture: user.picture, role: user.role, disabled: user.disabled, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt });
 export const defaultContent = () => ({ revision: 0, registrationOpen: true, recommendedVersion: '', announcement: { en: '', vi: '' }, landing: {
-  en: { headline: 'Every device. One place to build.', description: 'Prepare your devices in a few clicks. Focus on your next great app.' },
-  vi: { headline: 'Mọi thiết bị. Một nơi điều khiển.', description: 'Chuẩn bị thiết bị trong vài thao tác. Tập trung làm nên ứng dụng tiếp theo của bạn.' }
+  en: { headline: 'Debug multiple devices. From your favorite editor.', description: 'Select your devices, press F5 and test your app across screens.' },
+  vi: { headline: 'Debug nhiều thiết bị. Ngay từ editor của bạn.', description: 'Chọn thiết bị, bấm F5 và kiểm tra ứng dụng trên nhiều màn hình.' }
 } });
+// Upgrade only untouched historical landing copy; preserve every custom edit.
+export function refreshDefaultLanding(content) {
+  const legacy = {
+    en: { headline: 'Every device. One place to build.', description: 'Prepare your devices in a few clicks. Focus on your next great app.' },
+    vi: { headline: 'Mọi thiết bị. Một nơi điều khiển.', description: 'Chuẩn bị thiết bị trong vài thao tác. Tập trung làm nên ứng dụng tiếp theo của bạn.' }
+  };
+  const next = structuredClone(content), defaults = defaultContent();
+  let changed = false;
+  for (const lang of ['en', 'vi']) for (const field of ['headline', 'description']) {
+    if (next.landing?.[lang]?.[field] === legacy[lang][field]) {
+      next.landing[lang][field] = defaults.landing[lang][field]; changed = true;
+    }
+  }
+  if (changed) next.revision++;
+  return next;
+}
 export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
   const origin = new URL(env.SNAPKIT_PUBLIC_URL || 'https://snapkit.vn').origin;
   const configured = !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
   const admins = new Set((env.SNAPKIT_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
   const file = path.join(env.SNAPKIT_CLOUD_DATA || 'cloud-data', 'accounts.json');
   let db = { users: {}, sessions: {}, content: defaultContent(), audit: [] }, queue = Promise.resolve();
-  const loaded = readFile(file, 'utf8').then(raw => { db = JSON.parse(raw); if (!db.users || !db.sessions || !db.content) throw Error('Invalid account database'); }).catch(e => { if (e.code !== 'ENOENT') throw e; });
+  const loaded = readFile(file, 'utf8').then(raw => { db = JSON.parse(raw); if (!db.users || !db.sessions || !db.content) throw Error('Invalid account database'); db.content = refreshDefaultLanding(db.content); }).catch(e => { if (e.code !== 'ENOENT') throw e; });
   loaded.catch(() => {});
   const jwks = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
   const flows = new Map(), desktop = new Map();
