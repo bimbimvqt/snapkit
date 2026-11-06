@@ -2,16 +2,7 @@
 <html lang="vi" data-page-language="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <script>
-    // Run before parsing the page so reload never restores an old scroll position
-    // or jumps back to a section hash. Normal links and history navigation still work.
-    if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
-      history.scrollRestoration = 'manual';
-      if (location.hash) history.replaceState(history.state, '', location.pathname + location.search);
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-      window.addEventListener('pageshow', () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }), { once: true });
-    }
-  </script>
+  <script src="reload.js?v=20261106-scroll"></script>
   <meta name="google-site-verification" content="h-jvHlvNiofEYSwQKFkzZWamKLfht3U6WtMXhk_v2CA">
   <link rel="alternate" hreflang="vi" href="https://snapkit.vn/"><link rel="alternate" hreflang="en" href="https://snapkit.vn/en/"><link rel="alternate" hreflang="x-default" href="https://snapkit.vn/">
   <link rel="canonical" href="https://snapkit.vn/">

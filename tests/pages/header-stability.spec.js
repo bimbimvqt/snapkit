@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+// Match the production policy: inline executable scripts must not be required.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/*', async route => {
+    if (route.request().resourceType() !== 'document') return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; base-uri 'self'" } });
+  });
+});
+
 for (const width of [375, 1440]) {
   for (const language of ['vi', 'en']) {
     test(`landing header stays stable through localization and reload (${language}, ${width}px)`, async ({ page }) => {
