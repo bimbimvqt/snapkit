@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+async function expectReloadAtTop(page) {
+  // The load event precedes pageshow/restoration on some Chromium platforms.
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+}
+
 // Match the production policy: inline executable scripts must not be required.
 test.beforeEach(async ({ page }) => {
   await page.route('**/*', async route => {
@@ -60,7 +67,7 @@ for (const width of [375, 1440]) {
       await page.evaluate(() => window.scrollTo({ top: 1500, behavior: 'instant' }));
       expect(await page.evaluate(() => scrollY)).toBeGreaterThan(1000);
       await page.reload();
-      expect(await page.evaluate(() => scrollY)).toBe(0);
+      await expectReloadAtTop(page);
       await expect(page.locator('.header')).toBeInViewport();
       expect(new URL(page.url()).search).toBe('?source=reload-test');
       // A fresh section link should still work; reloading it returns to the top.
@@ -68,7 +75,7 @@ for (const width of [375, 1440]) {
       await expect(page.locator('#downloads')).toBeInViewport();
       expect(await page.evaluate(() => scrollY)).toBeGreaterThan(1000);
       await page.reload();
-      expect(await page.evaluate(() => scrollY)).toBe(0);
+      await expectReloadAtTop(page);
       await expect(page.locator('.header')).toBeInViewport();
       expect(new URL(page.url()).hash).toBe('');
       expect(new URL(page.url()).search).toBe('?source=reload-test');
@@ -85,14 +92,14 @@ for (const route of ['huong-dan/', 'en/guides/', ...guideSlugs.flatMap(slug => [
       await page.evaluate(() => window.scrollTo({ top: 1200, behavior: 'instant' }));
       expect(await page.evaluate(() => scrollY)).toBeGreaterThan(300);
       await page.reload();
-      expect(await page.evaluate(() => scrollY)).toBe(0);
+      await expectReloadAtTop(page);
       await expect(page.locator('.header')).toBeInViewport();
       expect(new URL(page.url()).search).toBe('?source=reload-test');
       if (route.split('/').filter(Boolean).length > (route.startsWith('en/') ? 2 : 1)) {
         await page.goto(route + '?source=reload-test#step-2');
         await expect(page.locator('#step-2')).toBeInViewport();
         await page.reload();
-        expect(await page.evaluate(() => scrollY)).toBe(0);
+        await expectReloadAtTop(page);
         expect(new URL(page.url()).hash).toBe('');
       }
     }
