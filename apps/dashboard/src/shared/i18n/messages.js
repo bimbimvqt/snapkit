@@ -1059,3 +1059,8 @@ Object.assign(window.SnapkitMessages.translations, {'Could not open Xcode. Insta
 Object.assign(window.SnapkitMessages.translations, {'Xcode instructions':'Hướng dẫn dùng Xcode'});
 
 Object.assign(window.SnapkitMessages.translations, {"Team keys are created by the Account Holder or an Admin. If API access is not enabled, the Account Holder opens Users and Access → Integrations → App Store Connect API, chooses Request Access, accepts the terms and clicks Submit. Wait for Apple’s approval before generating a key.": "Team key do Account Holder hoặc Admin tạo. Nếu chưa bật API, Account Holder mở Users and Access → Integrations → App Store Connect API, chọn Request Access, đồng ý điều khoản rồi bấm Submit. Chờ Apple duyệt trước khi tạo key."});
+
+Object.assign(window.SnapkitMessages.translations, {
+  'Refreshing tool checks…': 'Đang kiểm tra lại công cụ…',
+  'Could not load setup information.': 'Không thể tải thông tin thiết lập.'
+});

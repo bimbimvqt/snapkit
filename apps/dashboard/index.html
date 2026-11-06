@@ -59,6 +59,10 @@
       </div>
       <section id="panel-setup" class="app-panel hidden" aria-labelledby="setup-title">
         <div class="product-heading"><h1 id="setup-title">Setup & tools</h1><p>Check the tools you need to run your apps.</p></div>
+        <p id="setup-status" class="setup-status" role="status">Checking your tools…</p>
+        <div id="setup-loading" class="setup-loading" aria-hidden="true"><div class="setup-placeholder-heading"></div><div class="setup-placeholder-grid"><div class="setup-placeholder-card"><span></span><div><b></b><i></i></div></div><div class="setup-placeholder-card"><span></span><div><b></b><i></i></div></div><div class="setup-placeholder-card"><span></span><div><b></b><i></i></div></div><div class="setup-placeholder-card"><span></span><div><b></b><i></i></div></div></div><div class="setup-placeholder-heading short"></div><div class="setup-placeholder-editors"><span></span><span></span><span></span></div></div>
+        <div id="setup-error" class="setup-error hidden"><p id="setup-error-message" role="alert"></p><button type="button" class="button" id="setup-retry">Try again</button></div>
+        <div id="setup-content" class="hidden">
         <div class="setup-overview"><div><span class="product-kicker">THIS COMPUTER</span><h2 id="computer-label">Checking your computer…</h2><p id="computer-advice">Your project files and device data stay here.</p></div><button class="button" id="check-tools"><i data-lucide="refresh-cw"></i>Check again</button></div>
         <div id="tool-checks" class="tool-checks" aria-live="polite"><p>Checking your tools…</p></div>
         <details class="interface-details"><summary>Tool setup help</summary><div class="interface-details-body"><div class="product-note"><i data-lucide="info"></i><p>Already installed a tool, but Snapkit can’t find it? Choose its folder in <button class="text-button" data-go="preferences">Preferences</button>. iOS simulators need a Mac with Xcode. Physical phones may need USB trust, developer mode or drivers.</p></div></div></details>
@@ -66,6 +70,7 @@
 
         <div id="editor-options" class="editor-options"></div>
         <div class="extension-card"><i data-lucide="puzzle"></i><div><h3>Connect your editor</h3><p id="editor-help">Choose your editor above for the right next step.</p><a class="button" id="extension-download" href="/downloads/snapkit-debug-sync.vsix" download>Download editor extension</a><details class="interface-details"><summary>Installation help</summary><div class="interface-details-body"><p id="editor-preference-note">Your choice is remembered for setup guidance. It does not open your editor or install the extension automatically.</p><p>VS Code: Extensions → … → Install from VSIX. Cursor and Antigravity integration is in beta. Keep Dart and Flutter extensions installed.</p></div></details></div></div>
+        </div>
       </section>
       <section id="panel-preferences" class="app-panel hidden" aria-labelledby="preferences-title">
         <div class="product-heading"><h1 id="preferences-title">Preferences</h1><p>Manage tools and app storage.</p></div>

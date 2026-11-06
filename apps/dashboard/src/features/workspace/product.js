@@ -1,6 +1,7 @@
 import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, showWorkspace } from '../../legacy/device-controller.js';
 /* Product navigation and guided setup. Device operations remain in app.js. */
 let product = null, toolState = null, activePage = 'devices', productLoading = false;
+let toolPromise = null, toolError = '', setupEpoch = 0;
 const productEditors = [
   ['vscode', 'Visual Studio Code', 'Extension available', 'code-xml'],
   ['cursor', 'Cursor', 'Extension · beta', 'mouse-pointer-2'],
@@ -13,7 +14,7 @@ function showProductPage(page) {
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices'))); button.setAttribute('aria-current', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices')) ? 'page' : 'false'); });
   $('#breadcrumb-page').textContent = { backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
-  if (page === 'setup' && !toolState) checkTools();
+  if (page === 'setup') { if (!product) void loadProduct(); if (!toolState) void checkTools(); updateSetupView(); }
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
   window.scrollTo({ top: 0, behavior: 'instant' });
   const heading = $(`#panel-${page} h1`); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
@@ -51,16 +52,42 @@ $('#hide-welcome').addEventListener('click', event => busy(event.currentTarget, 
   const result = await api('/api/preferences', { onboardingComplete: true });
   product.preferences = result.preferences; $('#setup-card').classList.add('hidden'); toast(t("You can find this guidance in Setup & tools."));
 }));
-async function checkTools() {
-  await busy($('#check-tools'), async () => {
-    $('#tool-checks').setAttribute('aria-busy', 'true');
-    try {
-      toolState = await api('/api/diagnostics?fresh=1');
-      renderTools();
-    } catch (error) { $('#tool-checks').innerHTML = `<div class="product-note">${icon('wifi-off')}<p>${escape(t(error.message))} ${t('Reconnect your local Snapkit app, then check again.')}</p></div>`; icons(); }
-    finally { $('#tool-checks').removeAttribute('aria-busy'); }
-  });
+function updateSetupView() {
+  const ready = !!product && !!toolState;
+  const loading = !!toolPromise || productLoading;
+  $('#setup-content').classList.toggle('hidden', !ready);
+  $('#setup-content').setAttribute('aria-busy', String(loading));
+  $('#setup-loading').classList.toggle('hidden', ready || !!toolError);
+  $('#setup-error').classList.toggle('hidden', !toolError);
+  $('#setup-error-message').textContent = toolError ? t(toolError) + ' ' + t('Reconnect your local Snapkit app, then check again.') : '';
+  $('#setup-status').textContent = loading || (!ready && !toolError) ? t(ready ? 'Refreshing tool checks…' : 'Checking your tools…') : '';
+  $('#check-tools').disabled = loading;
+  $('#check-tools').setAttribute('aria-busy', String(loading));
+  $('#setup-retry').disabled = loading;
 }
+function invalidateTools() {
+  setupEpoch++; toolPromise = null; toolState = null; toolError = ''; updateSetupView();
+}
+function checkTools({ fresh = false } = {}) {
+  if (toolPromise) return toolPromise;
+  const epoch = setupEpoch;
+  toolError = '';
+  // Defer the request until the promise is assigned so loading is visible immediately.
+  toolPromise = Promise.resolve().then(async () => {
+    try {
+      const result = await api('/api/diagnostics' + (fresh ? '?fresh=1' : ''));
+      if (epoch !== setupEpoch) return;
+      toolState = result; renderTools();
+    } catch (error) { if (epoch === setupEpoch) toolError = error.message; }
+    finally { if (epoch === setupEpoch) { toolPromise = null; updateSetupView(); } }
+  });
+  updateSetupView(); return toolPromise;
+}
+$('#setup-retry').addEventListener('click', () => {
+  toolError = '';
+  if (!product) void loadProduct();
+  void checkTools({ fresh: true });
+});
 function renderTools() {
       const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[toolState.platform] || t("This computer");
       $('#computer-label').textContent = `${osName} · ${toolState.arch === 'arm64' ? 'Apple Silicon / ARM64' : 'Intel / AMD'}${toolState.memoryGB ? t(" · {0} GB memory", [toolState.memoryGB]) : ''}`;
@@ -72,7 +99,7 @@ function renderTools() {
       $('#storage-locations').innerHTML = Object.entries(toolState.storage || {}).filter(([,value]) => value).map(([name,value]) => `<dt>${escape({ root: t("Snapkit settings"), android: t("Android devices"), ios: t("iOS devices") }[name] || name)}</dt><dd>${escape(value)}</dd>`).join('');
       icons();
 }
-$('#check-tools').addEventListener('click', checkTools);
+$('#check-tools').addEventListener('click', () => checkTools({ fresh: true }));
 for (const kind of ['flutter', 'android']) {
   $(`#browse-${kind}-sdk`).addEventListener('click', event => busy(event.currentTarget, async () => {
     $('#preferences-error').textContent = ''; $('#preferences-result').textContent = '';
@@ -93,7 +120,7 @@ $('#preferences-form').addEventListener('submit', event => {
       const result = await api('/api/preferences', { flutterSDK: $('#pref-flutter').value, androidSDK: $('#pref-android').value });
       product.preferences = result.preferences; $('#preferences-result').textContent = t(result.message);
       $('#restart-desktop').classList.toggle('hidden', !window.snapkitDesktop);
-      toolState = null;
+      invalidateTools();
     } catch (error) { $('#preferences-error').textContent = t(error.message); }
   });
 });
@@ -107,7 +134,7 @@ if (window.snapkitDesktop) {
 }
 async function loadProduct() {
   if ((window.SNAPKIT_CONTROLLER && !connection) || productLoading) return;
-  productLoading = true;
+  productLoading = true; updateSetupView();
   try {
     product = await api('/api/product');
 
@@ -116,8 +143,8 @@ async function loadProduct() {
     $('#pref-android').value = product.preferences?.androidSDK || '';
     renderEditors(); updateJourney();
     if (window.snapkitDesktop && !product.preferences?.onboardingComplete) await checkTools();
-  } catch { /* Device management remains available if optional product details cannot load. */ }
-  finally { productLoading = false; }
+  } catch { if (!product) toolError = 'Could not load setup information.'; }
+  finally { productLoading = false; updateSetupView(); }
 }
 document.addEventListener('snapkit:state', () => { if (!product && (!window.SNAPKIT_CONTROLLER || connection)) loadProduct(); });
 loadProduct();
@@ -126,13 +153,14 @@ document.addEventListener('snapkit:language', () => {
   renderEditors(); updateJourney();
   $('#breadcrumb-page').textContent = t({ backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
+  updateSetupView();
 });
 window.snapkitDesktop?.setLanguage?.(window.SnapkitI18n.language).catch(() => {});
 
 document.addEventListener('snapkit:navigate', event => showProductPage(event.detail));
 export { activePage, showProductPage };
 
-document.addEventListener('snapkit:profile', () => { toolState = null; updateJourney(); renderEditors(); renderFrameworkGuidance(); });
+document.addEventListener('snapkit:profile', () => { invalidateTools(); updateJourney(); renderEditors(); renderFrameworkGuidance(); if (activePage === 'setup') void checkTools(); });
 
 const frameworkGuidance = [
   [

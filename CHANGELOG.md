@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.39 — 2026-11-06
+
+- Màn Thiết lập & công cụ có khung chờ ổn định, chỉ hiển thị nội dung khi kiểm tra SDK và thông tin editor đã sẵn sàng.
+- Dùng kết quả kiểm tra đã lưu ở lần mở đầu, chia sẻ yêu cầu đang chạy và giữ nội dung khi kiểm tra lại.
+- Có thông báo lỗi/thử lại, hỗ trợ EN/VI và bỏ qua kết quả cũ khi đổi workspace hoặc framework.
+
 ## 0.2.0-beta.38 — 2026-11-06
 
 - Sửa workflow đóng gói macOS sang runner còn được hỗ trợ; landing page tự làm mới link tải khi quay lại tab hoặc sau 5 phút.
