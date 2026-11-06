@@ -4,8 +4,8 @@ let product = null, toolState = null, activePage = 'devices', productLoading = f
 let toolPromise = null, toolError = '', setupEpoch = 0;
 const productEditors = [
   ['vscode', 'Visual Studio Code', 'Extension available', 'code-xml'],
-  ['cursor', 'Cursor', 'Extension · beta', 'mouse-pointer-2'],
-  ['antigravity', 'Antigravity', 'Extension · beta', 'orbit']
+  ['cursor', 'Cursor', 'Extension available', 'mouse-pointer-2'],
+  ['antigravity', 'Antigravity', 'Extension available', 'orbit']
 ];
 function showProductPage(page) {
   if (document.body.dataset.developerRole === 'backend' && ['devices', 'setup', 'sets', 'logs', 'captures', 'releases', 'guide'].includes(page)) page = 'backend';
@@ -14,6 +14,7 @@ function showProductPage(page) {
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices'))); button.setAttribute('aria-current', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices')) ? 'page' : 'false'); });
   $('#breadcrumb-page').textContent = { backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
+  if (page === 'preferences' && !toolState) void checkTools();
   if (page === 'setup') { if (!product) void loadProduct(); if (!toolState) void checkTools(); updateSetupView(); }
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -89,8 +90,17 @@ $('#setup-retry').addEventListener('click', () => {
   void checkTools({ fresh: true });
 });
 function renderTools() {
-      const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[toolState.platform] || t("This computer");
-      $('#computer-label').textContent = `${osName} · ${toolState.arch === 'arm64' ? 'Apple Silicon / ARM64' : 'Intel / AMD'}${toolState.memoryGB ? t(" · {0} GB memory", [toolState.memoryGB]) : ''}`;
+      const computer = toolState.computer || {};
+      const osName = computer.osName || { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[toolState.platform] || t('This computer');
+      $('#computer-label').textContent = computer.model || osName;
+      $('#computer-subtitle').textContent = computer.chip || t('This computer');
+      const art = $('#computer-art');
+      art.className = `computer-art ${computer.form === 'mini' ? 'mini' : ''}`;
+      art.innerHTML = computer.form === 'mini' ? '' : icon(computer.form === 'laptop' ? 'laptop' : toolState.platform === 'win32' ? 'pc-case' : 'monitor');
+      const rows = [['Name', computer.name], ['Chip', computer.chip], ['Memory', toolState.memoryGB ? `${toolState.memoryGB} GB` : null], ['Architecture', toolState.arch?.toUpperCase()], ['Available storage', toolState.freeDiskGB != null ? `${toolState.freeDiskGB} GB` : null]];
+      $('#computer-specs').innerHTML = rows.filter(([, value]) => value).map(([label, value]) => `<div class="computer-row"><dt>${escape(t(label))}</dt><dd>${escape(value)}</dd></div>`).join('');
+      $('#computer-os-name').textContent = osName;
+      $('#computer-os-version').textContent = computer.osVersion || t('Version unavailable');
       $('#computer-advice').textContent = t(toolState.advice);
       $('#tool-checks').innerHTML = toolState.checks.map(check => `<article class="tool-check ${check.status}"><span class="tool-symbol">${icon(check.status === 'ready' ? 'check' : 'wrench')}</span><div><div class="tool-title"><h3>${escape(t(check.title))}</h3><span>${check.status === 'ready' ? t("Ready") : t("Needs setup")}</span></div>${check.status === 'ready' ? `<details class="interface-details"><summary>${t("More details")}</summary><p>${escape(t(check.detail))}</p></details>` : `<p>${escape(t(check.detail))}</p>`}${check.status !== 'ready' ? `<a class="text-link" href="${escape(check.help)}" target="_blank" rel="noopener noreferrer">${t("Open setup guide")} ${icon('arrow-up-right')}</a>` : ''}</div></article>`).join('');
       const ready = toolState.checks.filter(check => check.status === 'ready').length;
@@ -205,8 +215,8 @@ const frameworkGuidance = [
   ],
   [
     "#panel-setup .extension-card .interface-details-body > p:last-child",
-    "VS Code: Extensions → … → Install from VSIX. Cursor and Antigravity integration is in beta. Keep Dart and Flutter extensions installed.",
-    "Install Snapkit Debug Sync from VSIX. The Snapkit React Native profile uses the built-in JavaScript debugger. Cursor and Antigravity integration is in beta."
+    "VS Code: Extensions → … → Install from VSIX. Install the extension in Cursor or Antigravity too. Keep Dart and Flutter extensions installed.",
+    "Install Snapkit Debug Sync from VSIX. The Snapkit React Native profile uses the built-in JavaScript debugger. Install the extension in Cursor or Antigravity too."
   ]
 ];
 function renderFrameworkGuidance() {

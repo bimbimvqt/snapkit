@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { computerInfo } from './computer.js';
 import { run, parseJsonOutput, executable } from '../../infrastructure/process/cli.js';
 import { statfs } from 'node:fs/promises';
 import { storage, refreshAndroidSDK } from '../../infrastructure/storage/device-storage.js';
@@ -34,6 +35,7 @@ async function collect(framework) {
     }
   };
   const native = framework === 'react-native';
+  const computerTask = computerInfo();
   const checks = await Promise.all([
     native ? check('node', 'Node.js', 'node', ['--version'], 'https://reactnative.dev/docs/set-up-your-environment') : check('flutter', 'Flutter', 'flutter', ['--version', '--machine'], 'https://docs.flutter.dev/get-started/install'),
     check('android', 'Android tools', 'adb', ['version'], 'https://developer.android.com/studio', false),
@@ -43,7 +45,7 @@ async function collect(framework) {
   const disk = await statfs(storage.root).catch(() => null);
   const freeDiskGB = disk ? Math.floor(disk.bavail * disk.bsize / 1073741824) : null;
   const memoryGB = Math.round(os.totalmem() / 1073741824);
-  return { checkedAt: Date.now(), platform: process.platform, arch: process.arch, memoryGB, freeDiskGB,
+  return { checkedAt: Date.now(), platform: process.platform, arch: process.arch, memoryGB, freeDiskGB, computer: await computerTask,
     checks, preferences: getPreferences(), storage: { root: storage.root, android: storage.avd, ios: process.platform === 'darwin' ? storage.iosDevices : null },
     ready: checks.find(c => c.id === (native ? 'node' : 'flutter'))?.status === 'ready' && checks.some(c => !['flutter', 'node'].includes(c.id) && c.status === 'ready'),
     advice: freeDiskGB !== null && freeDiskGB < 15 ? 'Storage is running low. Free space before downloading an OS runtime or creating more devices.' : memoryGB < 16 ? 'Start with one virtual device. Running several at once may slow down this computer.' : 'Start only the devices you need. Each virtual device uses additional memory.',

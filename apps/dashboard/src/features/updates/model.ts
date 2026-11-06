@@ -9,5 +9,6 @@ export interface DesktopUpdates {
   updateState?: () => Promise<UpdateState>;
   checkUpdates?: () => Promise<UpdateState>; downloadUpdate?: () => Promise<UpdateState>;
   cancelUpdate?: () => Promise<UpdateState>; installUpdate?: () => Promise<UpdateState>;
+  setAppearance?: (appearance: 'system' | 'light' | 'dark') => Promise<void>;
   clearCache?: () => Promise<void>; setLanguage?: (language: string) => Promise<void>;
 }

@@ -45,7 +45,9 @@ test('responsive dashboard, search, keyboard navigation, and light theme', async
   await page.locator('#online-only').check();
   await expect(page.locator('.device-card')).toHaveCount(current.devices.filter(d => d.state === 'online').length);
   await page.locator('#online-only').uncheck();
-  await page.getByRole('button', { name: 'Switch appearance' }).click();
+  await page.getByRole('button', { name: 'Appearance', exact: true }).click();
+  await page.getByRole('radio', { name: 'Light', exact: true }).check();
+  await page.locator('[data-app-page="devices"]').click();
   await expect(page.locator('html')).toHaveClass('light');
   for (const width of [1440, 1024, 768, 390, 375]) {
     await page.setViewportSize({ width, height: 844 });

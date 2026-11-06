@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
   downloadUpdate: () => ipcRenderer.invoke('snapkit:update-download'),
   cancelUpdate: () => ipcRenderer.invoke('snapkit:update-cancel'),
   installUpdate: () => ipcRenderer.invoke('snapkit:update-install'),
+  setAppearance: value => ipcRenderer.invoke('snapkit:appearance', value),
   clearCache: () => ipcRenderer.invoke('snapkit:clear-cache'),
   openExternal: url => ipcRenderer.invoke('snapkit:external', url),
   restart: () => ipcRenderer.invoke('snapkit:restart')

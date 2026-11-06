@@ -1,4 +1,6 @@
 import './shared/i18n/messages.js';
+import './features/appearance/theme';
+import { mountAppearance } from './features/appearance/Appearance';
 import '../../../packages/ui/i18n.js';
 import './shared/controls/dropdowns.js';
 import { installIcons } from './shared/ui/icons';
@@ -20,6 +22,7 @@ try {
   document.getElementById('update-indicator')?.replaceChildren();
   document.getElementById('app-cache-root')?.replaceChildren();
   const unmountUpdates = mountUpdates();
+  const unmountAppearance = mountAppearance();
   await import('./features/developer-tools/developer-tools.js');
   await devices.init();
   await accountReady;
@@ -35,7 +38,7 @@ try {
   document.dispatchEvent(new Event('snapkit:ui-ready'));
   window.snapkitDesktop?.ready?.();
   if (import.meta.hot) {
-    import.meta.hot.dispose(() => { unmountUpdates(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); });
+    import.meta.hot.dispose(() => { unmountUpdates(); unmountAppearance(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); });
     // Legacy controllers use native listeners; full reload prevents duplicate subscriptions.
     import.meta.hot.accept(() => location.reload());
   }

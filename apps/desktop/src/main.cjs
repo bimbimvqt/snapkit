@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -21,6 +21,8 @@ const nativeMessages = require('./i18n/messages.cjs');
 const updater = new DesktopUpdater({ version: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, executable: app.getPath('exe'), userData: app.getPath('userData') });
 const updateToken = process.argv.find(value => value.startsWith('--snapkit-update-token='))?.split('=')[1];
 const languageFile = path.join(app.getPath('userData'), 'language.json');
+const appearanceFile = path.join(app.getPath('userData'), 'appearance.json');
+try { const saved = JSON.parse(fs.readFileSync(appearanceFile, 'utf8')); if (['system', 'light', 'dark'].includes(saved)) nativeTheme.themeSource = saved; } catch {}
 let desktopLanguage;
 try { const saved = JSON.parse(fs.readFileSync(languageFile, 'utf8')); if (['en', 'vi'].includes(saved)) desktopLanguage = saved; } catch {}
 function nativeT(message) {
@@ -105,6 +107,13 @@ async function start() {
   ipcMain.handle('snapkit:update-state', event => { if (!fromApp(event)) throw new Error('Invalid caller'); return updater.snapshot(); });
   ipcMain.handle('snapkit:update-download', event => { if (!fromApp(event)) throw new Error('Invalid caller'); return updater.beginDownload(); });
   ipcMain.handle('snapkit:update-cancel', event => { if (!fromApp(event)) throw new Error('Invalid caller'); return updater.cancel(); });
+  ipcMain.handle('snapkit:appearance', async (event, value) => {
+    if (!fromApp(event) || !['system', 'light', 'dark'].includes(value)) throw new Error('Invalid appearance');
+    await fs.promises.writeFile(appearanceFile, JSON.stringify(value));
+    nativeTheme.themeSource = value;
+    mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8');
+  });
+  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8'));
   ipcMain.handle('snapkit:clear-cache', async event => { if (!fromApp(event)) throw new Error('Invalid caller'); await mainWindow.webContents.session.clearCache(); return { ok: true }; });
   ipcMain.handle('snapkit:update-install', async event => {
     if (!fromApp(event)) throw new Error('Invalid caller');
@@ -119,7 +128,7 @@ async function start() {
     setImmediate(() => app.quit()); return updater.snapshot();
   });
   ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });
-  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: '#101214', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));

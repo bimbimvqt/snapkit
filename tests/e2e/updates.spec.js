@@ -85,7 +85,7 @@ test('dedicated Updates page shows background availability everywhere without fo
       testUpdate:next=>state={...state,...next}, downloadUpdate:async()=>{window.downloaded=true;return state;},installUpdate:async()=>{window.installed=true;return state;}};
   });
   await page.goto('/?lang=en');
-  await expect(page.locator('#update-banner')).toBeVisible();await expect(page.locator('#update-banner')).toContainText('0.2.0-beta.27');
+  await expect(page.locator('#update-banner')).toBeVisible();await expect(page.locator('#update-banner')).toContainText('0.2.0 (27)');
   await expect(page.locator('#update-indicator')).toHaveCount(1);await expect(page.locator('#update-indicator')).toBeVisible();
   await expect(page.locator('#panel-preferences #check-updates')).toHaveCount(0);
   await page.locator('#update-dismiss').click();await expect(page.locator('#update-banner')).toBeHidden();await expect(page.locator('#update-indicator')).toBeVisible();
@@ -93,7 +93,7 @@ test('dedicated Updates page shows background availability everywhere without fo
   await expect(page.locator('#update-banner')).toBeVisible();
   await page.locator('#update-view').click();await expect(page.locator('#panel-updates')).toBeVisible();await expect(page.locator('#update-banner')).toBeHidden();
   await expect(page.locator('#breadcrumb-page')).toHaveText('Updates');await expect(page.locator('#update-last-checked')).toContainText('Last checked:');
-  await expect(page.locator('#product-version')).toHaveText('0.2.0-beta.26');
+  await expect(page.locator('#product-version')).toHaveText('0.2.0 (26)');
   await expect(page.locator('#update-download')).toBeVisible();
   await page.screenshot({path:'/tmp/snapkit-updates-page-en.png',animations:'disabled'});
   await page.evaluate(()=>window.snapkitDesktop.testUpdate({status:'ready'}));await expect(page.locator('#update-install')).toBeVisible();await expect(page.locator('#update-indicator')).toHaveText('Ready');
@@ -101,7 +101,7 @@ test('dedicated Updates page shows background availability everywhere without fo
   await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
   await page.locator('#update-view').click();await expect(page.locator('#updates-title')).toHaveText('Cập nhật');await expect(page.locator('#breadcrumb-page')).toHaveText('Cập nhật');
   await expect(page.locator('#panel-updates')).toContainText('Tự động kiểm tra mỗi 10 phút');
-  await page.locator('#theme-toggle').click();await page.setViewportSize({width:900,height:680});
+  await page.locator('#theme-toggle').click();await page.getByRole('radio', {name:'Sáng',exact:true}).check();await page.locator('[data-app-page="updates"]').click();await page.setViewportSize({width:900,height:680});
   await page.screenshot({path:'/tmp/snapkit-updates-page-vi.png',fullPage:true,animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const pinned = await page.locator('.sidebar-bottom [data-app-page="updates"]').boundingBox();

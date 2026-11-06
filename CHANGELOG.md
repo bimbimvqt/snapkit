@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.44 — 2026-11-06
+
+- Thêm Appearance theo phong cách macOS: Sáng, Tối và Tự động theo hệ thống; lưu lựa chọn và đồng bộ giao diện cửa sổ desktop.
+- Thẻ thông tin máy hiển thị model, CPU, RAM, kiến trúc, dung lượng trống và hệ điều hành cho macOS/Windows; chỉ trả các trường hiển thị, không trả serial phần cứng.
+- Gỡ nhãn beta trên giao diện Snapkit; hiển thị phiên bản dạng 0.2.0 (44) và giữ định danh phát hành tương thích updater.
+- Làm rõ Clear Cache chỉ xóa cache giao diện, giữ đăng nhập, thiết lập, dự án, SDK, máy ảo và captures.
+
 ## 0.2.0-beta.43 — 2026-11-06
 
 - Bỏ nút Quản lý thiết bị thật khỏi bản demo web; không hiển thị lối kết nối trước khi xác định môi trường.

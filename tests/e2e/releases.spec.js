@@ -14,7 +14,7 @@ test('release screen applies workspace profiles, builds APK and AAB with downloa
   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'/tmp/snapkit-release-dark.png',fullPage:true,animations:'disabled'});
   await page.locator('[name="release-format"][value="aab"]').check();await page.locator('#release-submit').click();await expect(page.locator('#release-status')).toHaveText('Build complete');await expect(page.locator('#release-monitor-title')).toContainText('App Bundle');
   await expect(page.locator('#release-history-count')).toHaveText('2');await expect(page.locator('#release-submit')).toBeEnabled();
-  await page.setViewportSize({width:900,height:680});await page.locator('#theme-toggle').click();await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
+  await page.setViewportSize({width:900,height:680});await page.locator('#theme-toggle').click();await page.locator('input[name="appearance"][value="light"]').check();await page.locator('[data-app-page="releases"]').click();await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
   await expect(page.locator('#panel-releases h1')).toHaveText('Build & phát hành');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(page.locator('#breadcrumb-page')).toHaveText('Build & phát hành');await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'/tmp/snapkit-release-light-vi.png',fullPage:true,animations:'disabled'});expect(errors).toEqual([]);
 });
@@ -83,7 +83,7 @@ test('Apple key guide explains both roles, retains form edits and never starts a
   await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));await expect(page.locator('#apple-setup-title')).toHaveText('Từ bản build trên máy đến người kiểm thử.');await expect(individual).toContainText('đừng nhập Team ID');
   await page.setViewportSize({width:900,height:720});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.locator('#release-credentials').screenshot({path:'/tmp/snapkit-apple-guide-vi.png',animations:'disabled'});
-  await page.locator('#theme-toggle').click();await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.SnapkitI18n.setLanguage('en'));await page.locator('#release-credentials').screenshot({path:'/tmp/snapkit-apple-guide-light.png',animations:'disabled'});
+  await page.locator('#theme-toggle').click();await page.locator('input[name="appearance"][value="light"]').check();await page.locator('[data-app-page="releases"]').click();await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.SnapkitI18n.setLanguage('en'));await page.locator('#release-credentials').screenshot({path:'/tmp/snapkit-apple-guide-light.png',animations:'disabled'});
   await page.setViewportSize({width:480,height:800});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(mutations).toEqual([]);expect(errors).toEqual([]);
 });
 test('Xcode launch is explicit, reports failure and is hidden on Windows',async({page})=>{
@@ -119,7 +119,7 @@ test('Run Release uses the chosen flavor and real phone, displays progress/histo
   await page.evaluate(()=>window.SnapkitI18n.setLanguage('vi'));
   await expect(page.locator('#release-run-title')).toHaveText('Chạy Release trên thiết bị thật');
   await expect(page.locator('#release-status')).toHaveText('Đã hoàn tất chạy Release');
-  await page.setViewportSize({width:900,height:680});await page.locator('#theme-toggle').click();
+  await page.setViewportSize({width:900,height:680});await page.locator('#theme-toggle').click();await page.locator('input[name="appearance"][value="light"]').check();await page.locator('[data-app-page="releases"]').click();
   await page.locator('#release-run-title').scrollIntoViewIfNeeded();
   await page.locator('.release-run').screenshot({path:'/tmp/snapkit-run-release-vi.png',animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -9,7 +9,7 @@ test('all selects use themed menus, keyboard selection, localized labels and out
   await page.locator('#log-level-trigger').click(); await page.locator('#panel-logs h1').click(); await expect(page.locator('#log-level-listbox')).toBeHidden();
   await page.evaluate(() => window.SnapkitI18n.setLanguage('vi')); await expect(page.locator('#log-level-trigger')).toContainText('Lỗi'); await page.locator('#log-level-trigger').click(); await expect(page.locator('#log-level-listbox')).toContainText('Cảnh báo & lỗi');
   await page.screenshot({ path: '/tmp/snapkit-dropdown-dark-beta15.png', animations: 'disabled' }); await page.keyboard.press('Escape');
-  await page.locator('#theme-toggle').click(); await page.locator('#log-level-trigger').click(); await page.screenshot({ path: '/tmp/snapkit-dropdown-light-beta15.png', animations: 'disabled' });
+  await page.locator('#theme-toggle').click(); await page.getByRole('radio', {name:'Sáng',exact:true}).check(); await page.locator('[data-app-page="logs"]').click(); await page.locator('#log-level-trigger').click(); await page.screenshot({ path: '/tmp/snapkit-dropdown-light-beta15.png', animations: 'disabled' });
   await page.keyboard.press('Tab'); await expect(page.locator('#log-level-listbox')).toBeHidden();
   expect(await page.locator('select').evaluateAll(selects => selects.every(s => getComputedStyle(s).display === 'none' && s.tabIndex === -1))).toBe(true);
   expect(errors).toEqual([]);

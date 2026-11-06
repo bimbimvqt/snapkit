@@ -19,8 +19,12 @@ test('setup keeps a complete loading layout, shares pending checks and retains r
   await page.emulateMedia({reducedMotion:'reduce'});
   expect(await page.locator('#setup-status').evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('none');
   await page.locator('#theme-toggle').click();
+  await page.getByRole('radio', {name:'Sáng', exact:true}).check();
+  await page.locator('[data-app-page="setup"]').click();
   await page.screenshot({path:'/tmp/snapkit-setup-loading-light.png'});
   await page.locator('#theme-toggle').click();
+  await page.getByRole('radio', {name:'Tối', exact:true}).check();
+  await page.locator('[data-app-page="setup"]').click();
   await page.screenshot({path:'/tmp/snapkit-setup-loading.png'});
   pending.shift()();
   await expect(page.locator('#setup-content')).toBeVisible();
