@@ -15,6 +15,13 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
   await page.goto('demo/?lang=en');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
+  await expect(page.locator('#connection-button')).not.toBeVisible();
+  await expect(page.locator('.topbar .avatar')).toHaveCount(0);
+  await chooseLanguage(page, 'vi');
+  await expect(page.getByRole('button', {name:'Quản lý thiết bị thật', exact:true})).toHaveCount(0);
+  await expect(page.locator('#connection-button')).not.toBeVisible();
+  await chooseLanguage(page, 'en');
+  await page.locator('.topbar').screenshot({path:'/tmp/snapkit-beta43-preview-topbar.png',animations:'disabled'});
   await expect(page.locator('.device-card')).toHaveCount(6);
   await page.locator('[data-device="demo-ios-3"] [data-action="boot"]').click();
   await expect(page.locator('.toast')).toContainText('Preview only');

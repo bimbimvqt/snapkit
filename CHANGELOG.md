@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.43 — 2026-11-06
+
+- Bỏ nút Quản lý thiết bị thật khỏi bản demo web; không hiển thị lối kết nối trước khi xác định môi trường.
+- Gỡ biểu tượng workspace chỉ để trang trí, dòng thương hiệu Flutter cũ ở chân trang và CSS/bản dịch không còn dùng.
+- Giữ rõ trạng thái xem thử; kết nối máy chủ chỉ hiển thị trong Dashboard web cục bộ và trang controller phù hợp.
+
 ## 0.2.0-beta.42 — 2026-11-06
 
 - Thu gọn popup cảm ơn đánh giá, phân cấp nội dung và thông tin riêng tư; hỗ trợ bàn phím, sáng/tối và cửa sổ nhỏ.

@@ -317,12 +317,12 @@ async function init() {
     await loadState();
     if (state.authRequired) return;
     if (window.SNAPKIT_PREVIEW) {
-      $('#connection-button').textContent = t("Manage real devices");
       $('#server-status').textContent = t("Static preview · sample data");
       $('#mode-badge').textContent = t("READ-ONLY PREVIEW");
       $('#demo-notice span').textContent = t("Read-only preview · Sample devices. Start Snapkit locally to create and start real devices.");
       return;
     }
+    $('#connection-button').classList.toggle('hidden', !!window.snapkitDesktop);
     const events = new EventSource('/api/events');
     events.addEventListener('devices', e => { state = { ...state, ...JSON.parse(e.data), scanning: false }; render(); });
     events.addEventListener('jobs', e => {
@@ -345,6 +345,7 @@ function setConnectionStatus(status) {
   document.body.dataset.connection = status;
 }
 function renderConnection() {
+  $('#connection-button').classList.remove('hidden');
   $('#connection-button').textContent = connection ? t("Connection settings") : t("Connect local server");
   $('#demo-notice').classList.remove('hidden');
   $('#demo-notice span').textContent = !connection ? t("Connect Snapkit running on this computer to control real devices. No sample devices are loaded.") : remoteOffline ? t("Cannot reach the local server. Keep npm start running and check browser local network permission.") : state.demo ? t("Connected to a local DEMO backend. Actions are simulated.") : t("Connected to your local Snapkit server. Device commands run on this computer.");
@@ -410,6 +411,7 @@ async function initController() {
   if (!connection) await showPairing();
 }
 async function showPairing() {
+  if (window.SNAPKIT_PREVIEW) return;
   $('#pairing-error').textContent = '';
   $('#local-pairing').classList.toggle('hidden', !!window.SNAPKIT_CONTROLLER);
   $('#pairing-form').classList.toggle('hidden', !window.SNAPKIT_CONTROLLER);
@@ -423,7 +425,6 @@ async function showPairing() {
   } catch (error) { $('#pairing-error').textContent = t(error.message); }
 }
 $('#connection-button').addEventListener('click', () => {
-  if (window.SNAPKIT_PREVIEW) { location.href = '../control/'; return; }
   showPairing();
 });
 $('#pairing-form').addEventListener('submit', e => {
