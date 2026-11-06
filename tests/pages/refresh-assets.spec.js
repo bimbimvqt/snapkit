@@ -13,6 +13,11 @@ test('refresh authored website screenshots from the current sample app', async (
       await expect(page.locator('.sidebar [aria-current="page"]')).toHaveAttribute('data-app-page',key);
       await page.mouse.move(1438, 2);
       await page.evaluate(async () => { await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+      await expect(page.locator('.toast')).toHaveCount(0);
+      if (key === 'setup') {
+        await expect(page.locator('#computer-art img')).toBeVisible();
+        await expect.poll(() => page.locator('#computer-art img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+      }
       const file=`apps/website/assets/${key}${language==='vi'?'-vi':''}.png`;
       await page.screenshot({path:file});
       await copyFile(file,file.replace('apps/website/','dist/'));

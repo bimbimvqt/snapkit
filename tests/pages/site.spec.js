@@ -11,7 +11,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
   await expect(page.locator('#debug-video')).toBeVisible();
   await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-seo');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images45');
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
   await page.goto('demo/?lang=en');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
@@ -102,7 +102,7 @@ test('landing switches EN/VN, keeps preview and links, and remembers the languag
   await page.getByRole('button', { name: 'Setup & tools', exact: true }).click();
   await chooseLanguage(page, 'vi');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mọi thiết bị.');
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-seo');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261106-images45');
   expect(await page.locator('.download-button').evaluateAll(links => links.map(link => link.href))).toEqual(downloads);
   await page.goto('./');
   await expect(page.locator('[data-language-select]')).toHaveAttribute('data-language-current', 'vi');
@@ -132,7 +132,7 @@ test('current workflows and app gallery work in both languages with keyboard nav
     await chooseLanguage(page,language);
     for(const key of ['devices','setup','captures','releases']) {
       await page.locator(`[data-preview="${key}"]`).click();
-      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261106-seo`);
+      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261106-images45`);
       await expect.poll(()=>page.locator('#app-preview').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
     }
     for(const width of [375,768,1024,1440]) {
