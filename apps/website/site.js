@@ -2,7 +2,7 @@
 if (location.hostname === 'bimbimvqt.github.io') location.replace('https://snapkit.vn/' + location.search + location.hash);
 const t = (...args) => window.SnapkitI18n.t(...args);
 let downloadMessage = null;
-let activePreview = 'devices';
+let activePreview = 'debug';
 let publicContent;
 let downloadsPending = false, lastDownloadCheck = 0;
 function applyContent() {
@@ -50,28 +50,86 @@ setInterval(refreshDownloads, 300000);
 
 const preview = document.querySelector('#app-preview');
 const captions = {
+  debug: ['Video minh họa Debug Sync', 'Debug Sync · Video minh họa Flutter Hot Reload trên 3 thiết bị.'],
   captures: ['Ảnh chụp và video được sắp xếp theo project trong Snapkit', 'Thư viện ảnh & video · Giao diện thật, dữ liệu minh họa.'],
   releases: ['Giao diện build Flutter APK, AAB và IPA trong Snapkit', 'Build & phát hành Flutter · Giao diện thật, dữ liệu minh họa.'],
   devices: ['Giao diện Snapkit quản lý iPhone Simulator, Android Emulator và điện thoại thật với trạng thái và nút chọn debug', 'Giao diện thật của Snapkit · Thiết bị và dữ liệu minh họa.'],
   setup: ['Giao diện kiểm tra Flutter, Android SDK, iOS và lựa chọn editor trong Snapkit', 'Kiểm tra công cụ trên máy · Trạng thái minh họa.']
 };
+const debugPreview = document.querySelector('#debug-preview');
+const debugVideo = document.querySelector('#debug-video');
+const videoPlay = document.querySelector('#debug-play');
+const videoStatus = document.querySelector('#debug-video-status');
+const videoRetry = document.querySelector('#debug-retry');
+const desktopVideo = matchMedia('(min-width:601px)');
+const reducedVideo = matchMedia('(prefers-reduced-motion:reduce)');
+let videoInView = false, userPausedVideo = false, ignoredPauses = 0, videoLoading = false, previewPending = false;
+const previewFigure = preview.closest('figure');
+const previewLoading = document.querySelector('#preview-loading');
+function updatePreviewLoading() {
+  const busy = previewPending || activePreview === 'debug' && videoLoading;
+  if (busy) previewFigure.setAttribute('aria-busy','true'); else previewFigure.removeAttribute('aria-busy');
+  previewLoading.hidden = !busy;
+}
+function pauseDebugVideo() {
+  if (!debugVideo.paused) { ignoredPauses++; debugVideo.pause(); }
+}
+function playDebugVideo() {
+  debugVideo.muted = true;
+  videoLoading = debugVideo.readyState < 3; updatePreviewLoading();
+  return debugVideo.play().catch(() => { videoLoading = false; updatePreviewLoading(); if (!debugVideo.error) videoPlay.hidden = false; });
+}
+function syncDebugVideo() {
+  if (activePreview !== 'debug' || !videoInView || document.hidden) { pauseDebugVideo(); return; }
+  if (debugVideo.getAttribute('src') && desktopVideo.matches && !reducedVideo.matches && !navigator.connection?.saveData && !userPausedVideo && debugVideo.paused) void playDebugVideo();
+}
+videoPlay.onclick = () => { userPausedVideo = false; void playDebugVideo(); };
+debugVideo.addEventListener('play', () => { userPausedVideo = false; videoPlay.hidden = true; });
+debugVideo.addEventListener('pause', () => {
+  videoPlay.hidden = false; videoLoading = false; updatePreviewLoading();
+  if (ignoredPauses) ignoredPauses--; else userPausedVideo = true;
+});
+for (const event of ['waiting','stalled']) debugVideo.addEventListener(event, () => { if (!debugVideo.paused) { videoLoading = true; updatePreviewLoading(); } });
+for (const event of ['playing','canplay']) debugVideo.addEventListener(event, () => { videoLoading = false; updatePreviewLoading(); });
+debugVideo.addEventListener('error', () => {
+  videoLoading = false; updatePreviewLoading();
+  videoStatus.textContent = t('Chưa tải được video. Hãy thử lại hoặc chọn tab ảnh.');
+  videoStatus.hidden = false; videoRetry.hidden = false; videoPlay.hidden = true;
+});
+videoRetry.onclick = () => { videoStatus.hidden = true; videoRetry.hidden = true; debugVideo.load(); userPausedVideo = false; void playDebugVideo(); };
+new IntersectionObserver(entries => { videoInView = entries[0].isIntersecting; syncDebugVideo(); }, { threshold: .25 }).observe(debugPreview);
+document.addEventListener('visibilitychange', syncDebugVideo);
+desktopVideo.addEventListener('change', syncDebugVideo); reducedVideo.addEventListener('change', syncDebugVideo);
 let previewEpoch = 0, requestedPreview = activePreview;
 async function choosePreview(key) {
   requestedPreview = key;
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
+  if (key !== 'debug') pauseDebugVideo();
   const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.png?v=20261106-gallery`;
-  const figure = preview.closest('figure'); figure.setAttribute('aria-busy', 'true');
+  const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
-    const next = new Image(); next.src = source; await next.decode();
+    const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();
     if (epoch !== previewEpoch) return;
-    preview.src = source; activePreview = key;
+    if (key !== 'debug') preview.src = source;
+    activePreview = key; preview.hidden = key === 'debug';
+    debugPreview.hidden = key !== 'debug'; figure.querySelector('.window-top').hidden = key === 'debug';
+    if (key === 'debug') {
+      const videoSource = `assets/debug-sync/${language}.mp4`;
+      debugVideo.poster = `assets/debug-sync/${language}.webp`;
+      debugVideo.setAttribute('aria-label', t(captions.debug[0]));
+      if (debugVideo.getAttribute('src') !== videoSource) {
+        pauseDebugVideo(); debugVideo.src = videoSource; debugVideo.load();
+        videoStatus.hidden = true; videoRetry.hidden = true;
+      }
+      syncDebugVideo();
+    } else pauseDebugVideo();
     for (const button of document.querySelectorAll('[data-preview]')) button.setAttribute('aria-pressed', String(button.dataset.preview === key));
     preview.alt = t(captions[key][0]);
     document.querySelector('#preview-caption').textContent = t(captions[key][1]);
   } catch {
     if (epoch === previewEpoch) { requestedPreview = activePreview; document.querySelector('#preview-caption').textContent = t('Chưa tải được ảnh xem trước. Hãy chọn lại để thử.'); }
-  } finally { if (epoch === previewEpoch) figure.removeAttribute('aria-busy'); }
+  } finally { if (epoch === previewEpoch) { previewPending = false; updatePreviewLoading(); } }
 }
 for (const button of document.querySelectorAll('[data-preview]')) button.addEventListener('click', () => void choosePreview(button.dataset.preview));
 for (const link of document.querySelectorAll('a[href="#install-help"]')) {

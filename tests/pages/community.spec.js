@@ -40,18 +40,23 @@ test('feedback preserves failed drafts, submits reviews and works in both langua
 });
 test('gallery keeps selected tab and displayed image together while the next image is loading',async({page})=>{
   await page.goto('./?lang=vi');
+  await page.locator('[data-preview=devices]').click();
+  await expect(page.locator('[data-preview=devices]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#app-preview')).toHaveAttribute('src',/devices-vi/);
   let release;
   const gate = new Promise(resolve=>{release=resolve;});
   await page.route('**/assets/releases-vi.png?*',async route=>{await gate; await route.continue();});
   await page.locator('[data-preview=releases]').click();
   await expect(page.locator('.app-window')).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#preview-loading')).toBeVisible();
+  await expect(page.locator('#app-preview')).toBeVisible();
   await expect(page.locator('[data-preview=devices]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#app-preview')).toHaveAttribute('src',/devices-vi/);
   release();
   await expect(page.locator('[data-preview=releases]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('#app-preview')).toHaveAttribute('src',/releases-vi/);
   await expect(page.locator('#preview-caption')).toContainText('Build & phát hành');
+  await expect(page.locator('#preview-loading')).toBeHidden();
 });
 test('SEO includes canonical, social cards, valid software schema, robots and sitemap',async({page,request})=>{
   await page.goto('./?lang=vi');

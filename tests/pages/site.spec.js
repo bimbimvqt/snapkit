@@ -9,7 +9,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   page.on('request', r => { if (r.url().includes('/api/')) apiRequests.push(r.url()); });
   await page.goto('./?lang=vi');
   await expect(page.getByRole('heading', { name: 'Mọi thiết bị. Một nơi điều khiển.' })).toBeVisible();
-  await expect(page.locator('#app-preview')).toBeVisible();
+  await expect(page.locator('#debug-video')).toBeVisible();
   await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
   await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.png?v=20261106-gallery');
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');

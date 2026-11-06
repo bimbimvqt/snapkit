@@ -2,6 +2,11 @@
 window.SnapkitMessages = {
   "source": "vi",
   "translations": {
+    "Đang chuẩn bị bản xem trước…": "Preparing your preview…",
+    "Video minh họa Debug Sync": "Debug Sync demo video",
+    "Debug Sync · Video minh họa Flutter Hot Reload trên 3 thiết bị.": "Debug Sync · Flutter Hot Reload illustration across 3 devices.",
+    "Xem Debug Sync": "Watch Debug Sync",
+    "Chưa tải được video. Hãy thử lại hoặc chọn tab ảnh.": "Could not load the video. Try again or choose an image tab.",
     "Chưa tải được ảnh xem trước. Hãy chọn lại để thử.": "Could not load the preview. Select it again to retry.",
     "Snapkit · Thiết bị sẵn sàng. Bạn cứ sáng tạo.": "Snapkit · Devices ready. Ideas flowing.",
     "Đến nội dung chính": "Skip to main content",
