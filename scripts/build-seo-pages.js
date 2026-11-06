@@ -32,6 +32,8 @@ export async function buildSeoPages(out) {
  const description = /<meta name="description" content="([^"]*)"/.exec(english)?.[1];
  if (description) english = english.replace(/(<meta (?:property="og:description"|name="twitter:description") content=")[^"]*/g, '$1' + description);
  english = english.replace(/href="#([^"]*)"/g, 'href="en/#$1"').replaceAll('href="huong-dan/', 'href="en/guides/');
+ // Match the language picker to the authored page before deferred localization runs.
+ english = english.replace('data-language-current="vi"', 'data-language-current="en"').replace('<span data-language-label>VN</span>', '<span data-language-label>EN</span>').replace('data-language="en" aria-checked="false"', 'data-language="en" aria-checked="true"').replace('data-language="vi" aria-checked="true"', 'data-language="vi" aria-checked="false"');
  // Keep the generated English social and schema copy consistent before JavaScript runs.
  english = english.replace('property="og:image:alt" content="Giao diện Snapkit quản lý thiết bị Flutter và React Native"', 'property="og:image:alt" content="Snapkit Flutter and React Native device workspace"');
  await mkdir(path.join(out,'en'),{recursive:true}); await writeFile(path.join(out,'en/index.html'),english);

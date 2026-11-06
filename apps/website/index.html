@@ -2,6 +2,16 @@
 <html lang="vi" data-page-language="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>
+    // Run before parsing the page so reload never restores an old scroll position
+    // or jumps back to a section hash. Normal links and history navigation still work.
+    if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+      history.scrollRestoration = 'manual';
+      if (location.hash) history.replaceState(history.state, '', location.pathname + location.search);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      window.addEventListener('pageshow', () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }), { once: true });
+    }
+  </script>
   <meta name="google-site-verification" content="h-jvHlvNiofEYSwQKFkzZWamKLfht3U6WtMXhk_v2CA">
   <link rel="alternate" hreflang="vi" href="https://snapkit.vn/"><link rel="alternate" hreflang="en" href="https://snapkit.vn/en/"><link rel="alternate" hreflang="x-default" href="https://snapkit.vn/">
   <link rel="canonical" href="https://snapkit.vn/">
@@ -20,7 +30,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Đến nội dung chính</a>
-  <header class="header"><nav class="nav wrap" aria-label="Điều hướng chính"><a class="brand" href="./" aria-label="Snapkit — Trang chủ"><img src="favicon.svg" alt="" width="34" height="34">Snapkit<span class="tag">BETA</span></a><div class="nav-links"><a href="#features">Tính năng</a><a href="#workflows">Workflow</a><a href="#faq">Hỏi đáp</a><a href="#feedback">Góp ý</a></div><div class="language-picker"><button type="button" class="language-trigger" data-language-select data-language-current="en" aria-label="Language / Ngôn ngữ" aria-haspopup="menu" aria-expanded="false" aria-controls="language-menu"><span data-language-label>EN</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="language-menu" class="language-menu" role="menu" aria-label="Language / Ngôn ngữ" hidden><button type="button" role="menuitemradio" data-language="en" aria-checked="true"><span>English</span><span class="language-code" lang="en">EN</span></button><button type="button" role="menuitemradio" data-language="vi" aria-checked="false"><span lang="vi">Tiếng Việt</span><span class="language-code" lang="vi">VN</span></button></div></div><a class="button primary nav-download" href="#downloads">Tải miễn phí <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></nav></header>
+  <header class="header"><nav class="nav wrap" aria-label="Điều hướng chính"><a class="brand" href="./" aria-label="Snapkit — Trang chủ"><img src="favicon.svg" alt="" width="34" height="34">Snapkit<span class="tag">BETA</span></a><div class="nav-links"><a href="#features">Tính năng</a><a href="#workflows">Workflow</a><a href="#faq">Hỏi đáp</a><a href="#feedback">Góp ý</a></div><div class="language-picker"><button type="button" class="language-trigger" data-language-select data-language-current="vi" aria-label="Language / Ngôn ngữ" aria-haspopup="menu" aria-expanded="false" aria-controls="language-menu"><span data-language-label>VN</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button><div id="language-menu" class="language-menu" role="menu" aria-label="Language / Ngôn ngữ" hidden><button type="button" role="menuitemradio" data-language="en" aria-checked="false"><span>English</span><span class="language-code" lang="en">EN</span></button><button type="button" role="menuitemradio" data-language="vi" aria-checked="true"><span lang="vi">Tiếng Việt</span><span class="language-code" lang="vi">VN</span></button></div></div><a class="button primary nav-download" href="#downloads">Tải miễn phí <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></nav></header>
   <main id="main">
     <section class="hero wrap">
       <div class="eyebrow"><span class="dot"></span> FLUTTER + REACT NATIVE</div>
