@@ -1,3 +1,5 @@
+// Consolidate old GitHub Pages bookmarks on the canonical site.
+if (location.hostname === 'bimbimvqt.github.io') location.replace('https://snapkit.vn/' + location.search + location.hash);
 const t = (...args) => window.SnapkitI18n.t(...args);
 let downloadMessage = null;
 let activePreview = 'devices';
@@ -53,15 +55,25 @@ const captions = {
   devices: ['Giao diện Snapkit quản lý iPhone Simulator, Android Emulator và điện thoại thật với trạng thái và nút chọn debug', 'Giao diện thật của Snapkit · Thiết bị và dữ liệu minh họa.'],
   setup: ['Giao diện kiểm tra Flutter, Android SDK, iOS và lựa chọn editor trong Snapkit', 'Kiểm tra công cụ trên máy · Trạng thái minh họa.']
 };
-for (const button of document.querySelectorAll('[data-preview]')) {
-  button.addEventListener('click', () => {
-    const key = button.dataset.preview; activePreview = key;
-    for (const sibling of document.querySelectorAll('[data-preview]')) sibling.setAttribute('aria-pressed', String(sibling === button));
-    preview.src = `assets/${key}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.png`;
+let previewEpoch = 0, requestedPreview = activePreview;
+async function choosePreview(key) {
+  requestedPreview = key;
+  const epoch = ++previewEpoch;
+  const language = window.SnapkitI18n.language;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.png?v=20261106-gallery`;
+  const figure = preview.closest('figure'); figure.setAttribute('aria-busy', 'true');
+  try {
+    const next = new Image(); next.src = source; await next.decode();
+    if (epoch !== previewEpoch) return;
+    preview.src = source; activePreview = key;
+    for (const button of document.querySelectorAll('[data-preview]')) button.setAttribute('aria-pressed', String(button.dataset.preview === key));
     preview.alt = t(captions[key][0]);
     document.querySelector('#preview-caption').textContent = t(captions[key][1]);
-  });
+  } catch {
+    if (epoch === previewEpoch) { requestedPreview = activePreview; document.querySelector('#preview-caption').textContent = t('Chưa tải được ảnh xem trước. Hãy chọn lại để thử.'); }
+  } finally { if (epoch === previewEpoch) figure.removeAttribute('aria-busy'); }
 }
+for (const button of document.querySelectorAll('[data-preview]')) button.addEventListener('click', () => void choosePreview(button.dataset.preview));
 for (const link of document.querySelectorAll('a[href="#install-help"]')) {
   link.addEventListener('click', () => { document.querySelector('#install-help').open = true; });
 }
@@ -69,13 +81,9 @@ for (const link of document.querySelectorAll('a[href="#install-help"]')) {
 document.addEventListener('snapkit:language', () => {
   applyContent();
   if (downloadMessage) document.querySelector('#download-status').textContent = t(downloadMessage);
-  preview.src = `assets/${activePreview}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.png`;
-  preview.alt = t(captions[activePreview][0]);
-  document.querySelector('#preview-caption').textContent = t(captions[activePreview][1]);
+  void choosePreview(requestedPreview);
 });
-
-preview.src = `assets/${activePreview}${window.SnapkitI18n.language === 'vi' ? '-vi' : ''}.png`;
-preview.alt = t(captions[activePreview][0]);
+void choosePreview(activePreview);
 
 const workflowTabs = [...document.querySelectorAll('[data-workflow]')];
 function chooseWorkflow(button) {
@@ -93,3 +101,46 @@ for (const [index, button] of workflowTabs.entries()) {
     event.preventDefault(); chooseWorkflow(workflowTabs[next]); workflowTabs[next].focus();
   });
 }
+
+const feedbackForm = document.querySelector('#feedback-form');
+const feedbackType = document.querySelector('#feedback-type');
+function updateRating() {
+  const review = feedbackType.value === 'review';
+  document.querySelector('#feedback-rating-field').hidden = !review;
+  document.querySelector('#feedback-rating').required = review;
+}
+feedbackType.addEventListener('change', updateRating);
+let feedbackMessage = '';
+function showFeedback(message, state) {
+  feedbackMessage = message;
+  const status = document.querySelector('#feedback-status'); status.textContent = t(message); status.dataset.state = state;
+}
+feedbackForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = feedbackForm.querySelector('button[type=submit]');
+  if (button.disabled) return;
+  const fields = new FormData(feedbackForm); const body = Object.fromEntries(fields);
+  body.rating = body.type === 'review' ? Number(body.rating) : null;
+  button.disabled = true; feedbackForm.setAttribute('aria-busy', 'true'); showFeedback('Đang gửi góp ý…', 'pending');
+  try {
+    const origin = location.hostname === 'bimbimvqt.github.io' ? 'https://snapkit.vn' : location.origin;
+    const response = await fetch(origin + '/v1/feedback', { method:'POST', headers:{'Content-Type':'application/json','X-Snapkit-Request':'1'}, body:JSON.stringify(body), signal:AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(response.status === 429 ? 'rate' : 'failed');
+    const data = await response.json(); if (data.received !== true) throw new Error('failed');
+    feedbackForm.reset(); updateRating(); showFeedback('Đã nhận góp ý. Cảm ơn bạn đã giúp Snapkit tốt hơn!', 'success');
+  } catch (error) {
+    showFeedback(error.message === 'rate' ? 'Bạn đã gửi nhiều góp ý. Vui lòng thử lại sau một giờ.' : 'Chưa thể gửi góp ý. Nội dung vẫn được giữ lại, bạn hãy thử lại.', 'error');
+  } finally { button.disabled = false; feedbackForm.removeAttribute('aria-busy'); }
+});
+document.addEventListener('snapkit:language', () => { if (feedbackMessage) document.querySelector('#feedback-status').textContent = t(feedbackMessage); });
+updateRating();
+
+function updateSocialMetadata() {
+  const title = document.title;
+  const description = document.querySelector('meta[name="description"]').content;
+  for (const key of ['og:title','twitter:title']) document.querySelector(`meta[property="${key}"],meta[name="${key}"]`).content = title;
+  for (const key of ['og:description','twitter:description']) document.querySelector(`meta[property="${key}"],meta[name="${key}"]`).content = description;
+  document.querySelector('meta[property="og:locale"]').content = window.SnapkitI18n.language === 'vi' ? 'vi_VN' : 'en_US';
+}
+document.addEventListener('snapkit:language', updateSocialMetadata);
+updateSocialMetadata();

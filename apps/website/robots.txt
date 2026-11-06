@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /v1/
+Disallow: /control/
+Disallow: /preview/
+Disallow: /demo/
+Sitemap: https://snapkit.vn/sitemap.xml

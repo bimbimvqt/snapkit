@@ -1,7 +1,7 @@
 (() => {
   const canonical = 'https://snapkit.vn';
   if (location.hostname === 'bimbimvqt.github.io') { location.replace(canonical + '/admin/'); return; }
-  const $ = s => document.querySelector(s); let content, offset = 0, total = 0;
+  const $ = s => document.querySelector(s); let content, offset = 0, total = 0, feedbackOffset = 0;
   async function api(route, body) {
     const res = await fetch('/v1/' + route, { credentials: 'same-origin', method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-Snapkit-Request': '1' }, signal: AbortSignal.timeout(15000), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const data = await res.json(); if (!res.ok) { const e = Error(res.status === 409 ? 'Nội dung đã đổi ở cửa sổ khác. Tải lại trước khi lưu.' : data.error); e.status = res.status; throw e; } return data;
@@ -21,6 +21,27 @@
     for (const [label,value] of [['Tổng tài khoản',data.users],['Được phép truy cập',data.activeUsers],['Phiên đăng nhập',data.sessions]]) { const card = document.createElement('div'); card.className = 'card'; card.textContent = label; const number = document.createElement('strong'); number.textContent = value; card.append(number); $('#stats').append(card); }
     $('#audit').replaceChildren(); for (const entry of data.audit) { const row = document.createElement('p'); row.textContent = new Date(entry.at).toLocaleString('vi-VN') + ' · ' + entry.action + ' · ' + entry.actor + (entry.target ? ' → ' + entry.target : ''); $('#audit').append(row); }
   }
+  async function feedback() {
+    const data = await api('admin/feedback?offset=' + feedbackOffset);
+    $('#feedback-count').textContent = data.total + ' góp ý · Chỉ quản trị viên có thể xem.';
+    $('#feedback-inbox').replaceChildren();
+    for (const entry of data.entries) {
+      const card = document.createElement('article'); card.className = 'feedback-entry';
+      const heading = document.createElement('h3'); heading.textContent = ({review:'Đánh giá',bug:'Báo lỗi',feature:'Đề xuất tính năng',other:'Góp ý khác'}[entry.type] || entry.type) + (entry.rating ? ' · ' + entry.rating + '/5' : '');
+      const meta = document.createElement('p'); meta.textContent = [entry.name, entry.email, new Date(entry.createdAt).toLocaleString('vi-VN')].filter(Boolean).join(' · ');
+      const message = document.createElement('p'); message.textContent = entry.message;
+      const label = document.createElement('label'); label.textContent = 'Trạng thái';
+      const select = document.createElement('select'); select.setAttribute('aria-label', 'Trạng thái góp ý ' + entry.id);
+      for (const [value, text] of [['new','Mới'],['reviewing','Đang xem xét'],['done','Đã xử lý']]) { const option = new Option(text, value); select.add(option); }
+      select.value = entry.status;
+      select.onchange = async () => { select.disabled = true; try { await api('admin/feedback/status',{id:entry.id,status:select.value}); entry.status = select.value; } catch (e) { select.value = entry.status; fail(e); } finally { select.disabled = false; } };
+      label.append(select); card.append(heading,meta,message,label); $('#feedback-inbox').append(card);
+    }
+    $('#feedback-previous').disabled = feedbackOffset === 0; $('#feedback-next').disabled = feedbackOffset + 50 >= data.total; $('#feedback-page').textContent = 'Trang ' + (feedbackOffset / 50 + 1);
+  }
+  $('#feedback-reload').onclick = () => feedback().catch(fail);
+  $('#feedback-previous').onclick = () => { feedbackOffset = Math.max(0, feedbackOffset - 50); feedback().catch(fail); };
+  $('#feedback-next').onclick = () => { feedbackOffset += 50; feedback().catch(fail); };
   async function users() {
     const data = await api('admin/users?search=' + encodeURIComponent($('#query').value) + '&offset=' + offset); total = data.total; $('#users').replaceChildren(); $('#users-message').textContent = total ? total + ' tài khoản' : 'Chưa có tài khoản phù hợp.';
     for (const user of data.users) {
@@ -48,7 +69,7 @@
       }
       $('#identity').textContent = account.user.email; $('#logout').hidden = false;
       if (account.user.role !== 'admin') { authState('denied', 'Tài khoản ' + account.user.email + ' chưa được cấp quyền quản trị. Hãy sử dụng tài khoản khác.'); return; }
-      await overview(); await users(); $('#login').hidden = true; $('#dashboard').hidden = false; document.body.dataset.view = 'dashboard';
+      await overview(); await users(); $('#login').hidden = true; $('#dashboard').hidden = false; document.body.dataset.view = 'dashboard'; await feedback().catch(fail);
     } catch (error) {
       if (error.status === 401) authState('ready', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
       else if (error.status === 403) authState('denied', 'Tài khoản này chưa được cấp quyền quản trị. Hãy sử dụng tài khoản khác.');

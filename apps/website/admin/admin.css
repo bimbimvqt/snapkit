@@ -24,3 +24,5 @@
 @media(max-width:420px){.admin-header{padding-inline:20px}.admin-brand img{width:28px;height:28px}.admin-brand{gap:7px;font-size:20px}.admin-brand .admin-badge{font-size:9px;margin-left:2px;padding:4px 6px}.back-link{font-size:11px}.admin-auth[data-view=auth] main{padding:28px 20px}.auth-card{padding:28px 22px 24px}.auth-intro h1{font-size:27px}.auth-description .desktop-break{display:none}.auth-card h2{font-size:24px}.admin-footer{flex-wrap:wrap;justify-content:center;padding:18px 20px}}
 @media(prefers-reduced-motion:reduce){.auth-spinner{animation:none}.google-login{transition:none}}
 .header-actions .back-link>span{margin:0}
+
+.feedback-entry{border-top:1px solid var(--line,#333);padding:24px 0;overflow-wrap:anywhere}.feedback-entry p{white-space:pre-wrap}.feedback-entry select{min-height:44px;padding:8px;background:#191c1f;color:#f1f3f3;border:1px solid #555;border-radius:8px}

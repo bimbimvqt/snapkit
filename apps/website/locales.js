@@ -2,6 +2,7 @@
 window.SnapkitMessages = {
   "source": "vi",
   "translations": {
+    "Chưa tải được ảnh xem trước. Hãy chọn lại để thử.": "Could not load the preview. Select it again to retry.",
     "Snapkit · Thiết bị sẵn sàng. Bạn cứ sáng tạo.": "Snapkit · Devices ready. Ideas flowing.",
     "Đến nội dung chính": "Skip to main content",
     "Điều hướng chính": "Main navigation",
@@ -167,6 +168,31 @@ window.SnapkitMessages = {
     "Giao diện build Flutter APK, AAB và IPA trong Snapkit": "Snapkit Flutter APK, AAB and IPA build interface",
     "Build & phát hành Flutter · Giao diện thật, dữ liệu minh họa.": "Flutter build & release · Actual interface, sample data.",
     "Bản beta 0.2.0-beta.36 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.36 · Choose the installer for your computer.",
-    "Bản beta 0.2.0-beta.39 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.39 · Choose the installer for your computer."
+    "Bản beta 0.2.0-beta.39 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.39 · Choose the installer for your computer.",
+    "Snapkit — Quản lý thiết bị & debug Flutter, React Native": "Snapkit — Device management & debugging for Flutter, React Native",
+    "Góp ý": "Feedback",
+    "CÙNG XÂY DỰNG SNAPKIT": "BUILD SNAPKIT TOGETHER",
+    "Trải nghiệm của bạn.": "Your experience.",
+    "Hướng đi tiếp theo.": "Our next direction.",
+    "Bạn đang gặp lỗi, có ý tưởng mới hay muốn chia sẻ trải nghiệm? Gửi trực tiếp cho đội ngũ Snapkit.": "Found a bug, have an idea or want to share your experience? Send it directly to the Snapkit team.",
+    "Đánh giá": "Reviews",
+    "Báo lỗi": "Bug report",
+    "Đề xuất tính năng": "Feature request",
+    "Góp ý khác": "Other feedback",
+    "Đánh giá trải nghiệm": "Experience review",
+    "Đánh giá & góp ý": "Reviews & feedback",
+    "Góp ý và email chỉ hiển thị với quản trị viên. Không gửi mật khẩu, token hoặc dữ liệu nhạy cảm. Email chỉ dùng để trao đổi về góp ý của bạn.": "Only administrators can see your feedback and email. Do not include passwords, tokens or sensitive data. Your email is only used to follow up on your feedback.",
+    "Bạn muốn gửi gì?": "What would you like to share?",
+    "Đánh giá của bạn": "Your rating",
+    "Chọn mức đánh giá": "Choose a rating",
+    "Nội dung góp ý": "Your feedback",
+    "10–4.000 ký tự. Nếu báo lỗi, hãy mô tả thao tác và phiên bản app.": "10–4,000 characters. For bugs, include the steps and app version.",
+    "Tên (không bắt buộc)": "Name (optional)",
+    "Email (không bắt buộc)": "Email (optional)",
+    "Gửi góp ý": "Send feedback",
+    "Đang gửi góp ý…": "Sending feedback…",
+    "Đã nhận góp ý. Cảm ơn bạn đã giúp Snapkit tốt hơn!": "Feedback received. Thank you for helping improve Snapkit!",
+    "Bạn đã gửi nhiều góp ý. Vui lòng thử lại sau một giờ.": "You have sent several submissions. Please try again in an hour.",
+    "Chưa thể gửi góp ý. Nội dung vẫn được giữ lại, bạn hãy thử lại.": "Could not send feedback. Your draft is still here; please try again."
   }
 };

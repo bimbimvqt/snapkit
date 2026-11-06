@@ -52,13 +52,15 @@ for (const browserUrl of [
 test('admin edits bilingual content with optimistic revision and renders account text safely', async ({page}) => {
   const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(r => server.once('listening',r));
   try {
-    let saved;
+    let saved, feedbackStatus;
     await page.route('**/v1/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path === '/v1/auth/config') return route.fulfill({json:{configured:true}});
       if (path === '/v1/account') return route.fulfill({json:{user:{email:'admin@example.com',role:'admin'}}});
       if (path === '/v1/admin/overview') return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
       if (path === '/v1/admin/users') return route.fulfill({json:{total:1,users:[{id:'a',name:'<img src=x onerror=alert(1)>',email:'user@example.com',role:'user',disabled:false}]}});
+      if (path === '/v1/admin/feedback') return route.fulfill({json:{total:1,entries:[{id:'test-feedback',type:'bug',message:'<img src=x onerror=alert(1)>',name:'Developer',email:'reply@example.com',status:'new',createdAt:'2026-11-06T00:00:00Z'}]}});
+      if (path === '/v1/admin/feedback/status') { feedbackStatus = route.request().postDataJSON(); return route.fulfill({json:{saved:true}}); }
       if (path === '/v1/admin/content') { saved = route.request().postDataJSON(); return route.fulfill({json:{content:{...saved,revision:1}}}); }
       return route.fulfill({status:404,json:{error:'Not found'}});
     });
@@ -69,6 +71,11 @@ test('admin edits bilingual content with optimistic revision and renders account
     await expect(page.locator('#save-message')).toContainText('Đã xuất bản');
     expect(saved.landing.vi.headline).toBe('Snapkit dành cho bạn'); expect(saved.revision).toBe(0);
     await expect(page.locator('#users img')).toHaveCount(0);
+    await expect(page.locator('#feedback-inbox')).toContainText('<img src=x onerror=alert(1)>');
+    await expect(page.locator('#feedback-inbox img')).toHaveCount(0);
+    await page.locator('#feedback-inbox select').selectOption('reviewing');
+    await expect(page.locator('#feedback-inbox select')).toBeEnabled();
+    expect(feedbackStatus).toEqual({id:'test-feedback',status:'reviewing'});
     await page.screenshot({path:'/tmp/snapkit-admin-beta10.png',fullPage:true});
   } finally { server.close(); }
 });

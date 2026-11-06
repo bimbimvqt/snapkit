@@ -1,0 +1,11 @@
+# Website feedback and search
+
+The landing page at https://snapkit.vn/#feedback accepts private reviews (1–5), bug reports, feature requests and other feedback. Name and email are optional. Messages are 10–4,000 characters. Feedback is stored in the cloud data volume's accounts.json through the existing serialized, atomic account transaction. Do not replace or check in this data file during deployment.
+
+Administrators can read the newest 50 submissions at a time and change their status (New, Reviewing, Done) in https://snapkit.vn/admin/. Submissions, contact details and ratings are private. The public form uses same-origin requests, field validation, a honeypot and a five-submission-per-IP hourly limit in each service process. That limit resets when the service restarts; monitor abuse before scaling beyond a single service. There is no automated email delivery.
+
+SEO includes a descriptive title/description, canonical URL, Open Graph/Twitter image metadata, WebSite and SoftwareApplication JSON-LD, robots.txt and sitemap.xml. No unverified ratings or reviews are included in structured data. Old GitHub Pages landing bookmarks redirect to snapkit.vn; paired controllers keep their existing routes. Internal account/admin/controller/demo pages send noindex headers. Main content remains readable in the initial HTML.
+
+After deployment, verify ownership of snapkit.vn in Google Search Console, submit https://snapkit.vn/sitemap.xml, and request indexing of the home page. This requires the site owner's Google account and cannot be replaced by adding keywords. Rankings and indexing dates are controlled by search engines; no tags guarantee position one. Content about specific supported workflows and relevant external links should be grown over time. The separate Swift library named SnapKit competes for the same brand query, so prioritize phrases such as "Snapkit Flutter", "Flutter multi-device debugging" and "React Native device manager" with accurate visible content.
+
+To refresh the gallery: SNAPKIT_REFRESH_WEBSITE=1 npx playwright test --config playwright.pages.config.js tests/pages/refresh-assets.spec.js. The capture test verifies active navigation and waits for transitions to finish. When publishing new images, update the gallery query version in site.js/index.html and corresponding page test expectations.

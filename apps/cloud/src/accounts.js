@@ -1,4 +1,4 @@
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -50,6 +50,27 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
   function audit(next, actor, action, target = '') { next.audit.push({ at: new Date().toISOString(), actor: actor.id, action, target }); }
   function install(app) {
     app.get('/v1/auth/config', (_req, res) => res.json(config()));
+    const feedbackRates = new Map();
+    app.post('/v1/feedback', async (req, res) => {
+      if (req.headers.origin !== origin || req.headers['x-snapkit-request'] !== '1') return res.status(403).json({ error: 'Invalid request origin.' });
+      const input = req.body || {};
+      if (input.website) return res.status(400).json({ error: 'Invalid feedback.' });
+      const text = (value, max) => typeof value === 'string' && value.length <= max && !/[\u0000-\u0008]/.test(value);
+      if (!['review', 'bug', 'feature', 'other'].includes(input.type) || !text(input.message, 4000) || input.message.trim().length < 10 || !text(input.name || '', 100) || !text(input.email || '', 254) || input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email) || input.rating != null && (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) || input.type === 'review' && input.rating == null) return res.status(400).json({ error: 'Check your feedback fields.' });
+      const now = Date.now();
+      for (const [key, rate] of feedbackRates) if (rate.until < now) feedbackRates.delete(key);
+      const ip = req.ip || 'unknown'; const rate = feedbackRates.get(ip) || { count: 0, until: now + 3600000 };
+      if (rate.count >= 5) return res.status(429).set('Retry-After', String(Math.ceil((rate.until - now) / 1000))).json({ error: 'Too many submissions.' });
+      if (feedbackRates.size >= 20000 && !feedbackRates.has(ip)) return res.status(503).json({ error: 'Please try again later.' });
+      rate.count++; feedbackRates.set(ip, rate);
+      const id = randomUUID();
+      await transaction(next => {
+        next.feedback ||= [];
+        if (next.feedback.length >= 20000) throw Error('Feedback inbox is full.');
+        next.feedback.push({ id, type: input.type, message: input.message.trim(), name: (input.name || '').trim(), email: (input.email || '').trim(), rating: input.rating ?? null, status: 'new', createdAt: new Date().toISOString() });
+      });
+      res.status(201).json({ received: true, id });
+    });
     app.get('/v1/public/content', async (_req, res) => res.json(await content()));
     app.post('/v1/auth/desktop/start', (_req, res) => {
       if (!configured) return res.status(503).json({ error: 'Google sign-in is not configured yet.' });
@@ -129,6 +150,18 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       if (account.user.role !== 'admin') return res.status(403).json({ error: 'Administrator access required.' });
       if (req.method !== 'GET' && !account.bearer && !csrf(req)) return res.status(403).json({ error: 'Invalid request origin.' });
       req.account = account; next();
+    });
+    app.get('/v1/admin/feedback', async (req, res) => {
+      await loaded; const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+      const entries = [...(db.feedback || [])].reverse();
+      res.json({ total: entries.length, entries: entries.slice(offset, offset + 50) });
+    });
+    app.post('/v1/admin/feedback/status', async (req, res) => {
+      if (typeof req.body?.id !== 'string' || !['new', 'reviewing', 'done'].includes(req.body.status)) return res.status(400).json({ error: 'Invalid feedback status.' });
+      await transaction(next => {
+        const entry = next.feedback?.find(item => item.id === req.body.id); if (!entry) throw Error('Feedback not found.');
+        entry.status = req.body.status; audit(next, req.account.user, 'feedback-' + entry.status, entry.id);
+      }); res.json({ saved: true });
     });
     app.get('/v1/admin/overview', async (_req, res) => { await loaded; const users = Object.values(db.users); res.json({ users: users.length, activeUsers: users.filter(u => !u.disabled).length, sessions: Object.values(db.sessions).filter(s => s.expires > Date.now()).length, content: db.content, audit: db.audit.slice(-30).reverse() }); });
     app.get('/v1/admin/users', async (req, res) => {
