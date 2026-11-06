@@ -1,3 +1,7 @@
+New in 0.2.0 (45): Replaced the CSS-drawn computer and generic laptop icon with bundled Apple and Microsoft product photographs for Mac mini, Mac Studio, MacBook and Windows. Mac Studio now has a separate detected hardware form. Images work offline and retain transparent backgrounds in light and dark themes. The website preview no longer reports its expected read-only device actions as errors.
+
+Validation: JavaScript/TypeScript checks, hardware identification unit tests and browser coverage for all four image families in light/dark themes. Actual Windows hardware detection remains unverified locally; its platform startup and packaging are checked by the release workflow.
+
 New in 0.2.0 (44): Added macOS-style Appearance settings with Light, Dark and Auto previews, saved preferences, system appearance tracking and native desktop theme synchronization. Redesigned the computer overview with macOS and Windows hardware/OS details and adaptive device illustrations. Removed Snapkit beta labels from the app interface and clarified that Clear Cache removes interface cache while preserving sign-in, projects, SDKs, virtual devices and captures. Release identifiers remain compatible with existing update clients.
 
 Validation: JavaScript/TypeScript checks, production dashboard build, hardware mapping tests, appearance and related browser flows, and macOS Electron startup smoke. Windows hardware detection uses CIM with a safe fallback; real Windows hardware behavior has not been exercised locally. Platform packaging and startup checks run in this release workflow.

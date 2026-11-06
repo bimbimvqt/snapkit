@@ -5,6 +5,8 @@ test('Mac display fields omit serial and machine identifiers', () => {
   const result = describeComputer('darwin', { machine_name: 'Mac mini', chip_type: 'Apple M4', serial_number: 'private', platform_UUID: 'private' }, { computer_name: 'Desk Mac', os_version: 'macOS 26.1' });
   assert.equal(result.form, 'mini'); assert.equal(result.chip, 'Apple M4'); assert.equal(result.name, 'Desk Mac'); assert.equal(result.osVersion, 'macOS 26.1'); assert.doesNotMatch(JSON.stringify(result), /private/);
   assert.equal(describeComputer('darwin', { machine_name: 'MacBook Pro' }).form, 'laptop');
+  assert.equal(describeComputer('darwin', { machine_name: 'Mac Studio' }).form, 'studio');
+  assert.equal(describeComputer('darwin', { machine_name: 'iMac' }).form, 'display');
 });
 test('Windows laptops and desktops retain processor and Windows build information', () => {
   const result = describeComputer('win32', { Model: ' Surface Laptop ', Processor: ' Snapdragon X Elite ', ChassisType: 10 }, { Caption: ' Microsoft Windows 11 Pro ', Version: '10.0.26100', BuildNumber: '26100' });

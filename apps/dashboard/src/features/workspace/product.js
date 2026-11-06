@@ -1,4 +1,8 @@
 import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, showWorkspace } from '../../legacy/device-controller.js';
+import macMiniImage from './assets/mac-mini.webp';
+import macStudioImage from './assets/mac-studio.webp';
+import macbookImage from './assets/macbook.webp';
+import windowsImage from './assets/windows.webp';
 /* Product navigation and guided setup. Device operations remain in app.js. */
 let product = null, toolState = null, activePage = 'devices', productLoading = false;
 let toolPromise = null, toolError = '', setupEpoch = 0;
@@ -95,8 +99,10 @@ function renderTools() {
       $('#computer-label').textContent = computer.model || osName;
       $('#computer-subtitle').textContent = computer.chip || t('This computer');
       const art = $('#computer-art');
-      art.className = `computer-art ${computer.form === 'mini' ? 'mini' : ''}`;
-      art.innerHTML = computer.form === 'mini' ? '' : icon(computer.form === 'laptop' ? 'laptop' : toolState.platform === 'win32' ? 'pc-case' : 'monitor');
+      const imageKind = toolState.platform === 'win32' ? 'windows' : toolState.platform === 'darwin' ? ({ mini: 'mini', studio: 'studio', laptop: 'macbook' }[computer.form] || (/Mac Studio/i.test(computer.model || '') ? 'studio' : null)) : null;
+      const computerImages = { mini: macMiniImage, studio: macStudioImage, macbook: macbookImage, windows: windowsImage };
+      art.className = `computer-art${imageKind ? ` computer-art-${imageKind}` : ''}`;
+      art.innerHTML = imageKind ? `<img src="${computerImages[imageKind]}" alt="" width="280" height="156" decoding="async">` : icon(computer.form === 'laptop' ? 'laptop' : 'monitor');
       const rows = [['Name', computer.name], ['Chip', computer.chip], ['Memory', toolState.memoryGB ? `${toolState.memoryGB} GB` : null], ['Architecture', toolState.arch?.toUpperCase()], ['Available storage', toolState.freeDiskGB != null ? `${toolState.freeDiskGB} GB` : null]];
       $('#computer-specs').innerHTML = rows.filter(([, value]) => value).map(([label, value]) => `<div class="computer-row"><dt>${escape(t(label))}</dt><dd>${escape(value)}</dd></div>`).join('');
       $('#computer-os-name').textContent = osName;
