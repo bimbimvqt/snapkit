@@ -1,5 +1,5 @@
 // Consolidate old GitHub Pages bookmarks on the canonical site.
-if (location.hostname === 'bimbimvqt.github.io') location.replace('https://snapkit.vn/' + location.search + location.hash);
+if (location.hostname === 'bimbimvqt.github.io') location.replace('https://snapkit.vn' + location.pathname.replace(/^\/snapkit(?=\/|$)/, '') + location.search + location.hash);
 const t = (...args) => window.SnapkitI18n.t(...args);
 let downloadMessage = null;
 let activePreview = 'debug';
@@ -106,7 +106,7 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.png?v=20261106-gallery`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261106-seo`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();

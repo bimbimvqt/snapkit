@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
+import { buildSeoPages } from './build-seo-pages.js';
 import { demoDevices, demoCatalog } from '../apps/agent/src/fixtures/demo.js';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const out = path.join(root, 'dist');
@@ -9,6 +10,7 @@ await build({ configFile: path.join(root, 'apps/dashboard/vite.config.ts') });
 await rm(out, { recursive: true, force: true });
 await mkdir(path.join(out, 'demo'), { recursive: true });
 await cp(path.join(root, 'apps/website'), out, { recursive: true });
+await buildSeoPages(out);
 await cp(path.join(root, 'packages/ui/i18n.js'), path.join(out, 'i18n.js'));
 await cp(path.join(root, 'packages/ui/language.css'), path.join(out, 'language.css'));
 await cp(path.join(root, 'packages/ui/favicon.svg'), path.join(out, 'favicon.svg'));
@@ -21,7 +23,7 @@ const snapshot = {
 };
 await writeFile(path.join(out, 'demo/preview-data.js'), `window.SNAPKIT_PREVIEW = ${JSON.stringify(snapshot)};\n`);
 const html = (await readFile(path.join(root, 'apps/dashboard/build/index.html'), 'utf8'))
-  .replace('</head>', '<script src="./preview-data.js"></script></head>');
+  .replace('</head>', '<meta name="robots" content="noindex,nofollow"><script src="./preview-data.js"></script></head>');
 await writeFile(path.join(out, 'demo/index.html'), html);
 await mkdir(path.join(out, 'control'), { recursive: true });
 await cp(path.join(root, 'apps/dashboard/build'), path.join(out, 'control'), { recursive: true });

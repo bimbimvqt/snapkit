@@ -6,7 +6,9 @@
   let saved;
   try { saved = localStorage.getItem('snapkit-language'); } catch {}
   const requested = new URLSearchParams(location.search).get('lang');
-  let language = supported(requested) ? requested : supported(saved) ? saved : navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en';
+  const pageLanguage = document.documentElement.dataset.pageLanguage;
+  const reverse = supported(pageLanguage) && pageLanguage !== catalog.source ? new Map(Object.entries(catalog.translations).map(([key, value]) => [value, key])) : new Map();
+  let language = supported(requested) ? requested : supported(pageLanguage) ? pageLanguage : supported(saved) ? saved : navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en';
   const records = [];
   const patterns = Object.entries(catalog.translations).filter(([key]) => /\{\d+\}/.test(key)).map(([key, translated]) => {
     const parts = key.split(/(\{\d+\})/);
@@ -33,13 +35,13 @@
     while (walker.nextNode()) {
       const node = walker.currentNode;
       if (node.parentElement?.closest('script,style,code,pre,[data-i18n-ignore]')) continue;
-      const source = node.nodeValue, key = source.trim();
-      if (Object.hasOwn(catalog.translations, key)) records.push({ node, key, before: source.slice(0, source.indexOf(key)), after: source.slice(source.indexOf(key) + key.length), last: source });
+      const source = node.nodeValue, text = source.trim(), key = reverse.get(text) || text;
+      if (Object.hasOwn(catalog.translations, key)) records.push({ node, key, before: source.slice(0, source.indexOf(text)), after: source.slice(source.indexOf(text) + text.length), last: source });
     }
     for (const node of root.querySelectorAll('[placeholder],[aria-label],[title],[alt],meta[name="description"]')) {
       for (const attr of ['placeholder', 'aria-label', 'title', 'alt', ...(node.matches('meta[name="description"]') ? ['content'] : [])]) {
-        const key = node.getAttribute(attr);
-        if (Object.hasOwn(catalog.translations, key)) records.push({ node, attr, key, last: key });
+        const current = node.getAttribute(attr), key = reverse.get(current) || current;
+        if (Object.hasOwn(catalog.translations, key)) records.push({ node, attr, key, last: current });
       }
     }
   }

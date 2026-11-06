@@ -45,7 +45,7 @@ test('gallery keeps selected tab and displayed image together while the next ima
   await expect(page.locator('#app-preview')).toHaveAttribute('src',/devices-vi/);
   let release;
   const gate = new Promise(resolve=>{release=resolve;});
-  await page.route('**/assets/releases-vi.png?*',async route=>{await gate; await route.continue();});
+  await page.route('**/assets/releases-vi.webp?*',async route=>{await gate; await route.continue();});
   await page.locator('[data-preview=releases]').click();
   await expect(page.locator('.app-window')).toHaveAttribute('aria-busy','true');
   await expect(page.locator('#preview-loading')).toBeVisible();

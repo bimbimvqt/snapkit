@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test';
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows'];
+const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
+test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
+ const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
+ const titles=new Set();
+ for(const route of paths){
+  const response=await page.goto(new URL(route,baseURL).href); expect(response.status()).toBe(200);
+  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href',`https://snapkit.vn/${route}`);
+  await expect(page.locator('html')).toHaveAttribute('lang',route.startsWith('en/')?'en':'vi');
+  await expect(page.locator('meta[name=description]')).toHaveAttribute('content',/.{70,}/);
+  await expect(page.locator('meta[name=google-site-verification]')).toHaveAttribute('content','h-jvHlvNiofEYSwQKFkzZWamKLfht3U6WtMXhk_v2CA');
+  const title=await page.title();expect(titles.has(title)).toBe(false);titles.add(title);
+  expect((await page.locator('main').innerText()).length).toBeGreaterThan(450);
+  const alternates=await page.locator('link[rel=alternate][hreflang]').evaluateAll(nodes=>nodes.map(n=>({lang:n.hreflang,url:n.href})));
+  expect(alternates.map(a=>a.lang)).toEqual(['vi','en','x-default']);
+  for(const alt of alternates.filter(a=>a.lang!=='x-default')){
+   const local=alt.url.replace('https://snapkit.vn/',baseURL);const html=await (await request.get(local)).text();
+   expect(html).toContain(`rel="canonical" href="${alt.url}"`);
+  }
+  const schemas=await page.locator('script[type="application/ld+json"]').allTextContents();
+  for(const schema of schemas) expect(JSON.parse(schema)['@graph'].length).toBeGreaterThan(0);
+ }
+ const sitemap=await (await request.get('sitemap.xml')).text();expect([...sitemap.matchAll(/<loc>/g)].length).toBe(12);
+ for(const route of paths) expect(sitemap).toContain(`<loc>https://snapkit.vn/${route}</loc>`);
+ await context.close();
+});
+test('English landing stays English with JavaScript and its guide links, previews and language switching work',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('en/');await expect(page.locator('html')).toHaveAttribute('lang','en');
+ await expect(page.locator('.hero-product')).toContainText('desktop app');
+ await expect(page.locator('#guides a').first()).toHaveAttribute('href','en/guides/flutter-multi-device-debugging/');
+ await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261106-seo');
+ await page.locator('[data-language-select]').click();await page.locator('[data-language=vi]').click();
+ await expect(page.locator('.hero-product')).toContainText('ứng dụng desktop');
+ expect(errors).toEqual([]);
+});
+test('guides are usable on small screens, provide related links and keyboard navigation',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ for(const lang of ['vi','en']){
+  await page.goto(`${lang==='vi'?'huong-dan':'en/guides'}/${slugs[0]}/`);
+  for(const width of [375,768,1440]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+  await page.locator('.guide-toc a').first().click();await expect(page.locator('#step-1')).toBeInViewport();
+  await expect(page.locator('.guide-related .guide-card')).toHaveCount(3);
+  await page.screenshot({path:`/tmp/snapkit-seo-guide-${lang}.png`,fullPage:true});
+ }
+});
+test('static private app surfaces explicitly prevent search indexing',async({request})=>{
+ for(const route of ['demo/','control/','preview/','admin/','auth/complete.html']){
+  const html=await(await request.get(route)).text();expect(html).toMatch(/name="robots" content="noindex,nofollow"/);
+ }
+});
