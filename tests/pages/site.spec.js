@@ -24,7 +24,13 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await page.locator('.topbar').screenshot({path:'/tmp/snapkit-beta43-preview-topbar.png',animations:'disabled'});
   await expect(page.locator('.device-card')).toHaveCount(6);
   await page.locator('[data-device="demo-ios-3"] [data-action="boot"]').click();
-  await expect(page.locator('.toast')).toContainText('Preview only');
+  await expect(page.locator('[data-device="demo-ios-3"] [data-action="boot"]')).toBeEnabled();
+  await expect(page.locator('.toast')).toHaveCount(0);
+  await chooseLanguage(page, 'vi');
+  await page.locator('[data-device="demo-ios-3"] [data-action="boot"]').click();
+  await expect(page.locator('[data-device="demo-ios-3"] [data-action="boot"]')).toBeEnabled();
+  await expect(page.locator('.toast')).toHaveCount(0);
+  await chooseLanguage(page, 'en');
   await page.getByRole('button', { name: 'Add device', exact: true }).click();
   await expect(page.locator('#create-model')).toContainText('iPhone 5');
   await expect(page.locator('#create-storage-label')).toHaveText('iOS DATA ON INTERNAL DISK');

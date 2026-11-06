@@ -26,10 +26,11 @@ function agentURL(value) {
 }
 const groupLabel = { ios: 'iOS SIMULATOR', android: 'ANDROID EMULATOR', physical: 'PHYSICAL DEVICE' };
 const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
+const previewReadOnlyMessage = "Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.";
 
 async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
-    if (data !== undefined) throw new Error("Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.");
+    if (data !== undefined) throw new Error(previewReadOnlyMessage);
     if (url === '/api/apple/teams') return { teams: [], selections: {} };
     if (url === '/api/apple/detected') return { teams: [] };
     if (url === '/api/releases') return { jobs: [], busy: false, uploadConfigured: false, demo: true };
@@ -49,6 +50,8 @@ async function api(url, data) {
   catch (error) { document.dispatchEvent(new Event('snapkit:review-error')); throw error; }
 }
 function toast(message, error = false) {
+  // Sample-device actions remain read-only without reporting an expected limitation as an error.
+  if (window.SNAPKIT_PREVIEW && message === previewReadOnlyMessage) return;
   if (error) document.dispatchEvent(new Event('snapkit:review-error'));
   const node = document.createElement('div'); node.className = `toast${error ? ' error' : ''}`;
   node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(t(message))}</span>`;
