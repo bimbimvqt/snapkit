@@ -14,7 +14,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   const key = env.REVENUECAT_SECRET_API_KEY, webhookAuth = env.REVENUECAT_WEBHOOK_AUTH;
   const configured = !!key && !!webhookAuth && accounts.config().configured;
   const statePath = path.join(env.SNAPKIT_CLOUD_DATA || path.join(root, 'cloud-data'), 'subscriptions.json');
-  let state = { events: {}, customers: {} }, queue = Promise.resolve(), releaseCache, releaseUntil = 0;
+  let state = { events: {}, customers: {} }, queue = Promise.resolve(), releaseCache, releaseUntil = 0, releasePending, releaseRetryAt = 0;
   const loaded = readFile(statePath, 'utf8').then(raw => { state = JSON.parse(raw); }).catch(error => { if (error.code !== 'ENOENT') throw error; });
   const limits = new Map();
   const sweep = setInterval(() => { for (const [ip, entry] of limits) if (Date.now() > entry.until) limits.delete(ip); }, 60000); sweep.unref();
@@ -42,24 +42,40 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   app.get('/v1/billing/config', (_req, res) => res.json({ provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false, accountEnabled: accounts.config().configured, configured,
     notice: 'All beta features are free. No card is required and no subscription starts automatically.', plans: [{ id: 'free', name: 'Free', price: null, features: ['Local device management', 'Create and start virtual devices', 'Use any editor'] }, { id: 'pro', name: 'Pro', price: null, includedInBeta: true, features: ['Multi-device Flutter debug selection', 'Saved project setups', 'Coordinated editor restart'] }] }));
   app.post('/v1/billing/checkout', (_req, res) => res.status(503).json({ code: 'BETA_FREE', error: 'Subscriptions are not on sale during beta. No payment has been taken.' }));
+  async function releaseCatalog() {
+    if (releaseCache && Date.now() < releaseUntil) return releaseCache;
+    if (releasePending) return releasePending;
+    if (Date.now() < releaseRetryAt) throw Error('Release service is cooling down');
+    releasePending = (async () => {
+      try {
+        const response = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', {headers:{Accept:'application/vnd.github+json','User-Agent':'Snapkit-release-service'},signal:AbortSignal.timeout(10000)});
+        if (!response.ok) throw Error('Release lookup failed');
+        const releases = await response.json();
+        if (!Array.isArray(releases) || releases.length > 100 || releases.some(item => !item || typeof item.tag_name !== 'string' || !Array.isArray(item.assets))) throw Error('Invalid release catalog');
+        if (!releases.some(item => item.tag_name === 'v'+version)) {
+          const tagged = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/v'+version,{headers:{Accept:'application/vnd.github+json','User-Agent':'Snapkit-release-service'},signal:AbortSignal.timeout(10000)});
+          if (tagged.ok) { const item = await tagged.json(); if (item?.tag_name === 'v'+version && Array.isArray(item.assets)) releases.push(item); }
+        }
+        releases.sort((a,b)=>String(b.published_at||'').localeCompare(String(a.published_at||'')));
+        releaseCache = releases; releaseUntil = Date.now()+5*60000; return releases;
+      } catch (error) { releaseRetryAt = Date.now()+60000; throw error; }
+      finally { releasePending = null; }
+    })();
+    return releasePending;
+  }
+  app.get('/v1/releases/desktop', async (_req,res) => {
+    try {
+      const releases = await releaseCatalog();
+      res.json(releases.filter(item=>!item.draft).map(item=>({tag_name:item.tag_name,draft:false,prerelease:item.prerelease===true,assets:item.assets.map(({name,size,digest,browser_download_url})=>({name,size,digest,browser_download_url}))})));
+    } catch { res.status(503).json({error:'Update metadata is temporarily unavailable. Try again shortly.'}); }
+  });
   app.get('/v1/releases/latest', async (req, res) => {
     if (!['darwin', 'win32'].includes(req.query.platform) || !['arm64', 'x64'].includes(req.query.arch) || req.query.platform === 'win32' && req.query.arch !== 'x64') return res.status(400).json({ error: 'Choose macOS Apple Silicon, macOS Intel, or Windows x64.' });
-    if (!releaseCache || Date.now() >= releaseUntil) {
-      try {
-        const response = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Snapkit-release-service' }, signal: AbortSignal.timeout(10000) });
-        if (!response.ok) throw new Error('Release lookup failed');
-        releaseCache = await response.json();
-        // GitHub's release list can lag behind a newly published tag.
-        if (!releaseCache.some(item => item.tag_name === 'v' + version)) {
-          const tagged = await fetcher('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/v' + version, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Snapkit-release-service' }, signal: AbortSignal.timeout(10000) });
-          if (tagged.ok) releaseCache.push(await tagged.json());
-        }
-        releaseCache.sort((a, b) => String(b.published_at || '').localeCompare(String(a.published_at || ''))); releaseUntil = Date.now() + 60000;
-      } catch { return res.status(503).json({ error: 'Downloads are temporarily unavailable. Please try GitHub Releases.', url: 'https://github.com/bimbimvqt/snapkit/releases' }); }
-    }
+    let releases;
+    try { releases = await releaseCatalog(); } catch { return res.status(503).json({ error: 'Downloads are temporarily unavailable. Please try GitHub Releases.', url: 'https://github.com/bimbimvqt/snapkit/releases' }); }
     const osName = req.query.platform === 'darwin' ? 'mac' : 'win';
     const publicContent = await accounts.content();
-    const release = releaseCache.find(item => (!publicContent.recommendedVersion || item.tag_name === 'v' + publicContent.recommendedVersion) && !item.draft && item.assets?.some(asset => asset.name === `Snapkit-${item.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`));
+    const release = releases.find(item => (!publicContent.recommendedVersion || item.tag_name === 'v' + publicContent.recommendedVersion) && !item.draft && item.assets?.some(asset => asset.name === `Snapkit-${item.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`));
     if (!release) return res.json({ version: null, available: false, url: 'https://github.com/bimbimvqt/snapkit/releases', channel: 'beta' });
     const asset = release.assets.find(asset => asset.name === `Snapkit-${release.tag_name.replace(/^v/, '')}-${osName}-${req.query.arch}.${osName === 'mac' ? 'dmg' : 'exe'}`);
     res.json({ version: release.tag_name.replace(/^v/, ''), available: true, url: release.html_url, downloadUrl: asset.browser_download_url, size: asset.size, channel: release.prerelease ? 'beta' : 'stable', signed: false });

@@ -5,14 +5,14 @@ const { createHash } = require('node:crypto');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { downloadURL } = require('./policy.cjs');
-function request(url, signal, redirects = 0, range) {
+function request(url, signal, redirects = 0, range, metadata = false) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { signal, headers: { 'User-Agent': 'Snapkit-Desktop-Updater', Accept: 'application/vnd.github+json', 'Accept-Encoding': 'identity', ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}) }, timeout: 30000 }, response => {
       if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
         response.resume();
-        try { if (redirects >= 5) throw Error('Too many update redirects.'); const next = downloadURL(new URL(response.headers.location, url).href); resolve(request(next, signal, redirects + 1, range)); } catch (error) { reject(error); }
+        try { if (metadata) throw Error('Unexpected update metadata redirect.'); if (redirects >= 5) throw Error('Too many update redirects.'); const next = downloadURL(new URL(response.headers.location, url).href); resolve(request(next, signal, redirects + 1, range)); } catch (error) { reject(error); }
       } else if (range ? response.statusCode !== 206 || response.headers['content-range'] !== `bytes ${range.start}-${range.end}/${range.total}` || response.headers['content-encoding'] && response.headers['content-encoding'] !== 'identity' : response.statusCode !== 200) {
-        response.destroy(); reject(Error('Update server did not return the requested data.'));
+        response.destroy(); reject(Error(metadata ? 'Could not check for updates. Try again shortly.' : `Update download failed (HTTP ${response.statusCode}). Try again.`));
       }
       else resolve(response);
     });
@@ -20,7 +20,7 @@ function request(url, signal, redirects = 0, range) {
   });
 }
 async function releaseList(signal) {
-  const response = await request('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=30', signal);
+  const response = await request('https://snapkit.vn/v1/releases/desktop', signal, 0, undefined, true);
   const parts = []; let bytes = 0;
   for await (const chunk of response) { bytes += chunk.length; if (bytes > 2 * 1024 * 1024) { response.destroy(); throw Error('Invalid update response.'); } parts.push(chunk); }
   const releases = JSON.parse(Buffer.concat(parts).toString()); if (!Array.isArray(releases)) throw Error('Invalid update response.'); return releases;

@@ -1,5 +1,11 @@
 # Snapkit changelog
 
+## 0.2.0-beta.41 — 2026-11-06
+
+- Kiểm tra cập nhật desktop qua dịch vụ Snapkit có cache và gộp yêu cầu đồng thời, tránh hết hạn mức GitHub theo IP mạng người dùng.
+- Website và updater dùng chung catalog; lỗi upstream có khoảng nghỉ trước khi thử lại. Giữ nguyên SHA-256, kiểm tra URL và quy trình xác minh bộ cài.
+- Lỗi cập nhật hiển thị thông báo rõ hơn bằng EN/VI. Các bản cũ cần thử lại sau khi GitHub mở hạn mức hoặc cài bản mới một lần.
+
 ## 0.2.0-beta.40 — 2026-11-06
 
 - Thêm Project Doctor kiểm tra cấu hình chạy, dependency và công cụ native theo project Flutter/React Native.

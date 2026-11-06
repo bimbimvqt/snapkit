@@ -1101,3 +1101,9 @@ Object.assign(window.SnapkitMessages.translations, {
 });
 
 Object.assign(window.SnapkitMessages.translations, {'Review Snapkit': 'Đánh giá Snapkit'});
+
+Object.assign(window.SnapkitMessages.translations, {
+  'Could not check for updates. Try again shortly.': 'Chưa thể kiểm tra cập nhật. Hãy thử lại sau ít phút.',
+  'Update download failed (HTTP {0}). Try again.': 'Không tải được bản cập nhật (HTTP {0}). Hãy thử lại.',
+  'Unexpected update metadata redirect.': 'Địa chỉ phản hồi cập nhật không hợp lệ.'
+});
