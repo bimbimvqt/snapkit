@@ -1,15 +1,21 @@
 import { t, $, escape, busy, api, state, loadState, toast, showWorkspace, connection } from '../../legacy/device-controller.js';
 import './developer-tools.css';
 
-let context = '', epoch = 0, profiles = [], doctor = null;
+let context = '', epoch = 0, profiles = [], doctor = null, profilesContent = '', doctorContent = '';
 const key = () => JSON.stringify([state.settings.spaceId, state.settings.workspace, state.settings.framework, state.settings.flavor, state.settings.target, state.settings.defineFile]);
 function render() {
   const connected = !!state.settings.workspace && state.settings.framework !== 'backend';
   $('#run-profile-save').disabled = !connected;
   $('#doctor-check').disabled = !connected || $('#doctor-check').getAttribute('aria-busy') === 'true';
   $('#doctor-project').textContent = state.settings.workspace || t('Choose a project first.');
-  $('#run-profile-list').innerHTML = profiles.length ? profiles.map(profile => `<article class="run-profile"><div><strong>${escape(profile.name)}</strong><p>${escape(profile.framework === 'flutter' ? [profile.flavor || t('Default flavor'), profile.target, profile.defineFile].filter(Boolean).join(' · ') : 'React Native')} · ${escape(t('{0} saved devices', [profile.targetIds.length]))}</p></div><div class="tool-buttons"><button class="button" data-profile-activate="${escape(profile.id)}">${t('Use profile')}</button><button class="button" data-profile-delete="${escape(profile.id)}" aria-label="${escape(t('Delete profile {0}', [profile.name]))}">${t('Delete')}</button></div></article>`).join('') : `<p>${t('No saved run profiles. Save your current IDE setup to reuse it later.')}</p>`;
+  const nextProfiles = JSON.stringify([profiles, window.SnapkitI18n.language]);
+  if (profilesContent !== nextProfiles) { profilesContent = nextProfiles;
+  $('#run-profile-list').innerHTML = profiles.length ? profiles.map(profile => `<article class="run-profile"><div><strong>${escape(profile.name)}</strong><p>${escape(profile.framework === 'flutter' ? [profile.flavor || t('Default flavor'), profile.target, profile.defineFile].filter(Boolean).join(' · ') : 'React Native')} · ${escape(t('{0} saved devices', [profile.targetIds.length]))}</p></div><div class="tool-buttons"><button class="button" data-profile-activate="${escape(profile.id)}">${t('Use profile')}</button><button class="button" data-profile-delete="${escape(profile.id)}" aria-label="${escape(t('Delete profile {0}', [profile.name]))}">${t('Delete')}</button></div></article>`).join('') : `<p>${t('No saved profiles.')}</p>`;
+  }
+  const nextDoctor = JSON.stringify([doctor, window.SnapkitI18n.language]);
+  if (doctorContent !== nextDoctor) { doctorContent = nextDoctor;
   $('#doctor-results').innerHTML = doctor ? `<p role="status">${t(doctor.ready ? 'Project checks passed' : 'Project needs attention')} · ${escape(new Date(doctor.checkedAt).toLocaleTimeString())}</p><div class="tool-checks">${doctor.checks.map(check => `<article class="tool-check ${check.status}"><div><h3>${escape(t(check.title))} · ${t(check.status === 'ready' ? 'Ready' : 'Needs setup')}</h3><p>${escape(t(check.detail))}</p></div></article>`).join('')}</div>` : `<p>${t('Check project dependencies, native folders and build tools before your next run.')}</p>`;
+  }
 }
 async function refreshProfiles() {
   if (window.SNAPKIT_CONTROLLER && !connection) return;
@@ -31,6 +37,11 @@ $('#doctor-check').addEventListener('click', event => busy(event.currentTarget, 
   catch (error) { if (request === epoch) $('#doctor-error').textContent = t(error.message); }
   finally { if (request === epoch) $('#doctor-status').textContent = ''; }
 }));
+$('#run-profiles-open').addEventListener('click', () => {
+  $('#run-profiles').open = true;
+  $('#run-profiles summary').focus({preventScroll:true});
+  $('#run-profiles').scrollIntoView({block:'start'});
+});
 $('#doctor-open-project').addEventListener('click', showWorkspace);
 $('#run-profile-form').addEventListener('submit', event => {
   event.preventDefault();

@@ -169,11 +169,15 @@ function updateLogControls() {
   $('#capture-shot').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-shot').hasAttribute('aria-busy');
   $('#capture-record').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-record').hasAttribute('aria-busy') || deviceToolsState.recordings.some(x => x.deviceId === $('#capture-device').value);
 }
-let pausedLogLines = null, logGeneration = 0;
+let pausedLogLines = null, logGeneration = 0, lastLogContent = null;
 function filteredLogLines() { return filterLogs(pausedLogLines || logLines, {text: $('#log-search').value, level: $('#log-level').value, after: logClearedAt}); }
 function visibleLogText() { return filteredLogLines().map(line => line.text).join('\n'); }
 function renderLogLines() {
-  const output = $('#log-output'), lines = filteredLogLines(), fragment = document.createDocumentFragment();
+  const output = $('#log-output'), lines = filteredLogLines();
+  const content = JSON.stringify([lines.map(line => [line.id, line.text]), !!pausedLogLines, window.SnapkitI18n.language]);
+  if (content === lastLogContent) return;
+  lastLogContent = content;
+  const fragment = document.createDocumentFragment();
   for (const line of lines) { const node = document.createElement('span'); node.className = 'log-line log-' + logLevel(line.text); node.textContent = line.text; fragment.append(node); }
   output.replaceChildren(fragment);
   $('#log-count').textContent = t('{0} visible lines', [lines.length]) + (pausedLogLines ? ' · ' + t('View paused') : '');
@@ -241,7 +245,7 @@ document.addEventListener('snapkit:state', () => {
   }
   renderToolDevices(); renderSets();
 });
-document.addEventListener('snapkit:language', () => { renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
+document.addEventListener('snapkit:language', () => { $('#log-status').textContent = t(currentLogStatus === 'running' ? 'Streaming' : currentLogStatus === 'failed' ? 'Failed' : 'Stopped'); renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
 setInterval(() => { if (!document.hidden && ['sets', 'captures'].includes(activePage)) refreshDeviceTools().catch(() => {}); if (activePage === 'logs') pollLogs(); }, 1500);
 
 export {};

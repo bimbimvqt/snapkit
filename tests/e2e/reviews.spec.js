@@ -28,7 +28,10 @@ test('in-app review accepts a low rating, keeps failed drafts and retries the sa
   expect(calls[1]).toMatchObject({rating:1,publishConsent:false,name:''});
   expect(Object.keys(calls[1]).sort()).toEqual(['message','name','publishConsent','rating','submissionId'].sort());
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('snapkit-review-v1')).submitted)).toBe(true);
-  await dialog.getByRole('button',{name:'Done',exact:true}).click();await expect(dialog).not.toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Done',exact:true})).toBeFocused();
+  await expect(dialog).toContainText('Your review stays private');
+  await page.screenshot({path:'/tmp/snapkit-review-success-dark-en.png',animations:'disabled'});
+  await page.keyboard.press('Enter');await expect(dialog).not.toBeVisible();
   await expect(page.locator('#review-open')).toBeFocused();
 });
 
@@ -48,6 +51,12 @@ test('review dialog supports Vietnamese, keyboard stars, public consent and a sm
   await dialog.getByRole('button',{name:'Gửi đánh giá',exact:true}).click();
   await expect(dialog.getByRole('heading',{name:'Cảm ơn bạn đã chia sẻ.',exact:true})).toBeVisible();
   await expect(dialog).toContainText('sau khi được duyệt');expect(sent).toMatchObject({rating:2,publishConsent:true,name:'Developer'});
+  await expect(dialog.getByRole('button',{name:'Xong',exact:true})).toBeFocused();
+  expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth && el.getBoundingClientRect().bottom<=innerHeight)).toBe(true);
+  await page.screenshot({path:'/tmp/snapkit-review-success-light-vi-small.png',animations:'disabled'});
+  await page.setViewportSize({width:1200,height:800});
+  await page.evaluate(()=>document.documentElement.classList.remove('light'));
+  await page.screenshot({path:'/tmp/snapkit-review-success-dark-vi.png',animations:'disabled'});
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();
 });
 

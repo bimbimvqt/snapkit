@@ -14,6 +14,7 @@ function Reviews() {
   const [open, setOpen] = useState(false), [invite, setInvite] = useState(false), [rating, setRating] = useState(0);
   const [message,setMessage] = useState(''), [name,setName] = useState(''), [consent,setConsent] = useState(false);
   const [sending,setSending] = useState(false), [sent,setSent] = useState(false), [error,setError] = useState('');
+  const done = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDialogElement>(null), returnFocus = useRef<HTMLElement|null>(null);
   const started = useRef(Date.now()), interacted = useRef(Date.now()), lastProblem = useRef(0), stored = useRef(true);
   const work = useRef(new Set<string>());
@@ -62,6 +63,7 @@ function Reviews() {
     return () => { clearInterval(timer); document.removeEventListener('snapkit:review-open',manual); document.removeEventListener('snapkit:review-success',success); document.removeEventListener('snapkit:review-error',problem); document.removeEventListener('snapkit:review-work',working); document.removeEventListener('snapkit:state',stateChanged); document.removeEventListener('pointerdown',interact,true); document.removeEventListener('keydown',interact,true); };
   },[]);
   useEffect(() => { if (open) dialog.current?.showModal(); else if (dialog.current?.open) dialog.current.close(); },[open]);
+  useEffect(() => { if (open && sent) done.current?.focus({preventScroll:true}); },[open,sent]);
   const close = () => { if(sending) return; setOpen(false); returnFocus.current?.focus({preventScroll:true}); };
   useEffect(() => {
     if (!open) return;
@@ -87,9 +89,15 @@ function Reviews() {
   const labels = vi ? ['Rất chưa hài lòng','Chưa hài lòng','Bình thường','Hài lòng','Rất hài lòng'] : ['Very dissatisfied','Dissatisfied','Neutral','Satisfied','Very satisfied'];
   return <>
     {invite && createPortal(<aside className="review-invite" aria-live="polite" aria-labelledby="review-invite-title"><div><strong id="review-invite-title">{w('How is Snapkit working for you?','Trải nghiệm Snapkit của bạn thế nào?')}</strong><p>{w('Share an honest review to help us improve.','Chia sẻ đánh giá của bạn để giúp Snapkit tốt hơn.')}</p></div><div className="review-invite-actions"><button className="button" onClick={show}>{w('Write a review','Viết đánh giá')}</button><button className="button" onClick={()=>dismiss()}>{w('Later','Để sau')}</button><button className="text-button" onClick={()=>dismiss(true)}>{w('Don’t ask again','Không nhắc lại')}</button></div></aside>,document.getElementById('review-invite-root')!)}
-    <dialog ref={dialog} id="review-dialog" className="review-dialog" aria-labelledby="review-title" aria-describedby="review-description" onCancel={event=>{event.preventDefault();close();}} onClose={()=>{setOpen(false); requestAnimationFrame(()=>{const target=returnFocus.current?.isConnected?returnFocus.current:document.getElementById('review-open');target?.focus({preventScroll:true});});}}>
+    <dialog ref={dialog} id="review-dialog" className={`review-dialog${sent ? ' review-dialog-success' : ''}`} aria-labelledby="review-title" aria-describedby="review-description" onCancel={event=>{event.preventDefault();close();}} onClose={()=>{setOpen(false); requestAnimationFrame(()=>{const target=returnFocus.current?.isConnected?returnFocus.current:document.getElementById('review-open');target?.focus({preventScroll:true});});}}>
       <button className="icon-button review-close" aria-label={w('Close review','Đóng đánh giá')} disabled={sending} onClick={close}><Icon name="x"/></button>
-      {sent ? <div className="review-thanks"><span className="review-mark"><Icon name="circle-check"/></span><h2 id="review-title">{w('Thanks for sharing.','Cảm ơn bạn đã chia sẻ.')}</h2><p id="review-description">{w('Your review has been received. Every rating helps us improve Snapkit.','Đã nhận đánh giá của bạn. Mọi mức đánh giá đều giúp Snapkit cải thiện.')}</p><p>{consent ? w('It may appear on snapkit.vn after moderation.','Đánh giá có thể xuất hiện trên snapkit.vn sau khi được duyệt.') : w('Your review stays private to the Snapkit team.','Đánh giá chỉ được chia sẻ riêng với nhóm Snapkit.')}</p><button className="button primary" onClick={close}>{w('Done','Xong')}</button></div> : <form onSubmit={submit}>
+      {sent ? <div className="review-thanks">
+        <span className="review-mark"><Icon name="check"/></span>
+        <h2 id="review-title">{w('Thanks for sharing.','Cảm ơn bạn đã chia sẻ.')}</h2>
+        <p id="review-description">{w('Your review has been received. Your feedback helps make Snapkit better.','Đã nhận đánh giá của bạn. Góp ý của bạn sẽ giúp Snapkit ngày càng tốt hơn.')}</p>
+        <div className="review-receipt-note"><Icon name={consent ? 'clock-3' : 'shield-check'}/><p>{consent ? w('It may appear on snapkit.vn after moderation.','Đánh giá có thể xuất hiện trên snapkit.vn sau khi được duyệt.') : w('Your review stays private to the Snapkit team.','Đánh giá chỉ được chia sẻ riêng với nhóm Snapkit.')}</p></div>
+        <button ref={done} className="button primary" onClick={close}>{w('Done','Xong')}</button>
+      </div> : <form onSubmit={submit}>
         <span className="product-kicker">{w('YOUR EXPERIENCE','TRẢI NGHIỆM CỦA BẠN')}</span><h2 id="review-title">{w('Review Snapkit','Đánh giá Snapkit')}</h2><p id="review-description">{w('What works well, and what could be better? We welcome every rating.','Điều gì hữu ích và điều gì cần cải thiện? Chúng mình đón nhận mọi mức đánh giá.')}</p>
         <fieldset className="review-rating" disabled={sending}><legend>{w('Your rating','Mức độ hài lòng')}</legend><div className="review-stars">{[1,2,3,4,5].map(value=><label key={value} className={value<=rating?'filled':''}><input type="radio" name="review-rating" value={value} checked={rating===value} onChange={()=>setRating(value)} aria-label={w(`${value} stars: ${labels[value-1]}`,`${value} sao: ${labels[value-1]}`)} required/><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></label>)}</div><p className="review-rating-label" aria-live="polite">{rating?`${rating}/5 · ${labels[rating-1]}`:w('Choose 1–5 stars','Chọn từ 1 đến 5 sao')}</p></fieldset>
         <label htmlFor="review-message">{w('Your review','Nội dung đánh giá')}</label><textarea id="review-message" minLength={10} maxLength={4000} required rows={4} value={message} disabled={sending} onChange={e=>setMessage(e.target.value)} aria-describedby="review-message-help"/><small id="review-message-help">{w('10–4,000 characters. Please leave out secrets and project details.','10–4.000 ký tự. Không đưa thông tin bí mật hoặc chi tiết dự án vào đánh giá.')}</small>

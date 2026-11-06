@@ -1066,6 +1066,8 @@ Object.assign(window.SnapkitMessages.translations, {
 });
 
 Object.assign(window.SnapkitMessages.translations, {
+  'Save launch settings and selected devices for your next run.': 'Lưu cấu hình chạy và thiết bị để dùng cho lần chạy tiếp theo.',
+  'No saved profiles.': 'Chưa có cấu hình đã lưu.',
   'Run Profiles': 'Cấu hình chạy',
   'Save the current flavor, entrypoint, defines file and selected devices. Use a profile for your next IDE debug run.': 'Lưu flavor, entrypoint, tệp defines và thiết bị đang chọn. Áp dụng cho lần debug tiếp theo trong IDE.',
   'Profile name': 'Tên cấu hình', 'Development': 'Phát triển', 'Save current setup': 'Lưu thiết lập hiện tại',

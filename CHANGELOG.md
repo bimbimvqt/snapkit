@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.42 — 2026-11-06
+
+- Thu gọn popup cảm ơn đánh giá, phân cấp nội dung và thông tin riêng tư; hỗ trợ bàn phím, sáng/tối và cửa sổ nhỏ.
+- Sắp xếp log thành các hàng thiết bị/điều khiển, bộ lọc và thao tác; căn đều kích thước, trạng thái và khoảng cách.
+- Thêm lối mở Cấu hình chạy ngay đầu trang Thiết bị, rút gọn hướng dẫn và bỏ chữ trang trí không cần thiết.
+- Không dựng lại dòng log hoặc kết quả Project Doctor/Run Profiles khi dữ liệu không đổi, giúp giữ nội dung và giảm thao tác DOM.
+- Dọn output/cache build cũ trước khi build lại; giữ cơ chế tự xóa cache giao diện khi đổi phiên bản.
+
 ## 0.2.0-beta.41 — 2026-11-06
 
 - Kiểm tra cập nhật desktop qua dịch vụ Snapkit có cache và gộp yêu cầu đồng thời, tránh hết hạn mức GitHub theo IP mạng người dùng.

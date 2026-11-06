@@ -44,6 +44,16 @@ test('device card logs filter and export, screenshots preview and download withi
   await page.screenshot({ path: '/tmp/snapkit-logs-beta14.png', fullPage: true, animations: 'disabled' });
   const download = page.waitForEvent('download'); await page.locator('#log-export').click(); expect((await download).suggestedFilename()).toMatch(/Snapkit-logs.*\.txt/);
   await page.locator('#log-stop').click(); await expect(page.locator('#log-status')).toHaveText('Stopped'); await expect(page.locator('#log-stop')).toBeDisabled();
+  await page.evaluate(() => window.SnapkitI18n.setLanguage('vi'));
+  await expect(page.locator('#log-status')).toHaveText('Đã dừng');
+  await page.setViewportSize({width:1200,height:900});
+  await page.locator('#panel-logs .tool-card').screenshot({path:'/tmp/snapkit-log-layout-dark-vi.png',animations:'disabled'});
+  await page.setViewportSize({width:375,height:812});
+  expect(await page.locator('.log-controls').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.locator('#panel-logs .tool-card').screenshot({path:'/tmp/snapkit-log-layout-small-vi.png',animations:'disabled'});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.evaluate(() => window.SnapkitI18n.setLanguage('en'));
+
   await page.locator('.sidebar [data-app-page="devices"]').click(); await page.locator('[data-device="demo-android-1"] [data-tool-action="screenshot"]').click();
   const capture = page.locator('#capture-list article').first(); await expect(capture).toContainText('Pixel 9 Pro'); await expect(capture.locator('.capture-thumbnail img')).toBeVisible(); await capture.locator('[data-capture-preview]').click(); await expect(page.locator('#capture-viewer img')).toBeVisible(); await page.locator('#capture-viewer .close-dialog').first().click();
   expect(await capture.locator('img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);

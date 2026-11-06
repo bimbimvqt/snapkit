@@ -13,7 +13,8 @@ test('save and activate run profiles and display Doctor retry errors', async ({p
       const boot = await page.request.post('/api/devices/'+encodeURIComponent(device.id)+'/boot', {headers,data:{}});
       expect(boot.status()).toBe(200);
     }
-    await page.locator('#run-profiles summary').click();
+    await page.locator('#run-profiles-open').click();
+    await expect(page.locator('#run-profiles summary')).toBeFocused();
     await page.getByLabel('Profile name', {exact:true}).fill('Dev ' + Date.now());
     await page.locator('#run-profile-save').click();
     await expect(page.locator('#run-profile-list .run-profile')).toHaveCount(1);
@@ -49,7 +50,7 @@ test('paused log view keeps export snapshot, classifies severity, and renders me
   await page.route('**/api/tools/logs/*/start', route=>route.fulfill({json:{ok:true}}));
   await page.route(/\/api\/tools\/logs\/[^/]+\?after=/, route=> {
     next++;
-    route.fulfill({json:{status:'running',next:next+1,lines:[{id:next,text:next===1?'E/App: <script>literal</script>':'W/App: warning '+next}]}});
+    route.fulfill({json:{status:'running',next:next+1,lines:next<=2?[{id:next,text:next===1?'E/App: <script>literal</script>':'W/App: warning '+next}]:[]}});
   });
   await page.locator('[data-app-page="logs"]').first().click();
   await page.locator('#log-start').click();
@@ -67,6 +68,11 @@ test('paused log view keeps export snapshot, classifies severity, and renders me
   expect(Buffer.concat(chunks).toString()).toBe(frozen.trimEnd());
   await page.locator('#log-follow').check();
   await expect(page.locator('#log-output')).toContainText('warning');
+  await expect.poll(()=>next).toBeGreaterThan(2);
+  const firstLine = await page.locator('#log-output .log-line').first().elementHandle();
+  const checkedAt = next;
+  await expect.poll(()=>next).toBeGreaterThan(checkedAt);
+  expect(await firstLine.evaluate(node=>node.isConnected)).toBe(true);
   await choose(page, 'log-level', 'error');
   await expect(page.locator('#log-output')).not.toContainText('warning');
   await page.screenshot({path:'/tmp/snapkit-log-explorer.png',animations:'disabled'});
