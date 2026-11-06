@@ -1,6 +1,14 @@
 // Small shared listbox for the website and administrator inbox.
 (() => {
   let nextId = 0;
+  function choiceIcon(name) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('choice-icon', name === 'caret' ? 'choice-caret' : 'choice-check');
+    const path = document.createElementNS(svg.namespaceURI, 'path');
+    path.setAttribute('d', name === 'caret' ? 'm6 9 6 6 6-6' : 'm5 12 4 4L19 6');
+    svg.append(path); return svg;
+  }
   class SnapkitSelect extends HTMLElement {
     constructor() {
       super(); this.items = []; this.current = ''; this.onChange = null;
@@ -67,7 +75,7 @@
       this.trigger.setAttribute('role', 'combobox'); this.trigger.setAttribute('aria-haspopup', 'listbox'); this.trigger.setAttribute('aria-expanded', 'false'); this.trigger.setAttribute('aria-controls', this.menuId);
       if (this.labelledby) this.trigger.setAttribute('aria-labelledby', this.labelledby);
       const text = document.createElement('span'); text.textContent = t(chosen?.label || 'Chọn một mục');
-      const caret = document.createElement('span'); caret.className = 'choice-caret'; caret.setAttribute('aria-hidden','true'); caret.textContent = '⌄';
+      const caret = choiceIcon('caret');
       this.trigger.append(text, caret);
       this.menu = document.createElement('div'); this.menu.id = this.menuId; this.menu.className = 'choice-menu'; this.menu.hidden = true; this.menu.setAttribute('role','listbox');
       if (this.labelledby) this.menu.setAttribute('aria-labelledby', this.labelledby);
@@ -75,7 +83,7 @@
         const option = document.createElement('button'); option.type = 'button'; option.tabIndex = -1; option.setAttribute('role','option');
         option.setAttribute('aria-selected', String(item.value === this.current)); option.dataset.value = item.value;
         const label = document.createElement('span'); label.textContent = t(item.label);
-        const check = document.createElement('span'); check.setAttribute('aria-hidden','true'); check.textContent = item.value === this.current ? '✓' : '';
+        const check = choiceIcon('check'); check.style.visibility = item.value === this.current ? 'visible' : 'hidden';
         option.append(label, check);
         option.onclick = () => { this.value = item.value; this.close(true); this.dispatchEvent(new Event('change', { bubbles: true })); this.onChange?.(item.value); };
         option.onkeydown = event => {
