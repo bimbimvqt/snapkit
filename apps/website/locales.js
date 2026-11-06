@@ -166,6 +166,7 @@ window.SnapkitMessages = {
     "Thư viện ảnh & video · Giao diện thật, dữ liệu minh họa.": "Captures library · Actual interface, sample data.",
     "Giao diện build Flutter APK, AAB và IPA trong Snapkit": "Snapkit Flutter APK, AAB and IPA build interface",
     "Build & phát hành Flutter · Giao diện thật, dữ liệu minh họa.": "Flutter build & release · Actual interface, sample data.",
-    "Bản beta 0.2.0-beta.36 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.36 · Choose the installer for your computer."
+    "Bản beta 0.2.0-beta.36 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.36 · Choose the installer for your computer.",
+    "Bản beta 0.2.0-beta.38 · Chọn bộ cài phù hợp với máy của bạn.": "Beta 0.2.0-beta.38 · Choose the installer for your computer."
   }
 };
