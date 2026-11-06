@@ -1,5 +1,12 @@
 # Snapkit changelog
 
+## 0.2.0-beta.37 — 2026-11-06
+
+- Chuyển dịch vụ tài khoản và kết nối website sang `https://snapkit.vn`, sửa lỗi đăng nhập “fetch failed” do địa chỉ máy chủ cũ không còn phục vụ HTTPS.
+- Chấp nhận URL đăng nhập từ hai tên miền Snapkit trong giai đoạn chuyển đổi; tiếp tục chặn URL ngoài danh sách, HTTP và URL chứa thông tin xác thực.
+- Hiển thị lỗi kết nối tài khoản rõ ràng bằng EN/VI.
+- Cập nhật website với workspace Flutter/React Native, Metro/Hermes, log, ảnh/video và build Flutter.
+
 ## 0.2.0-beta.36 — 2026-11-05
 
 - Hiển thị loại workspace hiện tại và framework nhận diện ngay trong thiết lập dự án; báo rõ khi chọn dự án Flutter trong workspace React Native hoặc ngược lại.

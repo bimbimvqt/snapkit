@@ -47,6 +47,17 @@ test('cloud disables checkout and never exposes local device APIs or unauthentic
   assert.equal((await fetch(base + '/v1/me/subscription?userId=someone')).status, 503);
   assert.equal((await fetch(base + '/api/devices')).status, 404);
 }));
+test('only controller pages can connect to a paired loopback agent', async () => cloudFixture(async ({ base }) => {
+  for (const route of ['/', '/admin/', '/health', '/controller']) {
+    const policy = (await fetch(base + route)).headers.get('content-security-policy');
+    assert.ok(!policy.includes('http://127.0.0.1:'));
+  }
+  for (const route of ['/control/', '/preview/']) {
+    const policy = (await fetch(base + route)).headers.get('content-security-policy');
+    assert.match(policy, /connect-src 'self' https:\/\/api.github.com http:\/\/127.0.0.1:\* http:\/\/localhost:\*/);
+    assert.ok(!policy.includes("script-src 'unsafe-inline'"));
+  }
+}));
 test('RevenueCat webhook is authenticated, deduplicated and reconciles transfers from provider truth', async () => cloudFixture(async ({ base, calls }) => {
   const post = (event, auth = 'test-webhook') => fetch(base + '/v1/webhooks/revenuecat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: auth }, body: JSON.stringify({ event }) });
   assert.equal((await post({ id: 'one', app_user_id: 'one' }, 'wrong')).status, 401); assert.equal(calls.length, 0);

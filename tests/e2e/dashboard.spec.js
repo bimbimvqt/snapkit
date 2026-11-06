@@ -128,7 +128,7 @@ test('local Dashboard explicitly generates a website pairing link and revokes it
   await page.goto('/');
   await page.locator('#connection-button').click();
   await expect(page.locator('#pairing-code')).toHaveText(/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
-  await expect(page.locator('#pairing-link')).toHaveAttribute('href', /^https:\/\/bimbimvqt\.github\.io\/snapkit\/control\/#pair=/);
+  await expect(page.locator('#pairing-link')).toHaveAttribute('href', /^https:\/\/snapkit\.vn\/control\/#pair=/);
   await page.getByRole('button', { name: 'Revoke all website connections' }).click();
   await expect(page.locator('#pairing-code')).toHaveText('Connections revoked');
 });

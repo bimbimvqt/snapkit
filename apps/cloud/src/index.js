@@ -19,9 +19,12 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   const limits = new Map();
   const sweep = setInterval(() => { for (const [ip, entry] of limits) if (Date.now() > entry.until) limits.delete(ip); }, 60000); sweep.unref();
   app.use((req, res, next) => {
-    res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'self'", 'Cache-Control': 'no-store' });
-    const allowedOrigin = 'https://bimbimvqt.github.io';
-    if (req.headers.origin === allowedOrigin) { res.set('Access-Control-Allow-Origin', allowedOrigin); res.vary('Origin'); }
+    // Only paired controllers may contact the user's loopback agent.
+    const controller = /^\/(control|preview)(\/|$)/.test(req.path);
+    const connections = controller ? ' http://127.0.0.1:* http://localhost:*' : '';
+    res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': `default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com${connections}; frame-ancestors 'none'; base-uri 'self'`, 'Cache-Control': 'no-store' });
+    const allowedOrigins = new Set(['https://snapkit.vn', 'https://bimbimvqt.github.io', new URL(env.SNAPKIT_PUBLIC_URL || 'https://snapkit.vn').origin]);
+    if (allowedOrigins.has(req.headers.origin)) { res.set('Access-Control-Allow-Origin', req.headers.origin); res.vary('Origin'); }
     if (req.method === 'OPTIONS') { res.set('Access-Control-Allow-Methods', 'GET, OPTIONS'); return res.sendStatus(204); }
     const ip = req.ip || 'unknown'; const now = Date.now();
     const rate = limits.get(ip); const count = rate && rate.until > now ? rate : { count: 0, until: now + 60000 };
@@ -90,7 +93,6 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
     queue = operation;
     try { res.json(await operation); } catch { res.status(503).json({ error: 'Event not processed; retry later.' }); }
   });
-  for (const page of ['demo', 'control', 'preview']) app.get('/' + page + '/', (_req, res) => res.redirect(302, 'https://bimbimvqt.github.io/snapkit/' + page + '/'));
   app.get('/language.css', (_req, res) => res.sendFile(path.join(root, 'packages/ui/language.css')));
   app.get('/i18n.js', (_req, res) => res.sendFile(path.join(root, 'packages/ui/i18n.js')));
   app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'packages/ui/favicon.svg'), error => { if (error) res.sendFile(path.join(root, 'packages/ui/favicon.svg')); }));

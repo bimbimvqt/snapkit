@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { dataRoot } from '../../infrastructure/storage/paths.js';
-const CLOUD = process.env.SNAPKIT_ACCOUNT_SERVER || 'https://snapkit.45.119.214.94.sslip.io';
+const CLOUD = process.env.SNAPKIT_ACCOUNT_SERVER || 'https://snapkit.vn';
 if (new URL(CLOUD).protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(new URL(CLOUD).hostname)) throw Error('Account server must use HTTPS');
 const pending = new Map();
 process.parentPort?.on('message', event => {
@@ -24,7 +24,9 @@ async function credentialStore(action, value) {
 export class LocalAccount {
   constructor({ fetcher = fetch, storage = credentialStore } = {}) { this.fetcher = fetcher; this.storage = storage; this.token = ''; this.user = null; this.checked = 0; this.flow = null; this.pending = null; this.loaded = false; this.error = ''; }
   async request(route, body, token = this.token) {
-    const response = await this.fetcher(CLOUD + route, { method: body === undefined ? 'GET' : 'POST', headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000) });
+    let response;
+    try { response = await this.fetcher(CLOUD + route, { method: body === undefined ? 'GET' : 'POST', headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000) }); }
+    catch { throw Error('Cannot connect to the Snapkit account service. Check your connection and try again.'); }
     const result = await response.json(); if (!response.ok) { const error = Error(result.error || 'Account service unavailable.'); error.status = response.status; throw error; } return result;
   }
   async status(fresh = false) {

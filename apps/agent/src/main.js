@@ -31,7 +31,7 @@ const token = randomBytes(32).toString('hex');
 const app = express();
 const account = new LocalAccount();
 let demoPreferences = { flutterSDK: '', androidSDK: '', editor: 'vscode', onboardingComplete: false };
-const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://bimbimvqt.github.io').origin;
+const webOrigin = new URL(process.env.SNAPKIT_WEB_ORIGIN || 'https://snapkit.vn').origin;
 if (!webOrigin.startsWith('https://') && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(webOrigin)) throw new Error('Website origin must use HTTPS or loopback HTTP');
 const pairings = new Pairings(webOrigin);
 let lastRemoteActivity = 0;
@@ -162,7 +162,7 @@ app.post('/api/preferences', async (req, res) => {
 });
 app.get('/downloads/snapkit-debug-sync.vsix', (_req, res) => res.download(path.join(root, 'snapkit-debug-sync.vsix')));
 
-app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/snapkit/control/` }));
+app.post('/api/pairing/code', (_req, res) => res.json({ ...pairings.create(), webUrl: `${webOrigin}/control/` }));
 app.post('/api/pairing/claim', (req, res) => res.json(pairings.claim(req.body.code, req.headers.origin)));
 app.post('/api/pairing/revoke', (req, res) => { pairings.revoke(req.remoteToken); res.json({ message: req.remoteToken ? 'Website disconnected' : 'All website connections revoked' }); });
 // Release commands execute only in the authenticated local agent, never on cloud.

@@ -57,7 +57,7 @@ test('local account caches verified identity, fails closed, clears expired sessi
   let stored = {token:'old'}, calls = 0, mode = 'ok';
   const account = new LocalAccount({storage:async (action,value) => action === 'read' ? stored : (stored = value),fetcher:async (url,opts) => {
     calls++; if (mode === 'network') throw Error('offline'); if (mode === 'expired') return new Response('{"error":"Expired"}',{status:401});
-    if (url.endsWith('/start')) return Response.json({flowId:'flow',pollToken:'secret',browserUrl:'https://snapkit.45.119.214.94.sslip.io/auth/google/start?desktop=flow',expiresIn:600});
+    if (url.endsWith('/start')) return Response.json({flowId:'flow',pollToken:'secret',browserUrl:'https://snapkit.vn/auth/google/start?desktop=flow',expiresIn:600});
     if (url.endsWith('/poll')) return Response.json({token:'new'});
     assert.match(opts.headers.Authorization,/Bearer /); return Response.json({user:{id:'user',name:'User',role:'user'}});
   }});
@@ -99,4 +99,14 @@ test('changing the admin allowlist removes old admin privileges from existing se
   assert.equal((await fetch(second+'/v1/admin/overview',{headers:{Cookie:oldSession}})).status,403);
   const newSession=await login(second,'new@example.com');
   assert.equal((await fetch(second+'/v1/admin/overview',{headers:{Cookie:newSession}})).status,200);
+});
+
+
+test('desktop login uses the canonical account server and reports network failures without leaking transport details', async () => {
+  const account = new LocalAccount({storage:async()=>null,fetcher:async url=>{
+    assert.equal(url, (process.env.SNAPKIT_ACCOUNT_SERVER || 'https://snapkit.vn') + '/v1/auth/desktop/start');
+    throw new TypeError('fetch failed', {cause: Error('TLS transport details')});
+  }});
+  await assert.rejects(account.start(), {message:'Cannot connect to the Snapkit account service. Check your connection and try again.'});
+  assert.equal(account.flow,null);
 });

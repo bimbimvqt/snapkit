@@ -62,7 +62,7 @@ test('folder picker and provisioning APIs support demo creation and reject incom
   assert.equal((await post(endpoint, { confirm: id })).status, 400);
 });
 test('website API requires pairing for reads and commands, hides local token, and supports revocation', async () => {
-  const origin = 'https://bimbimvqt.github.io';
+  const origin = 'https://snapkit.vn';
   const request = (route, options = {}) => fetch(base + route, { ...options, headers: { Origin: origin, ...options.headers } });
   assert.equal((await request('/api/state')).status, 401);
   assert.equal((await request('/api/screenshots/test.png')).status, 401);

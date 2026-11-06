@@ -11,7 +11,7 @@ export const defaultContent = () => ({ revision: 0, registrationOpen: true, reco
   vi: { headline: 'Mọi thiết bị. Một nơi điều khiển.', description: 'Chuẩn bị thiết bị trong vài thao tác. Tập trung làm nên ứng dụng tiếp theo của bạn.' }
 } });
 export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
-  const origin = new URL(env.SNAPKIT_PUBLIC_URL || 'https://snapkit.45.119.214.94.sslip.io').origin;
+  const origin = new URL(env.SNAPKIT_PUBLIC_URL || 'https://snapkit.vn').origin;
   const configured = !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
   const admins = new Set((env.SNAPKIT_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
   const file = path.join(env.SNAPKIT_CLOUD_DATA || 'cloud-data', 'accounts.json');

@@ -4,7 +4,7 @@ import { defaultContent } from '../../apps/cloud/src/accounts.js';
 
 test('login gate hides local dashboard, supports Vietnamese and opens Google flow without exposing poll credentials', async ({page}) => {
   await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
-  await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl:'https://snapkit.45.119.214.94.sslip.io/auth/google/start?desktop=test',expiresIn:600}}));
+  await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl:'https://snapkit.vn/auth/google/start?desktop=test',expiresIn:600}}));
   await page.route('**/api/auth/poll', route => route.fulfill({json:{pending:true}}));
   await page.addInitScript(() => { window.snapkitDesktop = {openExternal:async url => { window.openedLogin = url; }}; });
   await page.goto('/');
@@ -16,14 +16,38 @@ test('login gate hides local dashboard, supports Vietnamese and opens Google flo
   expect(await page.evaluate(() => window.openedLogin)).toContain('/auth/google/start');
 });
 
-test('login retry reports unavailable cloud and does not open an untrusted URL', async ({page}) => {
-  await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
-  await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl:'https://example.com/steal',expiresIn:600}}));
-  await page.goto('/');
-  await page.locator('#google-signin').click();
-  await expect(page.locator('#account-message')).toContainText('Invalid sign-in URL');
-  await expect(page.locator('#google-signin')).toBeEnabled();
-});
+for (const origin of ['https://snapkit.vn', 'https://snapkit.45.119.214.94.sslip.io']) {
+  test(`login opens the trusted account origin during domain migration: ${origin}`, async ({page}) => {
+    const browserUrl = origin + '/auth/google/start?desktop=test';
+    await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
+    await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl,expiresIn:600}}));
+    await page.addInitScript(() => { window.snapkitDesktop = {openExternal:async url => { window.openedLogin = url; }}; });
+    await page.goto('/');
+    await page.locator('#google-signin').click();
+    await expect.poll(() => page.evaluate(() => window.openedLogin)).toBe(browserUrl);
+    await expect(page.locator('#google-signin')).toBeDisabled();
+  });
+}
+
+for (const browserUrl of [
+  'https://example.com/steal',
+  'https://snapkit.vn.evil.example/auth/google/start',
+  'http://snapkit.vn/auth/google/start',
+  'https://snapkit.vn:444/auth/google/start',
+  'https://user:password@snapkit.vn/auth/google/start',
+  'https://snapkit.vn/other',
+]) {
+  test(`login rejects an untrusted URL and allows retry: ${browserUrl}`, async ({page}) => {
+    await page.route('**/api/auth/status', route => route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
+    await page.route('**/api/auth/start', route => route.fulfill({json:{browserUrl,expiresIn:600}}));
+    await page.addInitScript(() => { window.snapkitDesktop = {openExternal:async url => { window.openedLogin = url; }}; });
+    await page.goto('/');
+    await page.locator('#google-signin').click();
+    await expect(page.locator('#account-message')).toContainText('Invalid sign-in URL');
+    await expect(page.locator('#google-signin')).toBeEnabled();
+    expect(await page.evaluate(() => window.openedLogin)).toBeUndefined();
+  });
+}
 
 test('admin edits bilingual content with optimistic revision and renders account text safely', async ({page}) => {
   const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(r => server.once('listening',r));
@@ -135,4 +159,14 @@ test('admin announcement is absent for blank localized content and returns only 
   await page.locator('[data-language-select]').click();
   await page.getByRole('menuitemradio',{name:/English/}).click();
   await expect(page.locator('#admin-announcement')).toHaveCount(0);
+});
+
+test('account service transport errors show actionable Vietnamese feedback and permit retry',async({page})=>{
+  await page.route('**/api/auth/status',route=>route.fulfill({json:{required:true,authenticated:false,localToken:'local'}}));
+  await page.route('**/api/auth/start',route=>route.fulfill({status:400,json:{error:'Cannot connect to the Snapkit account service. Check your connection and try again.'}}));
+  await page.goto('/');
+  await page.getByRole('button',{name:'Tiếng Việt',exact:true}).click();
+  await page.locator('#google-signin').click();
+  await expect(page.locator('#account-message')).toContainText('Không thể kết nối dịch vụ tài khoản Snapkit');
+  await expect(page.locator('#google-signin')).toBeEnabled();
 });

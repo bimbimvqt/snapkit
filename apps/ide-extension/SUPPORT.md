@@ -1,6 +1,6 @@
 # Support / Hỗ trợ
 
-- [Website / Trang chủ](https://bimbimvqt.github.io/snapkit/)
+- [Website / Trang chủ](https://snapkit.vn/)
 - [Downloads / Tải phiên bản mới](https://github.com/bimbimvqt/snapkit/releases)
 - [Report an issue / Báo lỗi](https://github.com/bimbimvqt/snapkit/issues)
 - [English guide](README.md) · [Hướng dẫn tiếng Việt](README.vi.md) · [Changelog](CHANGELOG.md)

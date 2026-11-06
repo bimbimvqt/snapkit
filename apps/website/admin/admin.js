@@ -1,5 +1,5 @@
 (() => {
-  const canonical = 'https://snapkit.45.119.214.94.sslip.io';
+  const canonical = 'https://snapkit.vn';
   if (location.hostname === 'bimbimvqt.github.io') { location.replace(canonical + '/admin/'); return; }
   const $ = s => document.querySelector(s); let content, offset = 0, total = 0;
   async function api(route, body) {

@@ -1,9 +1,11 @@
 const accountReady = (() => {
   if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) return Promise.resolve();
-  const cloud = 'https://snapkit.45.119.214.94.sslip.io';
+  const cloud = 'https://snapkit.vn';
+  const accountOrigins = new Set([cloud, 'https://snapkit.45.119.214.94.sslip.io']);
   let token, polling = false, starting = false, checking = false, timer;
   const vi = () => window.SnapkitI18n?.language === 'vi';
   const words = (en, vn) => vi() ? vn : en;
+  const errorText = error => error.message === 'Cannot connect to the Snapkit account service. Check your connection and try again.' ? words(error.message, 'Không thể kết nối dịch vụ tài khoản Snapkit. Kiểm tra kết nối mạng và thử lại.') : error.message;
   const gate = document.createElement('section'); gate.className = 'account-gate'; gate.setAttribute('aria-label', 'Snapkit sign in');
   gate.innerHTML = '<div class="account-card"><img src="/favicon.svg" width="56" height="56" alt="Snapkit"><p class="product-kicker">SNAPKIT BETA</p><h1></h1><p class="account-copy"></p><button class="button primary" id="google-signin"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.76-5.58-4.12H3.08v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.42 13.92a6 6 0 0 1 0-3.84V7.49H3.08a10 10 0 0 0 0 9.02l3.34-2.59Z"/><path fill="#EA4335" d="M12 5.96c1.47 0 2.79.51 3.83 1.51l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.92 5.49l3.34 2.59A5.9 5.9 0 0 1 12 5.96Z"/></svg><span class="google-signin-label"></span></button><button class="button" id="account-retry" hidden></button><p id="account-message" role="status" aria-live="polite"></p><div class="account-languages"><button class="button" data-account-lang="en">English</button><button class="button" data-account-lang="vi">Tiếng Việt</button></div></div>';
   document.body.append(gate); document.documentElement.classList.add('account-locked');
@@ -47,7 +49,7 @@ const accountReady = (() => {
       paint(); document.addEventListener('snapkit:language', paint);
     }).catch(() => {});
   }
-  async function openBrowser(raw) { const url = new URL(raw); if (url.origin !== cloud || !['/auth/google/start', '/admin/'].includes(url.pathname)) throw Error('Invalid sign-in URL'); if (window.snapkitDesktop) await window.snapkitDesktop.openExternal(url.href); else { const win = window.open(url.href, '_blank', 'noopener,noreferrer'); void win; } }
+  async function openBrowser(raw) { const url = new URL(raw); if (!accountOrigins.has(url.origin) || url.username || url.password || !['/auth/google/start', '/admin/'].includes(url.pathname)) throw Error('Invalid sign-in URL'); if (window.snapkitDesktop) await window.snapkitDesktop.openExternal(url.href); else { const win = window.open(url.href, '_blank', 'noopener,noreferrer'); void win; } }
   async function check(fresh = false) {
     if (checking || starting || polling) return;
     checking = true; message.textContent = words('Checking connection…', 'Đang kiểm tra kết nối…'); render();
@@ -67,8 +69,8 @@ const accountReady = (() => {
       const flow = await api('start', {}); await openBrowser(flow.browserUrl); polling = true; starting = false; render();
       message.textContent = words('Complete sign-in in your browser. You can return here afterwards.', 'Hoàn tất đăng nhập trong trình duyệt, sau đó quay lại Snapkit.');
       const deadline = Date.now() + flow.expiresIn * 1000;
-      const poll = async () => { try { if (Date.now() > deadline) throw Error(words('Sign-in expired. Try again.', 'Phiên đăng nhập hết hạn. Hãy thử lại.')); const result = await api('poll', {}); if (result.authenticated) { location.reload(); return; } timer = setTimeout(poll, 3000); } catch (e) { polling = false; render(); message.textContent = e.message; } }; timer = setTimeout(poll, 3000);
-    } catch (e) { starting = false; render(); message.textContent = e.message; }
+      const poll = async () => { try { if (Date.now() > deadline) throw Error(words('Sign-in expired. Try again.', 'Phiên đăng nhập hết hạn. Hãy thử lại.')); const result = await api('poll', {}); if (result.authenticated) { location.reload(); return; } timer = setTimeout(poll, 3000); } catch (e) { polling = false; render(); message.textContent = errorText(e); } }; timer = setTimeout(poll, 3000);
+    } catch (e) { starting = false; render(); message.textContent = errorText(e); }
   };
   window.addEventListener('pagehide', () => clearTimeout(timer)); return check();
 })();

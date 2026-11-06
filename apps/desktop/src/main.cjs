@@ -35,7 +35,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
 function allowedExternal(value) {
   const url = new URL(value);
   if (url.protocol !== 'https:' || url.username || url.password) throw new Error(nativeT("Only trusted HTTPS links can be opened."));
-  if (!['github.com', 'docs.flutter.dev', 'developer.android.com', 'developer.apple.com', 'appstoreconnect.apple.com', 'code.visualstudio.com', 'cursor.com', 'www.revenuecat.com', 'snapkit.45.119.214.94.sslip.io', 'bimbimvqt.github.io'].includes(url.hostname)) throw new Error(nativeT("This link is not part of Snapkit setup."));
+  if (!['github.com', 'docs.flutter.dev', 'developer.android.com', 'developer.apple.com', 'appstoreconnect.apple.com', 'code.visualstudio.com', 'cursor.com', 'www.revenuecat.com', 'snapkit.vn', 'snapkit.45.119.214.94.sslip.io', 'bimbimvqt.github.io'].includes(url.hostname)) throw new Error(nativeT("This link is not part of Snapkit setup."));
   return url.href;
 }
 async function start() {
