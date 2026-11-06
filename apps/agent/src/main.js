@@ -20,6 +20,10 @@ import { Provisioner } from './modules/provisioning/provisioner.js';
 import { demoCatalog, demoDevices } from './fixtures/demo.js';
 import { run, stopCommands } from './infrastructure/process/cli.js';
 import { Pairings } from './modules/pairing/pairings.js';
+import { reviewInput } from './modules/accounts/reviews.js';
+import { RunProfiles } from './modules/workspace/run-profiles.js';
+import { projectDoctor } from './modules/diagnostics/project-doctor.js';
+import { readyTargets } from './domain/device-selection.js';
 import { diagnostics } from './modules/diagnostics/diagnostics.js';
 import { getPreferences, savePreferences } from './infrastructure/storage/preferences.js';
 
@@ -148,6 +152,12 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
+app.post('/api/reviews', async (req, res) => {
+  if (demo || req.remoteToken) return res.status(403).json({error: 'Open Snapkit Desktop to send a review. Demo reviews are not submitted.'});
+  const receipt = await account.review(reviewInput(req.body));
+  if (receipt.received !== true || typeof receipt.id !== 'string') throw Error('Review delivery could not be confirmed. Please try again.');
+  res.status(201).json({received: true, id: receipt.id});
+});
 app.get('/api/account/content', async (_req, res) => res.json(await account.request('/v1/public/content', undefined, '')));
 app.get('/api/product', (_req, res) => res.json({ version: packageInfo.version, channel: 'beta', desktop: process.env.SNAPKIT_DESKTOP === '1', preferences: demo ? demoPreferences : getPreferences(), billing: { provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false }, integrations: [
   { id: 'vscode', name: 'Visual Studio Code', mode: 'extension' }, { id: 'cursor', name: 'Cursor', mode: 'extension-beta' }, { id: 'antigravity', name: 'Antigravity', mode: 'extension-beta' }
@@ -272,7 +282,42 @@ app.get('/api/workspace/profiles', async (req, res) => {
   const workspace = await validateWorkspace(req.query.path || requireWorkspace());
   res.json({ ...await workspaceProfiles(workspace), savedSetup: workspaceSetups[workspace] || null });
 });
+const runProfiles = new RunProfiles(store);
+if (!demo) await runProfiles.restore();
+else runProfiles.commit = async entries => { runProfiles.entries = entries; };
 let savingIDE = false;
+app.get('/api/workspace/doctor', async (_req, res) => {
+  const workspace = requireWorkspace();
+  if (demo) return res.json({workspace, framework: settings.framework || 'flutter', checkedAt: Date.now(), ready: true, checks: [{id: 'demo', title: 'Sample project', status: 'ready', detail: 'Demo only. Open your project in Snapkit Desktop to check its configuration.'}]});
+  res.json(await projectDoctor(await validateWorkspace(workspace), settings));
+});
+app.get('/api/run-profiles', (_req, res) => res.json({profiles: runProfiles.list(settings)}));
+app.post('/api/run-profiles/:action', async (req, res) => {
+  if (savingIDE) return res.status(409).json({error: 'Another IDE configuration update is running'});
+  if (settings.framework === 'backend') return res.status(409).json({error: 'Backend tools are coming soon'});
+  if (!['save', 'activate', 'delete'].includes(req.params.action)) return res.status(404).json({error: 'Unknown profile action'});
+  savingIDE = true;
+  const before = {settings: structuredClone(settings), setups: structuredClone(workspaceSetups), entries: structuredClone(spaces.entries)};
+  try {
+    const workspace = requireWorkspace();
+    const action = req.params.action;
+    if (action === 'delete') await runProfiles.remove(settings, req.body.id);
+    else if (action === 'save') {
+      const build = demo ? {framework: settings.framework || 'flutter', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || ''} : await validateBuild(await validateWorkspace(workspace), settings);
+      await runProfiles.save(settings, req.body.name, build);
+    } else {
+      if (ideSessions.list().length || releaseBuilds.active || releaseBuilds.starting) return res.status(409).json({error: 'Stop active debug sessions and builds before changing run profiles'});
+      const profile = runProfiles.find(settings, req.body.id);
+      const build = demo ? {framework: profile.framework, flavor: profile.flavor, target: profile.target, defineFile: profile.defineFile} : await validateBuild(await validateWorkspace(workspace), profile);
+      if (build.framework !== profile.framework || (settings.spaceId && spaces.get(settings.spaceId)?.type !== build.framework)) throw Error('The project does not match this run profile');
+      const targets = readyTargets(profile.targetIds, snapshot.devices);
+      settings = {...settings, ...build, targetIds: targets.map(d => d.id), selectedSetId: '', ideEnabled: profile.ideEnabled};
+      await persist(); emit('settings', settings);
+    }
+    res.json({profiles: runProfiles.list(settings), settings});
+  } catch (error) { settings = before.settings; workspaceSetups = before.setups; spaces.entries = before.entries; throw error; }
+  finally { savingIDE = false; }
+});
 app.get('/api/workspaces', (_req, res) => res.json(spaces.list(settings)));
 async function changeSpace(req, res, create) {
   if (savingIDE) return res.status(409).json({error: 'Another IDE configuration update is running'});

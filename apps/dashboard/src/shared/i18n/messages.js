@@ -1064,3 +1064,40 @@ Object.assign(window.SnapkitMessages.translations, {
   'Refreshing tool checks…': 'Đang kiểm tra lại công cụ…',
   'Could not load setup information.': 'Không thể tải thông tin thiết lập.'
 });
+
+Object.assign(window.SnapkitMessages.translations, {
+  'Run Profiles': 'Cấu hình chạy',
+  'Save the current flavor, entrypoint, defines file and selected devices. Use a profile for your next IDE debug run.': 'Lưu flavor, entrypoint, tệp defines và thiết bị đang chọn. Áp dụng cho lần debug tiếp theo trong IDE.',
+  'Profile name': 'Tên cấu hình', 'Development': 'Phát triển', 'Save current setup': 'Lưu thiết lập hiện tại',
+  'No saved run profiles. Save your current IDE setup to reuse it later.': 'Chưa có cấu hình chạy. Lưu thiết lập IDE hiện tại để sử dụng lại.',
+  'Use profile': 'Dùng cấu hình', 'Delete profile {0}': 'Xóa cấu hình {0}', 'Default flavor': 'Flavor mặc định',
+  '{0} saved devices': '{0} thiết bị đã lưu', 'Run profile saved': 'Đã lưu cấu hình chạy',
+  'Run profile selected for the next IDE debug run': 'Đã chọn cấu hình cho lần debug tiếp theo trong IDE',
+  'Project Doctor': 'Kiểm tra dự án', 'Choose a project first.': 'Hãy chọn dự án trước.',
+  'Check project': 'Kiểm tra dự án', 'Checking project…': 'Đang kiểm tra dự án…',
+  'Project checks passed': 'Dự án đã qua các bước kiểm tra', 'Project needs attention': 'Dự án cần được kiểm tra lại',
+  'Check project dependencies, native folders and build tools before your next run.': 'Kiểm tra dependency, thư mục native và công cụ build trước khi chạy.',
+  'Launch configuration': 'Cấu hình khởi chạy', 'Project dependencies': 'Dependency của dự án',
+  'Native projects': 'Dự án native', 'Installed pods': 'Pods đã cài đặt',
+  'Copy visible logs': 'Sao chép log đang xem', 'Visible logs copied': 'Đã sao chép log đang xem',
+  '{0} visible lines': '{0} dòng đang hiển thị', 'View paused': 'Đã tạm dừng hiển thị',
+  'Enter a profile name (1–80 characters)': 'Nhập tên cấu hình (1–80 ký tự)',
+  'A run profile with this name already exists': 'Đã có cấu hình chạy với tên này',
+  'Stop active debug sessions and builds before changing run profiles': 'Dừng phiên debug và tác vụ build trước khi chuyển cấu hình chạy',
+  'Entrypoint and launch configuration are valid.': 'Entrypoint và cấu hình khởi chạy hợp lệ.',
+  'Flutter package configuration exists.': 'Đã có cấu hình package Flutter.',
+  'Run flutter pub get in your project folder.': 'Chạy flutter pub get trong thư mục dự án.',
+  'node_modules exists. Dependency versions have not been verified.': 'Đã có node_modules. Chưa xác minh phiên bản dependency.',
+  'Install dependencies using the package manager and lockfile from your project.': 'Cài dependency bằng trình quản lý package và lockfile của dự án.',
+  'React Native project CLI is available.': 'Đã có CLI React Native của dự án.',
+  'Install project dependencies and the React Native community CLI required by your project.': 'Cài dependency và React Native community CLI theo yêu cầu của dự án.',
+  'Tool is available.': 'Công cụ đã sẵn sàng.', 'Pod lockfiles match.': 'Các lockfile Pods khớp nhau.',
+  'Run pod install in ios using your project’s Ruby/Bundler setup.': 'Chạy pod install trong ios bằng cấu hình Ruby/Bundler của dự án.',
+  'Install CocoaPods using your project’s Ruby/Bundler setup.': 'Cài CocoaPods bằng cấu hình Ruby/Bundler của dự án.',
+  'Install the JDK version required by your Android Gradle configuration and set JAVA_HOME.': 'Cài JDK phù hợp với cấu hình Android Gradle và thiết lập JAVA_HOME.',
+  'Select a full Xcode installation with xcode-select and complete its first-launch setup.': 'Chọn bản Xcode đầy đủ bằng xcode-select và hoàn tất thiết lập lần đầu.',
+  'Sample project': 'Dự án mẫu',
+  'Demo only. Open your project in Snapkit Desktop to check its configuration.': 'Chỉ là dữ liệu mẫu. Mở dự án trong Snapkit Desktop để kiểm tra cấu hình.'
+});
+
+Object.assign(window.SnapkitMessages.translations, {'Review Snapkit': 'Đánh giá Snapkit'});

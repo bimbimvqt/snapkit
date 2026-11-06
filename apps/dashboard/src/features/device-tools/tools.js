@@ -1,3 +1,4 @@
+import { filterLogs, logLevel } from './log-model.js';
 import { activePage, showProductPage } from '../workspace/product.js';
 import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace } from '../../legacy/device-controller.js';
 /* Project tools use the authenticated local agent, including paired website sessions. */
@@ -126,6 +127,7 @@ $('#capture-viewer-download').addEventListener('click', event => busy(event.curr
 async function downloadCapture(capture) { const blob = await fileBlob(capture.id); saveBlob(blob, `Snapkit-${capture.createdAt.replace(/[:.]/g, '-')}.${capture.kind === 'image' ? 'png' : 'mp4'}`); }
 function saveBlob(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); }
 function renderCaptures() {
+  document.dispatchEvent(new CustomEvent('snapkit:review-work', {detail:{kind:'recording',busy:deviceToolsState.recordings.length > 0}}));
   updateLogControls();
   $('#capture-recordings').innerHTML = deviceToolsState.recordings.map(x => `<article class="tool-card"><h2>${escape(x.deviceName)}</h2><p>${toolText(x.status === 'recording' ? 'Recording · stops automatically after 3 minutes' : 'Finalizing video…')}</p>${x.status === 'recording' ? `<button class="button danger" data-record-stop="${x.id}">${icon('square')}${toolText('Stop recording')}</button>` : ''}</article>`).join('');
   const fingerprint = JSON.stringify(deviceToolsState.captures) + window.SnapkitI18n.language;
@@ -167,12 +169,21 @@ function updateLogControls() {
   $('#capture-shot').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-shot').hasAttribute('aria-busy');
   $('#capture-record').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-record').hasAttribute('aria-busy') || deviceToolsState.recordings.some(x => x.deviceId === $('#capture-device').value);
 }
-function filteredLogLines() { const text = $('#log-search').value.toLocaleLowerCase(), level = $('#log-level').value; return logLines.filter(line => line.id > logClearedAt && (!text || line.text.toLocaleLowerCase().includes(text)) && (level === 'all' || (level === 'error' ? /\bE\b|error|fatal|fault/i : /\b[WEF]\b|warn|error|fatal|fault/i).test(line.text))); }
-function renderLogLines() { const output = $('#log-output'); output.textContent = filteredLogLines().map(line => line.text).join('\n'); if ($('#log-follow').checked) output.scrollTop = output.scrollHeight; }
+let pausedLogLines = null, logGeneration = 0;
+function filteredLogLines() { return filterLogs(pausedLogLines || logLines, {text: $('#log-search').value, level: $('#log-level').value, after: logClearedAt}); }
+function visibleLogText() { return filteredLogLines().map(line => line.text).join('\n'); }
+function renderLogLines() {
+  const output = $('#log-output'), lines = filteredLogLines(), fragment = document.createDocumentFragment();
+  for (const line of lines) { const node = document.createElement('span'); node.className = 'log-line log-' + logLevel(line.text); node.textContent = line.text; fragment.append(node); }
+  output.replaceChildren(fragment);
+  $('#log-count').textContent = t('{0} visible lines', [lines.length]) + (pausedLogLines ? ' · ' + t('View paused') : '');
+  $('#log-copy').disabled = !lines.length; $('#log-export').disabled = !lines.length;
+  if ($('#log-follow').checked) output.scrollTop = output.scrollHeight;
+}
 async function pollLogs() {
   if (!logDeviceId || logPolling || activePage !== 'logs' || document.hidden) return;
   logPolling = true;
-  try { const id = logDeviceId, result = await api(`/api/tools/logs/${encodeURIComponent(id)}?after=${logCursor}`); if (id !== logDeviceId) return;
+  try { const generation = logGeneration, id = logDeviceId, result = await api(`/api/tools/logs/${encodeURIComponent(id)}?after=${logCursor}`); if (id !== logDeviceId || generation !== logGeneration) return;
     logCursor = Math.max(logCursor, result.next - 1); logLines = [...logLines, ...result.lines].slice(-1000);
     $('#log-status').textContent = t(result.status === 'running' ? 'Streaming' : result.status === 'failed' ? 'Failed' : 'Stopped');
     $('#log-detail').textContent = result.detail || (result.truncated ? t('Older lines were discarded to keep the viewer responsive.') : '');
@@ -182,19 +193,20 @@ async function pollLogs() {
 $('#log-start').addEventListener('click', event => busy(event.currentTarget, async () => {
   const id = $('#log-device').value; if (!id) throw new Error(t('No supported device online'));
   if (logDeviceId && logDeviceId !== id) await api(`/api/tools/logs/${encodeURIComponent(logDeviceId)}/stop`, {});
-  await api(`/api/tools/logs/${encodeURIComponent(id)}/start`, {}); logDeviceId = id; logLines = []; logCursor = 0; logClearedAt = 0; await pollLogs();
+  await api(`/api/tools/logs/${encodeURIComponent(id)}/start`, {}); logGeneration++; logDeviceId = id; logLines = []; pausedLogLines = null; $('#log-follow').checked = true; logCursor = 0; logClearedAt = 0; renderLogLines(); await pollLogs();
 }));
 $('#log-stop').addEventListener('click', event => { busy(event.currentTarget, async () => { if (logDeviceId) await api(`/api/tools/logs/${encodeURIComponent(logDeviceId)}/stop`, {}); currentLogStatus = 'stopped'; await pollLogs(); }).finally(updateLogControls); });
 $('#capture-device').addEventListener('change', updateLogControls);
 $('#log-device').addEventListener('change', () => { updateLogControls(); $('#log-detail').textContent = t('Press Start logs to switch to the selected device.'); });
-$('#log-search').addEventListener('input', renderLogLines); $('#log-level').addEventListener('change', renderLogLines); $('#log-follow').addEventListener('change', renderLogLines);
-$('#log-clear').addEventListener('click', () => { logClearedAt = logCursor; renderLogLines(); });
-$('#log-export').addEventListener('click', () => { saveBlob(new Blob([filteredLogLines().map(x => x.text).join('\n')], { type: 'text/plain;charset=utf-8' }), `Snapkit-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`); });
+$('#log-search').addEventListener('input', renderLogLines); $('#log-level').addEventListener('change', renderLogLines); $('#log-follow').addEventListener('change', () => { pausedLogLines = $('#log-follow').checked ? null : [...logLines]; renderLogLines(); });
+$('#log-clear').addEventListener('click', () => { logClearedAt = pausedLogLines ? (pausedLogLines.at(-1)?.id || logClearedAt) : logCursor; renderLogLines(); });
+$('#log-copy').addEventListener('click', event => busy(event.currentTarget, async () => { await navigator.clipboard.writeText(visibleLogText()); toast('Visible logs copied'); }));
+$('#log-export').addEventListener('click', () => { saveBlob(new Blob([visibleLogText()], { type: 'text/plain;charset=utf-8' }), `Snapkit-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`); });
 $('#capture-shot').addEventListener('click', event => busy(event.currentTarget, () => captureAction('screenshot')));
 $('#capture-record').addEventListener('click', event => busy(event.currentTarget, () => captureAction('record')));
 async function captureAction(action, id = $('#capture-device').value) {
   if (!id) throw new Error(t('No supported device online'));
-  await api(`/api/tools/captures/${encodeURIComponent(id)}/${action}`, {}); toast(action === 'screenshot' ? 'Screenshot saved' : 'Recording started'); await refreshDeviceTools();
+  await api(`/api/tools/captures/${encodeURIComponent(id)}/${action}`, {}); if (action === 'screenshot') document.dispatchEvent(new Event('snapkit:review-success')); toast(action === 'screenshot' ? 'Screenshot saved' : 'Recording started'); await refreshDeviceTools();
 }
 $('#capture-refresh').addEventListener('click', event => busy(event.currentTarget, refreshDeviceTools));
 $('#panel-captures').addEventListener('click', event => {
@@ -219,7 +231,16 @@ function updateSetEditor() { $('#set-editor-title').textContent = t(editingSetId
 $('#set-cancel').addEventListener('click', () => { editingSetId = ''; $('#set-name').value = ''; $$('#set-devices input').forEach(input => { input.checked = false; }); updateSetEditor(); $('#set-name').focus(); });
 $$('[data-open-project]').forEach(button => button.addEventListener('click', showWorkspace));
 document.addEventListener('snapkit:page', event => { if (['sets', 'logs', 'captures'].includes(event.detail)) { renderToolDevices(); refreshDeviceTools().catch(error => toast(error.message, true)); } if (event.detail !== 'captures') releaseMedia(); });
-document.addEventListener('snapkit:state', () => { renderToolDevices(); renderSets(); });
+let logWorkspace = '';
+document.addEventListener('snapkit:state', () => {
+  const context = JSON.stringify([state.settings.spaceId, state.settings.workspace]);
+  if (context !== logWorkspace) {
+    const previous = logDeviceId; logGeneration++; logDeviceId = ''; logLines = []; pausedLogLines = null; logCursor = 0; logClearedAt = 0; currentLogStatus = 'stopped'; logWorkspace = context;
+    $('#log-follow').checked = true; $('#log-status').textContent = t('Stopped'); $('#log-detail').textContent = ''; renderLogLines();
+    if (previous) void api(`/api/tools/logs/${encodeURIComponent(previous)}/stop`, {}).catch(() => {});
+  }
+  renderToolDevices(); renderSets();
+});
 document.addEventListener('snapkit:language', () => { renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
 setInterval(() => { if (!document.hidden && ['sets', 'captures'].includes(activePage)) refreshDeviceTools().catch(() => {}); if (activePage === 'logs') pollLogs(); }, 1500);
 

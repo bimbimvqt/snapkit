@@ -23,12 +23,13 @@ async function credentialStore(action, value) {
 }
 export class LocalAccount {
   constructor({ fetcher = fetch, storage = credentialStore } = {}) { this.fetcher = fetcher; this.storage = storage; this.token = ''; this.user = null; this.checked = 0; this.flow = null; this.pending = null; this.loaded = false; this.error = ''; }
-  async request(route, body, token = this.token) {
+  async request(route, body, token = this.token, headers = {}) {
     let response;
-    try { response = await this.fetcher(CLOUD + route, { method: body === undefined ? 'GET' : 'POST', headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000) }); }
+    try { response = await this.fetcher(CLOUD + route, { method: body === undefined ? 'GET' : 'POST', headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000) }); }
     catch { throw Error('Cannot connect to the Snapkit account service. Check your connection and try again.'); }
     const result = await response.json(); if (!response.ok) { const error = Error(result.error || 'Account service unavailable.'); error.status = response.status; throw error; } return result;
   }
+  async review(input) { return this.request('/v1/feedback', input, '', {Origin: new URL(CLOUD).origin, 'X-Snapkit-Request': '1'}); }
   async status(fresh = false) {
     if (!this.loaded) this.loaded = this.storage('read').then(value => { this.token = value?.token || ''; }).catch(() => {});
     await this.loaded;

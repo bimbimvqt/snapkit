@@ -1,5 +1,13 @@
 # Snapkit changelog
 
+## 0.2.0-beta.40 — 2026-11-06
+
+- Thêm Project Doctor kiểm tra cấu hình chạy, dependency và công cụ native theo project Flutter/React Native.
+- Lưu và áp dụng Run Profiles theo workspace/project, gồm cấu hình launch và thiết bị; kiểm tra lại trước khi dùng.
+- Log Explorer phân biệt lỗi/cảnh báo, đếm dòng và sao chép/xuất đúng nội dung đang xem khi tạm dừng.
+- Thêm đánh giá ngay trong app bằng EN/VI, hỗ trợ sáng/tối, bàn phím và cửa sổ nhỏ. Lời mời không chiếm focus, có điều kiện sử dụng và khoảng nghỉ; người dùng có thể hoãn hoặc tắt hẳn.
+- Mọi mức sao dùng chung luồng gửi. Công khai cần sự đồng ý và kiểm duyệt; gửi lỗi giữ bản nháp trong phiên, retry dùng mã chống trùng.
+
 ## 0.2.0-beta.39 — 2026-11-06
 
 - Màn Thiết lập & công cụ có khung chờ ổn định, chỉ hiển thị nội dung khi kiểm tra SDK và thông tin editor đã sẵn sàng.

@@ -16,16 +16,36 @@ Xoá máy ảo: bấm biểu tượng thùng rác trên card → kiểm tra tên
 
 Website: [snapkit.vn](https://snapkit.vn/) · [Device Manager](https://snapkit.vn/preview/)
 
+## Đánh giá trong ứng dụng
+
+Mở **Hỗ trợ → Đánh giá Snapkit** để gửi đánh giá 1–5 sao kèm nhận xét. Mọi mức sao dùng cùng một form và API; không chọn sẵn số sao. Quyền hiển thị đánh giá/tên trên `snapkit.vn` mặc định tắt; chỉ đánh giá có sự đồng ý và được admin duyệt mới xuất hiện công khai. Tên hiển thị không bắt buộc. Không tự đính kèm thông tin tài khoản, log hoặc mã nguồn.
+
+Lời mời tự động là banner không chiếm focus, chỉ xuất hiện trên Devices hoặc Setup & tools khi thỏa tất cả điều kiện:
+
+- Ít nhất 7 ngày kể từ lần dùng đầu tiên có ghi nhận, hoạt động trong ít nhất 3 ngày và hoàn tất ít nhất 5 thao tác hữu ích (bật thiết bị, kết nối debug, tạo thiết bị, chụp ảnh hoặc build thành công).
+- Phiên hiện tại đã mở ít nhất 8 phút; không nhập liệu trong 15 giây, thao tác thành công gần nhất cách ít nhất 30 giây và không có lỗi được ghi nhận trong 10 phút gần nhất.
+- Ứng dụng đang ở foreground và có mạng; không có dialog, nhập liệu, debug, build, provisioning hay quay màn hình đang hoạt động.
+
+**Để sau** hoãn 30 ngày; **Không nhắc lại** tắt lời mời trên máy này. Tối đa 3 lời mời tự động, cách nhau ít nhất 30 ngày. Chủ động mở form cũng hoãn lời mời 30 ngày. Gửi thành công ngừng mời; vẫn mở đánh giá thủ công được. Không tự hỏi trong demo, preview hoặc website điều khiển máy từ xa. Cài đặt thời điểm mời chỉ lưu trên máy bằng `snapkit-review-v1` trong localStorage; không gửi lịch sử sử dụng này lên server.
+
+Gửi lỗi giữ nội dung trong phiên hiện tại; đóng/mở form vẫn giữ bản nháp, tải lại/thoát app sẽ mất bản nháp. Thử lại cùng nội dung dùng cùng mã gửi để cloud tránh tạo trùng khi phản hồi trước bị mất. Review đi qua agent có kiểm tra phiên và gửi tới API `/v1/feedback`, dùng chung trang quản trị và quy trình kiểm duyệt với website. Khi phát hành, triển khai thay đổi cloud kèm app để hỗ trợ chống gửi trùng; app không tự đăng đánh giá.
+
 ## Build & phát hành
 
 Build APK, AAB hoặc IPA TestFlight từ workspace với profile/flavor, entrypoint và defines tương ứng. Chọn team Apple/app được nhớ theo workspace/flavor, kiểm tra bundle ID và signing IPA. Có log, huỷ tác vụ, lịch sử và tải file; upload TestFlight là thao tác xác nhận riêng sau build IPA. Xem [hướng dẫn và điều kiện signing/upload](release-builds.md).
+
+## Project Doctor và Run Profiles
+
+- **Setup & tools → Project Doctor → Check project:** kiểm tra cấu hình launch, dependency Flutter/React Native, thư mục native, Java cho Android và Xcode/CocoaPods cho iOS trên Mac. Mỗi mục thiếu có hướng dẫn xử lý. Các kiểm tra SDK chung vẫn nằm ngay bên dưới. Doctor không tự cài package hoặc sửa project; kết quả sẵn sàng không thay thế một lần build/chạy thực tế.
+- **Devices → Run Profiles:** đặt tên và bấm **Save current setup** để lưu flavor, Dart entrypoint, đường dẫn tệp defines, các thiết bị đang chọn và trạng thái dùng Dashboard targets. React Native lưu lựa chọn thiết bị. **Use profile** kiểm tra lại project và thiết bị trước khi áp dụng cho lần debug IDE tiếp theo. Nếu thiết bị đã tắt, bật máy rồi thử lại. Dừng phiên debug/build trước khi đổi profile.
+- Profile lưu trong `state/run-profiles.json` thuộc thư mục dữ liệu Snapkit, tách riêng theo workspace và đường dẫn project. Tên không phân biệt hoa/thường, tối đa 50 profile/project. Không lưu nội dung tệp defines và không sửa `.vscode/launch.json`.
 
 ## Bộ thiết bị, log và ảnh/video
 
 Mở **Trợ giúp → Hướng dẫn bắt đầu** để xem 8 bước đầy đủ trong app, bằng EN hoặc VN.
 
 - **Bộ thiết bị:** chọn dự án, đặt tên, chọn các máy rồi lưu. Có thể sửa hoặc xóa bộ mà không xóa thiết bị. Bấm khởi động để xem trạng thái từng máy; sau đó chọn các máy sẵn sàng cho lần debug tiếp theo trong IDE. Bộ thiết bị gắn với đường dẫn dự án; khi chuyển thư mục, chọn lại folder và tạo bộ tại vị trí mới.
-- **Log thiết bị:** chọn Android hoặc iOS Simulator đang bật → bắt đầu → tìm theo package/nội dung hoặc lọc cảnh báo/lỗi → xuất các dòng đã lọc. Đây là log hệ thống; Dart print/Flutter Debug Console vẫn xem trong IDE. Xóa nội dung hiển thị không xóa log trên điện thoại. Tối đa 1.000 dòng / 1 MB mỗi luồng; tự dừng sau 60 giây không có người xem.
+- **Log thiết bị:** chọn Android hoặc iOS Simulator đang bật → bắt đầu → tìm theo package/nội dung hoặc lọc cảnh báo/lỗi → sao chép hoặc xuất các dòng đã lọc. Bỏ **Follow live** để giữ nguyên ảnh chụp nội dung đang xem; copy/export dùng đúng các dòng trong ảnh chụp đó, trong khi luồng tiếp tục thu log. Mức lỗi/cảnh báo được đánh dấu riêng, có bộ đếm dòng đang hiển thị. Đây là log hệ thống; Dart print/Flutter Debug Console vẫn xem trong IDE. Xóa nội dung hiển thị không xóa log trên điện thoại. Tối đa 1.000 dòng / 1 MB mỗi luồng; tự dừng sau 60 giây không có người xem.
 - **Ảnh & video:** chụp PNG hoặc quay MP4, bấm dừng để hoàn tất video rồi xem/tải/xóa trong thư viện dự án. Quay không âm thanh, tối đa 3 phút và hai phiên đồng thời. Có lối tắt trên card thiết bị đang bật. Android hỗ trợ máy ảo và điện thoại thật; iOS chỉ hỗ trợ Simulator trên macOS. Với iPhone thật, dùng Xcode/QuickTime.
 
 Dữ liệu lưu trong `device-tools/` thuộc thư mục dữ liệu Snapkit, không nằm trong mã nguồn. Snapkit kiểm tra còn ít nhất 256 MB trước khi chụp/quay; video vẫn cần thêm dung lượng tùy màn hình. Không tự xóa ảnh/video đã lưu. Khi thoát giữa phiên quay, Snapkit yêu cầu xác nhận và dừng phiên do mình tạo; nếu app bị buộc thoát, lần mở sau sẽ báo bản quay bị gián đoạn. Không gửi log hoặc ảnh/video lên server.

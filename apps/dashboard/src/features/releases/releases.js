@@ -101,6 +101,7 @@ import { t, escape, icon, icons, busy, api, toast, state, connection } from '../
     renderResults(); updateControls(); return true;
   }
   function renderResults() {
+    document.dispatchEvent(new CustomEvent('snapkit:review-work', {detail:{kind:'release',busy:!!releaseState.busy}}));
     const job = selectedJob(), activeStatus = job?.uploadStatus || job?.status;
     el('release-monitor-title').textContent = job ? `${jobTitle(job)} · ${job.plan.flavor || t('Default (no flavor)')}` : t('Ready when you are.');
     el('release-status').textContent = t(job ? jobStatus(job) : 'No build selected'); el('release-status').dataset.status = activeStatus || '';
@@ -123,6 +124,8 @@ import { t, escape, icon, icons, busy, api, toast, state, connection } from '../
     loading = true; const epoch = generation;
     try {
       const result = await api('/api/releases'); if (epoch !== generation) return;
+      if (result.jobs.some(job => job.status === 'succeeded' && releaseState.jobs.some(old => old.id === job.id && !['succeeded','failed','cancelled'].includes(old.status)))) document.dispatchEvent(new Event('snapkit:review-success'));
+      if (result.jobs.some(job => ['failed','interrupted'].includes(job.status) && releaseState.jobs.some(old => old.id === job.id && !['failed','interrupted'].includes(old.status)))) document.dispatchEvent(new Event('snapkit:review-error'));
       releaseState = result;
       if (!result.jobs.some(job => job.id === selectedId)) selectedId = result.jobs[0]?.id || '';
       if (selectedId) { const next = await api('/api/releases/' + selectedId); if (epoch !== generation) return; detail = next; }

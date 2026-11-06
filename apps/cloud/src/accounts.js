@@ -65,17 +65,20 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       if (input.website) return res.status(400).json({ error: 'Invalid feedback.' });
       const text = (value, max) => typeof value === 'string' && value.length <= max && !/[\u0000-\u0008]/.test(value);
       if (!['review', 'bug', 'feature', 'other'].includes(input.type) || !text(input.message, 4000) || input.message.trim().length < 10 || !text(input.name || '', 100) || !text(input.email || '', 254) || input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email) || input.rating != null && (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) || input.type === 'review' && input.rating == null) return res.status(400).json({ error: 'Check your feedback fields.' });
+      if (input.submissionId !== undefined && (typeof input.submissionId !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.submissionId))) return res.status(400).json({error: 'Invalid feedback.'});
       const now = Date.now();
       for (const [key, rate] of feedbackRates) if (rate.until < now) feedbackRates.delete(key);
       const ip = req.ip || 'unknown'; const rate = feedbackRates.get(ip) || { count: 0, until: now + 3600000 };
       if (rate.count >= 5) return res.status(429).set('Retry-After', String(Math.ceil((rate.until - now) / 1000))).json({ error: 'Too many submissions.' });
       if (feedbackRates.size >= 20000 && !feedbackRates.has(ip)) return res.status(503).json({ error: 'Please try again later.' });
       rate.count++; feedbackRates.set(ip, rate);
-      const id = randomUUID();
+      let id = randomUUID();
       await transaction(next => {
         next.feedback ||= [];
+        const existing = input.submissionId && next.feedback.find(entry => entry.submissionId === input.submissionId);
+        if (existing) { id = existing.id; return; }
         if (next.feedback.length >= 20000) throw Error('Feedback inbox is full.');
-        next.feedback.push({ id, type: input.type, message: input.message.trim(), name: (input.name || '').trim(), email: (input.email || '').trim(), rating: input.rating ?? null, status: 'new', moderation: 'pending', publishConsent: input.type === 'review' && input.publishConsent === true, createdAt: new Date().toISOString() });
+        next.feedback.push({ id, ...(input.submissionId ? {submissionId: input.submissionId} : {}), type: input.type, message: input.message.trim(), name: (input.name || '').trim(), email: (input.email || '').trim(), rating: input.rating ?? null, status: 'new', moderation: 'pending', publishConsent: input.type === 'review' && input.publishConsent === true, createdAt: new Date().toISOString() });
       });
       res.status(201).json({ received: true, id });
     });

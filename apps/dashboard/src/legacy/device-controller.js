@@ -34,6 +34,8 @@ async function api(url, data) {
     if (url === '/api/apple/detected') return { teams: [] };
     if (url === '/api/releases') return { jobs: [], busy: false, uploadConfigured: false, demo: true };
     if (url === '/api/releases/catalog') return { workspace: state.settings.workspace, platform: 'darwin', android: true, ios: true, flavors: [], profiles: [{ name: 'Workspace settings', flavor: '', target: 'lib/main.dart', defineFile: '' }], version: '1.0.0+1' };
+    if (url === '/api/run-profiles') return { profiles: [] };
+    if (url === '/api/workspace/doctor') return { ready: true, checkedAt: Date.now(), checks: [{id:'preview', title:'Sample project',status:'ready',detail:'Demo only. Open your project in Snapkit Desktop to check its configuration.'}] };
     if (url === '/api/tools') return { sets: [], captures: [], recordings: [], jobs: [], demo: true };
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
     if (url === '/api/product') return { version: __APP_VERSION__, channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
@@ -43,9 +45,11 @@ async function api(url, data) {
     throw new Error("This action requires the local Snapkit server.");
   }
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
-  return agentRequest(url, data, { connection, token: state.token, unauthorized: forgetConnection });
+  try { return await agentRequest(url, data, { connection, token: state.token, unauthorized: forgetConnection }); }
+  catch (error) { document.dispatchEvent(new Event('snapkit:review-error')); throw error; }
 }
 function toast(message, error = false) {
+  if (error) document.dispatchEvent(new Event('snapkit:review-error'));
   const node = document.createElement('div'); node.className = `toast${error ? ' error' : ''}`;
   node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(t(message))}</span>`;
   $('#toast-region').append(node); icons(); setTimeout(() => node.remove(), error ? 9000 : 4500);
@@ -326,6 +330,7 @@ async function init() {
       const changed = jobs.filter(job => state.jobs?.some(old => old.id === job.id && old.status === 'running') && job.status !== 'running');
       state.jobs = jobs; renderProvisionJobs();
       for (const job of changed) toast(job.status === 'error' ? `${job.title}: ${job.error}` : t("{0} completed", [job.title]), job.status === 'error');
+      if (changed.some(job => job.status === 'completed')) document.dispatchEvent(new Event('snapkit:review-success'));
       if (changed.length) { creationCatalogs.clear(); if ($('#create-dialog').open) loadCreationCatalog(); }
     });
     events.addEventListener('debug', e => { const update = JSON.parse(e.data); if ((update.debugRevision ?? 0) < (state.debugRevision ?? 0)) return; state.debugSessions = update.debugSessions; state.debugRevision = update.debugRevision; render(); });

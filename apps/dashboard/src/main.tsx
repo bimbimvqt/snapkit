@@ -20,19 +20,22 @@ try {
   document.getElementById('update-indicator')?.replaceChildren();
   document.getElementById('app-cache-root')?.replaceChildren();
   const unmountUpdates = mountUpdates();
+  await import('./features/developer-tools/developer-tools.js');
   await devices.init();
   await accountReady;
   const { mountDeveloperProfile } = await import('./features/onboarding/DeveloperProfile');
   const unmountDeveloperProfile = mountDeveloperProfile();
   const { mountWorkspaceSwitcher } = await import('./features/workspace/WorkspaceSwitcher');
   const unmountWorkspaces = mountWorkspaceSwitcher();
+  const { mountReviews } = await import('./features/reviews/Reviews');
+  const unmountReviews = mountReviews();
   document.body.dataset.uiReady = 'true';
   document.body.classList.remove('app-starting');
   document.getElementById('dashboard-startup')?.remove();
   document.dispatchEvent(new Event('snapkit:ui-ready'));
   window.snapkitDesktop?.ready?.();
   if (import.meta.hot) {
-    import.meta.hot.dispose(() => { unmountUpdates(); unmountDeveloperProfile(); unmountWorkspaces(); });
+    import.meta.hot.dispose(() => { unmountUpdates(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); });
     // Legacy controllers use native listeners; full reload prevents duplicate subscriptions.
     import.meta.hot.accept(() => location.reload());
   }
