@@ -16,6 +16,11 @@ test('setup keeps a complete loading layout, shares pending checks and retains r
   await page.locator('[data-language-select]').click();await page.locator('[data-language="vi"]').click();
   await expect(page.locator('#setup-status')).toHaveText('Đang kiểm tra công cụ…');
   for(const width of [375,768,1440]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+  await page.emulateMedia({reducedMotion:'reduce'});
+  expect(await page.locator('#setup-status').evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('none');
+  await page.locator('#theme-toggle').click();
+  await page.screenshot({path:'/tmp/snapkit-setup-loading-light.png'});
+  await page.locator('#theme-toggle').click();
   await page.screenshot({path:'/tmp/snapkit-setup-loading.png'});
   pending.shift()();
   await expect(page.locator('#setup-content')).toBeVisible();
