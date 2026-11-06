@@ -2,6 +2,7 @@ import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { adminRoles, permissionsFor, hasPermission, routePermission } from './domain/admin-access.js';
 const secret = () => randomBytes(32).toString('base64url');
 const hash = value => createHash('sha256').update(value).digest('hex');
 const DAY = 86400000;
@@ -32,7 +33,14 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       return value;
     }); queue = result; return result;
   };
-  const role = user => admins.has(user.email.toLowerCase()) ? 'admin' : 'user';
+  const isOwner = user => admins.has(user.email.toLowerCase());
+  const role = user => isOwner(user) ? 'admin' : Object.hasOwn(adminRoles, user.adminRole) ? user.adminRole : 'user';
+  const userView = user => ({ ...safeUser(user), role: role(user), isOwner: isOwner(user) });
+  const mutate = (req, permission, task) => transaction(next => {
+    const current = next.users[req.account.user.id];
+    if (!current || current.disabled || !hasPermission(role(current), permission)) { const error = Error('Permission revoked.'); error.status = 403; throw error; }
+    return task(next);
+  });
   async function identity(req) {
     await loaded;
     const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
@@ -41,7 +49,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     if (!raw || raw.length > 128) return null;
     const session = db.sessions[hash(raw)], user = session && db.users[session.userId];
     if (!session || session.expires < Date.now() || !user || user.disabled) return null;
-    return { user: { ...safeUser(user), role: role(user) }, sessionId: hash(raw), bearer: !!bearer };
+    return { user: userView(user), sessionId: hash(raw), bearer: !!bearer };
   }
   const csrf = req => req.headers.origin === origin && req.headers['x-snapkit-request'] === '1';
   const cookie = (res, token, age = 30 * DAY) => res.setHeader('Set-Cookie', `snapkit_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${Math.floor(age / 1000)}`);
@@ -120,12 +128,12 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
           const id = 'google:' + claims.sub, existing = next.users[id];
           if (existing?.disabled || !existing && !next.content.registrationOpen && !admins.has(claims.email.toLowerCase())) throw Error('Account access is not available.');
           const picture = typeof claims.picture === 'string' && /^https:\/\/lh[0-9]*\.googleusercontent\.com\//.test(claims.picture) ? claims.picture : '';
-          const user = { id, email: claims.email, name: String(claims.name || claims.email).slice(0, 160), picture, role: admins.has(claims.email.toLowerCase()) ? 'admin' : 'user', disabled: false, createdAt: existing?.createdAt || now, lastLoginAt: now };
+          const user = { id, email: claims.email, name: String(claims.name || claims.email).slice(0, 160), picture, adminRole: existing?.adminRole || 'user', role: admins.has(claims.email.toLowerCase()) ? 'admin' : 'user', disabled: false, createdAt: existing?.createdAt || now, lastLoginAt: now };
           next.users[id] = user;
           const sessions = Object.entries(next.sessions).filter(([, s]) => s.userId === id).sort((a, b) => b[1].expires - a[1].expires);
           for (const [key] of sessions.slice(9)) delete next.sessions[key];
           next.sessions[hash(token)] = { userId: id, expires: Date.now() + 30 * DAY };
-          audit(next, user, 'sign-in'); return safeUser(user);
+          audit(next, user, 'sign-in'); return userView(user);
         });
         // The browser and desktop get different sessions: browser logout must not
         // unexpectedly invalidate the independently signed-in desktop app.
@@ -142,7 +150,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     });
     app.get('/v1/account', async (req, res) => {
       const account = await identity(req); if (!account) return res.status(401).json({ error: 'Sign in with Google to continue.' });
-      res.json({ user: account.user, expiresAt: new Date(db.sessions[account.sessionId].expires).toISOString() });
+      res.json({ user: account.user, permissions: permissionsFor(account.user.role), expiresAt: new Date(db.sessions[account.sessionId].expires).toISOString() });
     });
     app.post('/v1/auth/logout', async (req, res) => {
       const account = await identity(req);
@@ -153,25 +161,31 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     app.use('/v1/admin', async (req, res, next) => {
       const account = await identity(req);
       if (!account) return res.status(401).json({ error: 'Sign in with your administrator Google account.' });
-      if (account.user.role !== 'admin') return res.status(403).json({ error: 'Administrator access required.' });
+      const permission = routePermission(req.path, req.method);
+      if (!permission || !hasPermission(account.user.role, permission)) return res.status(403).json({ error: 'You do not have permission for this action.', code: 'FORBIDDEN' });
       if (req.method !== 'GET' && !account.bearer && !csrf(req)) return res.status(403).json({ error: 'Invalid request origin.' });
       req.account = account; next();
     });
     app.get('/v1/admin/feedback', async (req, res) => {
       await loaded; const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
-      const entries = [...(db.feedback || [])].reverse();
+      const search = String(req.query.search || '').slice(0,160).toLowerCase();
+      const entries = [...(db.feedback || [])].reverse().filter(entry =>
+        (!search || [entry.name,entry.email,entry.message].join(' ').toLowerCase().includes(search)) &&
+        (!req.query.type || req.query.type === 'all' || entry.type === req.query.type) &&
+        (!req.query.status || req.query.status === 'all' || entry.status === req.query.status) &&
+        (!req.query.moderation || req.query.moderation === 'all' || entry.type === 'review' && (entry.moderation || 'pending') === req.query.moderation));
       res.json({ total: entries.length, entries: entries.slice(offset, offset + 50) });
     });
     app.post('/v1/admin/feedback/status', async (req, res) => {
       if (typeof req.body?.id !== 'string' || !['new', 'reviewing', 'done'].includes(req.body.status)) return res.status(400).json({ error: 'Invalid feedback status.' });
-      await transaction(next => {
+      await mutate(req, 'feedback.manage', next => {
         const entry = next.feedback?.find(item => item.id === req.body.id); if (!entry) throw Error('Feedback not found.');
         entry.status = req.body.status; audit(next, req.account.user, 'feedback-' + entry.status, entry.id);
       }); res.json({ saved: true });
     });
     app.post('/v1/admin/feedback/moderation', async (req, res) => {
       if (typeof req.body?.id !== 'string' || !['pending', 'approved', 'rejected'].includes(req.body.moderation)) return res.status(400).json({ error: 'Invalid review moderation.' });
-      await transaction(next => {
+      await mutate(req, 'feedback.manage', next => {
         const entry = next.feedback?.find(item => item.id === req.body.id);
         if (!entry || entry.type !== 'review') { const error = Error('Only reviews can be published.'); error.status = 409; throw error; }
         if (req.body.moderation === 'approved' && (entry.publishConsent !== true || !Number.isInteger(entry.rating) || entry.rating < 1 || entry.rating > 5)) { const error = Error('This review has no permission for publication.'); error.status = 409; throw error; }
@@ -179,17 +193,40 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
         audit(next, req.account.user, 'review-' + entry.moderation, entry.id);
       }); res.json({ saved: true });
     });
-    app.get('/v1/admin/overview', async (_req, res) => { await loaded; const users = Object.values(db.users); res.json({ users: users.length, activeUsers: users.filter(u => !u.disabled).length, sessions: Object.values(db.sessions).filter(s => s.expires > Date.now()).length, content: db.content, audit: db.audit.slice(-30).reverse() }); });
+    app.get('/v1/admin/overview', async (req, res) => {
+      await loaded; const users = Object.values(db.users), feedback = db.feedback || [];
+      const can = permission => hasPermission(req.account.user.role, permission);
+      res.json({ users: users.length, activeUsers: users.filter(user => !user.disabled).length, sessions: Object.values(db.sessions).filter(session => session.expires > Date.now()).length,
+        ...(can('content.read') ? { content: db.content } : {}),
+        ...(can('audit.read') ? { audit: db.audit.slice(-30).reverse() } : {}),
+        ...(can('feedback.read') ? { feedback: { total: feedback.length, open: feedback.filter(entry => entry.status !== 'done').length, pending: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && (!entry.moderation || entry.moderation === 'pending')).length, published: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && entry.moderation === 'approved').length } } : {}) });
+    });
+    app.get('/v1/admin/content', async (_req, res) => res.json({content: await content()}));
+    app.get('/v1/admin/audit', async (_req, res) => {
+      await loaded; res.json({ entries: db.audit.slice(-100).reverse().map(entry => ({...entry, actorName: db.users[entry.actor]?.name || entry.actor})) });
+    });
+    app.get('/v1/admin/roles', (_req, res) => res.json({roles:adminRoles}));
+    app.post('/v1/admin/users/role', async (req, res) => {
+      const input = req.body;
+      if (typeof input?.id !== 'string' || typeof input.role !== 'string' || input.role !== 'user' && !Object.hasOwn(adminRoles,input.role)) return res.status(400).json({error:'Invalid account role.'});
+      await mutate(req, 'roles.manage', next => {
+        const user = next.users[input.id];
+        if (!user) throw Error('Account not found.');
+        if (isOwner(user) || user.id === req.account.user.id) { const error = Error('Owner and your own role are protected.'); error.status=403; throw error; }
+        user.adminRole = input.role;
+        audit(next, req.account.user, 'assign-role:' + input.role, user.id);
+      }); res.json({saved:true});
+    });
     app.get('/v1/admin/users', async (req, res) => {
       await loaded; const search = String(req.query.search || '').slice(0, 160).toLowerCase(), offset = Math.max(0, Math.min(1000000, Number(req.query.offset) || 0));
       const users = Object.values(db.users).filter(u => (u.email + ' ' + u.name).toLowerCase().includes(search)).sort((a, b) => b.lastLoginAt.localeCompare(a.lastLoginAt));
-      res.json({ total: users.length, users: users.slice(offset, offset + 50).map(u => ({ ...safeUser(u), role: role(u) })) });
+      res.json({ total: users.length, users: users.slice(offset, offset + 50).map(u => userView(u)) });
     });
     app.post('/v1/admin/users/access', async (req, res) => {
       if (typeof req.body?.id !== 'string' || typeof req.body.disabled !== 'boolean') return res.status(400).json({ error: 'Choose an account and access status.' });
-      await transaction(next => {
+      await mutate(req, 'users.manage', next => {
         const user = next.users[req.body.id]; if (!user) throw Error('Account not found.');
-        if (role(user) === 'admin') throw Error('Administrator accounts cannot be disabled here.');
+        if (isOwner(user) || user.id === req.account.user.id) throw Error('Administrator accounts cannot be disabled here.');
         user.disabled = req.body.disabled;
         if (user.disabled) for (const [id, session] of Object.entries(next.sessions)) if (session.userId === user.id) delete next.sessions[id];
         audit(next, req.account.user, user.disabled ? 'disable-user' : 'enable-user', user.id);
@@ -199,7 +236,8 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       const input = req.body;
       const validateText = (value, limit) => typeof value === 'string' && value.length <= limit && !/[\u0000-\u0008]/.test(value);
       if (!input || !Number.isInteger(input.revision) || typeof input.registrationOpen !== 'boolean' || !validateText(input.recommendedVersion, 40) || input.recommendedVersion && !/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(input.recommendedVersion) || !['en', 'vi'].every(lang => validateText(input.announcement?.[lang], 500) && validateText(input.landing?.[lang]?.headline, 160) && input.landing[lang].headline.trim() && validateText(input.landing?.[lang]?.description, 500))) return res.status(400).json({ error: 'Check the content fields and version format.' });
-      const result = await transaction(next => {
+      const result = await mutate(req, 'content.write', next => {
+        if (next.content.registrationOpen !== input.registrationOpen && !hasPermission(role(next.users[req.account.user.id]), 'users.manage')) { const error = Error('Account settings require administrator access.'); error.status = 403; throw error; }
         if (next.content.revision !== input.revision) { const error = Error('Content changed in another window. Reload before saving.'); error.status = 409; throw error; }
         next.content = { revision: input.revision + 1, registrationOpen: input.registrationOpen, recommendedVersion: input.recommendedVersion, announcement: { en: input.announcement.en, vi: input.announcement.vi }, landing: { en: { headline: input.landing.en.headline, description: input.landing.en.description }, vi: { headline: input.landing.vi.headline, description: input.landing.vi.description } } };
         audit(next, req.account.user, 'publish-content'); return next.content;

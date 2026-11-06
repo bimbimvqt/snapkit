@@ -99,7 +99,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'packages/ui/favicon.svg'), error => { if (error) res.sendFile(path.join(root, 'packages/ui/favicon.svg')); }));
   app.use(express.static(path.join(root, 'apps/website'), { maxAge: '5m' }));
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
-  app.use((error, _req, res, _next) => res.status(error.status === 413 ? 413 : error.status === 409 ? 409 : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));
+  app.use((error, _req, res, _next) => res.status([403, 409, 413].includes(error.status) ? error.status : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));
   return app;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

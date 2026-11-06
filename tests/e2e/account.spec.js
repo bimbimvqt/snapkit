@@ -57,6 +57,7 @@ test('admin edits bilingual content with optimistic revision and renders account
       const path = new URL(route.request().url()).pathname;
       if (path === '/v1/auth/config') return route.fulfill({json:{configured:true}});
       if (path === '/v1/account') return route.fulfill({json:{user:{email:'admin@example.com',role:'admin'}}});
+      if (path === '/v1/admin/content' && route.request().method() === 'GET') return route.fulfill({json:{content:defaultContent()}});
       if (path === '/v1/admin/overview') return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
       if (path === '/v1/admin/users') return route.fulfill({json:{total:1,users:[{id:'a',name:'<img src=x onerror=alert(1)>',email:'user@example.com',role:'user',disabled:false}]}});
       if (path === '/v1/admin/feedback') return route.fulfill({json:{total:1,entries:[{id:'test-feedback',type:'bug',message:'<img src=x onerror=alert(1)>',name:'Developer',email:'reply@example.com',status:'new',createdAt:'2026-11-06T00:00:00Z'}]}});
@@ -66,11 +67,15 @@ test('admin edits bilingual content with optimistic revision and renders account
     });
     await page.goto('http://127.0.0.1:' + server.address().port + '/admin/');
     await expect(page.locator('#dashboard')).toBeVisible();
+    await page.locator('.admin-sidebar [data-admin-page=content]').click();
     await page.locator('[name="headline-vi"]').fill('Snapkit dành cho bạn');
     await page.getByRole('button',{name:'Lưu và xuất bản'}).click();
     await expect(page.locator('#save-message')).toContainText('Đã xuất bản');
     expect(saved.landing.vi.headline).toBe('Snapkit dành cho bạn'); expect(saved.revision).toBe(0);
+    await page.locator('.admin-sidebar [data-admin-page=users]').click();
+    await expect(page.locator('#users')).toContainText('user@example.com');
     await expect(page.locator('#users img')).toHaveCount(0);
+    await page.locator('.admin-sidebar [data-admin-page=feedback]').click();
     await expect(page.locator('#feedback-inbox')).toContainText('<img src=x onerror=alert(1)>');
     await expect(page.locator('#feedback-inbox img')).toHaveCount(0);
     await page.locator('#feedback-inbox [role=combobox]').click();
@@ -195,6 +200,7 @@ test('admin shows review stars, uses custom progress menu and explicitly approve
     });
     await page.goto('http://127.0.0.1:'+server.address().port+'/admin/');
     await expect(page.locator('#dashboard')).toBeVisible();
+    await page.locator('.admin-sidebar [data-admin-page=feedback]').click();
     await expect(page.locator('#feedback-inbox select')).toHaveCount(0);
     await expect(page.locator('#feedback-inbox [role=img]')).toHaveAttribute('aria-label','4/5 sao');
     await expect(page.locator('#feedback-inbox svg.filled')).toHaveCount(4);
@@ -205,7 +211,7 @@ test('admin shows review stars, uses custom progress menu and explicitly approve
     await expect(page.locator('.moderation-badge')).toHaveText('Chờ duyệt'); expect(moderation).toBe('pending');
     await page.locator('#feedback-inbox').scrollIntoViewIfNeeded();
     await page.locator('#feedback-inbox [role=combobox]').click();
-    await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(page.locator('#feedback-inbox [role=listbox]')).toBeVisible();
     await page.screenshot({path:'/tmp/snapkit-admin-review-moderation.png'});
     await page.keyboard.press('Escape');
     await page.setViewportSize({width:390,height:950});

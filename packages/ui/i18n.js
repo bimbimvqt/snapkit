@@ -61,14 +61,29 @@
     }
     for (const option of document.querySelectorAll('[data-language]')) option.setAttribute('aria-checked', String(option.dataset.language === language));
   }
+  let languageFrame, restoreScrollAnchor;
   function setLanguage(value) {
     if (!supported(value)) return;
+    // Translated copy can change section heights. Disable browser anchoring through
+    // the next paint so choosing a locale preserves the reader's scroll position.
+    const root = document.documentElement, left = scrollX, top = scrollY;
+    if (!restoreScrollAnchor) {
+      const value = root.style.getPropertyValue('overflow-anchor'), priority = root.style.getPropertyPriority('overflow-anchor');
+      restoreScrollAnchor = () => value ? root.style.setProperty('overflow-anchor', value, priority) : root.style.removeProperty('overflow-anchor');
+    }
+    cancelAnimationFrame(languageFrame);
+    root.style.setProperty('overflow-anchor', 'none');
+    root.getBoundingClientRect();
     language = value;
     const url = new URL(location.href);
     if (url.searchParams.has('lang')) { url.searchParams.set('lang', value); history.replaceState(history.state, '', url); }
     try { localStorage.setItem('snapkit-language', value); } catch {}
     apply();
     document.dispatchEvent(new CustomEvent('snapkit:language', { detail: { language } }));
+    window.scrollTo({ left, top, behavior: 'instant' });
+    languageFrame = requestAnimationFrame(() => {
+      languageFrame = requestAnimationFrame(() => { restoreScrollAnchor(); restoreScrollAnchor = null; });
+    });
     window.snapkitDesktop?.setLanguage?.(language).catch(() => {});
   }
   window.SnapkitI18n = { t, setLanguage, get language() { return language; } };
@@ -80,11 +95,11 @@
   function closeMenu(restoreFocus = false) {
     if (!menu) return;
     menu.hidden = true; trigger.setAttribute('aria-expanded', 'false');
-    if (restoreFocus) trigger.focus();
+    if (restoreFocus) trigger.focus({ preventScroll: true });
   }
   function openMenu(last = false) {
     menu.hidden = false; trigger.setAttribute('aria-expanded', 'true');
-    (last ? options.at(-1) : options.find(option => option.dataset.language === language) || options[0])?.focus();
+    (last ? options.at(-1) : options.find(option => option.dataset.language === language) || options[0])?.focus({ preventScroll: true });
   }
   trigger?.addEventListener('click', () => { if (menu.hidden) openMenu(); else closeMenu(); });
   trigger?.addEventListener('keydown', event => {
@@ -99,7 +114,7 @@
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
-      options[next]?.focus();
+      options[next]?.focus({ preventScroll: true });
     }
   });
   document.addEventListener('keydown', event => {
