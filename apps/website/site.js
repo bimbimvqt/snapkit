@@ -2,6 +2,7 @@ const t = (...args) => window.SnapkitI18n.t(...args);
 let downloadMessage = null;
 let activePreview = 'devices';
 let publicContent;
+let downloadsPending = false, lastDownloadCheck = 0;
 function applyContent() {
   const copy = publicContent?.landing?.[window.SnapkitI18n.language];
   if (!copy) return;
@@ -12,6 +13,8 @@ function applyContent() {
 }
 async function loadContent() { try { const response = await fetch((location.hostname === 'bimbimvqt.github.io' ? 'https://snapkit.vn' : location.origin) + '/v1/public/content', { signal: AbortSignal.timeout(5000) }); if (response.ok) { publicContent = await response.json(); applyContent(); } } catch {} }
 async function loadDesktopDownloads() {
+  if (downloadsPending) return;
+  downloadsPending = true; lastDownloadCheck = Date.now();
   try {
     const response = await fetch('https://api.github.com/repos/bimbimvqt/snapkit/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error('Unavailable');
@@ -35,8 +38,13 @@ async function loadDesktopDownloads() {
     const status = document.querySelector('#download-status');
     if (status) { downloadMessage = count === 3 ? 'Bản desktop beta đã sẵn sàng. Chọn đúng loại máy của bạn.' : 'Một số bộ cài chưa sẵn sàng. Hãy chọn hệ điều hành phù hợp hoặc thử lại sau.'; status.textContent = t(downloadMessage); }
   } catch { const status = document.querySelector('#download-status'); if (status) { downloadMessage = 'Không thể kiểm tra phiên bản mới. Các nút tải vẫn dùng bản beta hiện có.'; status.textContent = t(downloadMessage); } }
+  finally { downloadsPending = false; }
 }
 loadContent().finally(loadDesktopDownloads);
+function refreshDownloads() { if (!document.hidden && Date.now() - lastDownloadCheck >= 60000) void loadDesktopDownloads(); }
+window.addEventListener('focus', refreshDownloads);
+document.addEventListener('visibilitychange', refreshDownloads);
+setInterval(refreshDownloads, 300000);
 
 const preview = document.querySelector('#app-preview');
 const captions = {

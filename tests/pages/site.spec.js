@@ -148,3 +148,17 @@ test('downloads show the discovered release and keep installers matched to each 
   await chooseLanguage(page,'vi');
   await expect(page.locator('#release-version')).toHaveText('v'+version);
 });
+
+test('an open landing page discovers newly published installers without a reload',async({page})=>{
+  await page.route('**/v1/public/content',route=>route.fulfill({json:{landing:{}}}));
+  let version='0.2.0-beta.37';
+  await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases?*',route=>route.fulfill({json:[{tag_name:'v'+version,published_at:'2026-11-06T00:00:00Z',assets:['mac-arm64.dmg','mac-x64.dmg','win-x64.exe'].map(suffix=>{const name=`Snapkit-${version}-${suffix}`;return {name,browser_download_url:`https://github.com/bimbimvqt/snapkit/releases/download/v${version}/${name}`};})}]}));
+  await page.route('https://api.github.com/repos/bimbimvqt/snapkit/releases/tags/*',route=>route.fulfill({status:404,json:{}}));
+  await page.clock.install();
+  await page.goto('./?lang=vi');
+  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  version='0.2.0-beta.38';
+  await page.clock.fastForward(300001);
+  await expect(page.locator('#release-version')).toHaveText('v'+version);
+  for(const link of await page.locator('.download-button').all()) await expect(link).toHaveAttribute('href',new RegExp('v0\\.2\\.0-beta\\.38/'));
+});

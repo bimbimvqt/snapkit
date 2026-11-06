@@ -1,7 +1,8 @@
 # Snapkit changelog
 
-## 0.2.0-beta.37 — 2026-11-06
+## 0.2.0-beta.38 — 2026-11-06
 
+- Sửa workflow đóng gói macOS sang runner còn được hỗ trợ; landing page tự làm mới link tải khi quay lại tab hoặc sau 5 phút.
 - Chuyển dịch vụ tài khoản và kết nối website sang `https://snapkit.vn`, sửa lỗi đăng nhập “fetch failed” do địa chỉ máy chủ cũ không còn phục vụ HTTPS.
 - Chấp nhận URL đăng nhập từ hai tên miền Snapkit trong giai đoạn chuyển đổi; tiếp tục chặn URL ngoài danh sách, HTTP và URL chứa thông tin xác thực.
 - Hiển thị lỗi kết nối tài khoản rõ ràng bằng EN/VI.
