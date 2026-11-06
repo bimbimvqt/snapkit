@@ -7,14 +7,22 @@ test('save and activate run profiles and display Doctor retry errors', async ({p
   const initial = await page.request.get('/api/state').then(r => r.json());
   const headers = {'X-Snapkit-Token': initial.token};
   let profileId;
+  const offlineTargets = initial.devices.filter(d => initial.settings.targetIds.includes(d.id) && d.state === 'offline');
   try {
+    for (const device of offlineTargets) {
+      const boot = await page.request.post('/api/devices/'+encodeURIComponent(device.id)+'/boot', {headers,data:{}});
+      expect(boot.status()).toBe(200);
+    }
     await page.locator('#run-profiles summary').click();
     await page.getByLabel('Profile name', {exact:true}).fill('Dev ' + Date.now());
     await page.locator('#run-profile-save').click();
     await expect(page.locator('#run-profile-list .run-profile')).toHaveCount(1);
     const profile = (await page.request.get('/api/run-profiles').then(r => r.json())).profiles[0]; profileId = profile.id;
     await page.request.post('/api/workspace', {headers, data:{path:initial.settings.workspace, framework:'flutter', flavor:'staging'}});
+    const activation = page.waitForResponse(response=>response.url().endsWith('/api/run-profiles/activate'));
     await page.locator('[data-profile-activate]').click();
+    const activated = await activation;
+    expect(activated.status(), JSON.stringify(await activated.json())).toBe(200);
     await expect.poll(async () => (await page.request.get('/api/state').then(r => r.json())).settings.flavor).toBe(profile.flavor);
     await page.locator('[data-app-page="setup"]').first().click();
     await page.locator('#doctor-check').click();
@@ -29,6 +37,7 @@ test('save and activate run profiles and display Doctor retry errors', async ({p
     expect(await page.locator('#panel-setup').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
     expect(errors).toEqual([]);
   } finally {
+    for (const device of offlineTargets) await page.request.post('/api/devices/'+encodeURIComponent(device.id)+'/shutdown',{headers,data:{}});
     if (profileId) await page.request.post('/api/run-profiles/delete', {headers,data:{id:profileId}});
     await page.request.post('/api/workspace',{headers,data:{path:initial.settings.workspace,framework:initial.settings.framework||'flutter',flavor:initial.settings.flavor||''}});
   }
