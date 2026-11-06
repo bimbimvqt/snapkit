@@ -30,6 +30,8 @@ jobs:
       - run: npm run test:pages
       - uses: actions/configure-pages@v5
       - run: npm run build:pages
+        env:
+          SNAPKIT_PAGES_BASE: /snapkit/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

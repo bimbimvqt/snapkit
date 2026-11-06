@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { secureEqual, revenueCatCustomer } from './infrastructure/revenuecat.js';
 import { subscriptionFromCustomer, webhookUsers } from './domain/subscription.js';
+import { websiteNotFound } from '../../../packages/web/not-found.js';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const version = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
 export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle } = {}) {
@@ -113,11 +114,12 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   app.get('/language.css', (_req, res) => res.sendFile(path.join(root, 'packages/ui/language.css')));
   app.get('/i18n.js', (_req, res) => res.sendFile(path.join(root, 'packages/ui/i18n.js')));
   app.get('/favicon.svg', (_req, res) => res.sendFile(path.join(root, 'packages/ui/favicon.svg'), error => { if (error) res.sendFile(path.join(root, 'packages/ui/favicon.svg')); }));
+  app.get(['/404.html', '/en/404.html'], websiteNotFound());
   app.use(express.static(path.join(root, 'apps/website'), { maxAge: '5m', setHeaders(res, file) {
     if (file.includes(path.sep + 'assets' + path.sep)) res.setHeader('Cache-Control', 'public, max-age=86400');
-    else if (['site.css', 'site.js', 'locales.js', 'guides.css', 'reload.js'].includes(path.basename(file))) res.setHeader('Cache-Control', 'public, max-age=3600');
+    else if (['site.css', 'site.js', 'locales.js', 'guides.css', 'reload.js', 'not-found.css'].includes(path.basename(file))) res.setHeader('Cache-Control', 'public, max-age=3600');
   } }));
-  app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+  app.use(websiteNotFound());
   app.use((error, _req, res, _next) => res.status([403, 409, 413].includes(error.status) ? error.status : 400).json({ error: error.status === 413 ? 'Request too large' : 'Invalid request' }));
   return app;
 }
