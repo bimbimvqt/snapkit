@@ -172,7 +172,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       const entries = [...(db.feedback || [])].reverse().filter(entry =>
         (!search || [entry.name,entry.email,entry.message].join(' ').toLowerCase().includes(search)) &&
         (!req.query.type || req.query.type === 'all' || entry.type === req.query.type) &&
-        (!req.query.status || req.query.status === 'all' || entry.status === req.query.status) &&
+        (!req.query.status || req.query.status === 'all' || entry.type !== 'review' && entry.status === req.query.status) &&
         (!req.query.moderation || req.query.moderation === 'all' || entry.type === 'review' && (entry.moderation || 'pending') === req.query.moderation));
       res.json({ total: entries.length, entries: entries.slice(offset, offset + 50) });
     });
@@ -199,7 +199,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       res.json({ users: users.length, activeUsers: users.filter(user => !user.disabled).length, sessions: Object.values(db.sessions).filter(session => session.expires > Date.now()).length,
         ...(can('content.read') ? { content: db.content } : {}),
         ...(can('audit.read') ? { audit: db.audit.slice(-30).reverse() } : {}),
-        ...(can('feedback.read') ? { feedback: { total: feedback.length, open: feedback.filter(entry => entry.status !== 'done').length, pending: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && (!entry.moderation || entry.moderation === 'pending')).length, published: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && entry.moderation === 'approved').length } } : {}) });
+        ...(can('feedback.read') ? { feedback: { total: feedback.length, open: feedback.filter(entry => entry.type !== 'review' && entry.status !== 'done').length, pending: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && (!entry.moderation || entry.moderation === 'pending')).length, published: feedback.filter(entry => entry.type === 'review' && entry.publishConsent && entry.moderation === 'approved').length } } : {}) });
     });
     app.get('/v1/admin/content', async (_req, res) => res.json({content: await content()}));
     app.get('/v1/admin/audit', async (_req, res) => {

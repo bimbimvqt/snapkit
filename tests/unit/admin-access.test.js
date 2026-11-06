@@ -29,7 +29,8 @@ test('four console roles enforce API permissions, preserve roles on login, prote
   const receipt=await(await request('/v1/feedback',{type:'review',rating:4,name:'Developer',message:'An actual integration review.',publishConsent:true})).json();
   assert.equal((await request('/v1/admin/feedback/moderation',{id:receipt.id,moderation:'approved'},sessions.moderator)).status,200);
   const publicReviews=await(await request('/v1/public/reviews')).json();assert.equal(publicReviews.total,1);
-  const moderatorOverview=await(await request('/v1/admin/overview',undefined,sessions.moderator)).json();assert.equal(moderatorOverview.content,undefined);assert.equal(moderatorOverview.audit,undefined);assert.equal(moderatorOverview.feedback.published,1);
+  const moderatorOverview=await(await request('/v1/admin/overview',undefined,sessions.moderator)).json();assert.equal(moderatorOverview.content,undefined);assert.equal(moderatorOverview.audit,undefined);assert.equal(moderatorOverview.feedback.published,1);assert.equal(moderatorOverview.feedback.open,0,'reviews have moderation rather than processing progress');
+  assert.equal((await(await request('/v1/admin/feedback?status=new',undefined,sessions.moderator)).json()).total,0,'processing filters exclude reviews');
   assert.equal((await request('/v1/admin/users/role',{id:'google:owner@example.com',role:'viewer'},sessions.admin)).status,403);
   assert.equal((await request('/v1/admin/users/access',{id:'google:owner@example.com',disabled:true},sessions.admin)).status,400);
   assert.equal((await request('/v1/admin/users/role',{id:'google:admin@example.com',role:'viewer'},sessions.admin)).status,403,'cannot demote own active account');

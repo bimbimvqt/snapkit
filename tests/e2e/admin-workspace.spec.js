@@ -42,7 +42,7 @@ for(const [role,visible]of Object.entries({admin:['overview','feedback','users',
       }
       if(visible.includes('feedback')){
         await page.locator('.admin-sidebar [data-admin-page=feedback]').click();await expect(page.locator('#feedback-inbox')).toContainText('Flutter workflow');
-        if(role==='viewer'){await expect(page.getByRole('button',{name:'Duyệt & hiển thị'})).toHaveCount(0);await expect(page.locator('#feedback-inbox [role=combobox]')).toBeDisabled();}
+        if(role==='viewer'){await expect(page.getByRole('button',{name:'Duyệt & hiển thị'})).toHaveCount(0);await expect(page.locator('#feedback-inbox [role=combobox]')).toHaveCount(0);}
         if(role==='moderator')await expect(page.getByRole('button',{name:'Duyệt & hiển thị'})).toBeVisible();
       }
       if(role==='admin'){

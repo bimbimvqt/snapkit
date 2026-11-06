@@ -60,7 +60,7 @@ test('admin edits bilingual content with optimistic revision and renders account
       if (path === '/v1/admin/content' && route.request().method() === 'GET') return route.fulfill({json:{content:defaultContent()}});
       if (path === '/v1/admin/overview') return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
       if (path === '/v1/admin/users') return route.fulfill({json:{total:1,users:[{id:'a',name:'<img src=x onerror=alert(1)>',email:'user@example.com',role:'user',disabled:false}]}});
-      if (path === '/v1/admin/feedback') return route.fulfill({json:{total:1,entries:[{id:'test-feedback',type:'bug',message:'<img src=x onerror=alert(1)>',name:'Developer',email:'reply@example.com',status:'new',createdAt:'2026-11-06T00:00:00Z'}]}});
+      if (path === '/v1/admin/feedback') return route.fulfill({json:{total:1,entries:[{id:'test-feedback',type:'bug',message:'<img src=x onerror=alert(1)>',name:'Developer',email:'reply@example.com',status:'new',createdAt:'2026-11-06T00:00:00Z'},{id:'bug-1',type:'bug',message:'Bug report retains processing progress.',name:'Reporter',status:'new',createdAt:'2026-11-06T00:00:00Z'}]}});
       if (path === '/v1/admin/feedback/status') { feedbackStatus = route.request().postDataJSON(); return route.fulfill({json:{saved:true}}); }
       if (path === '/v1/admin/content') { saved = route.request().postDataJSON(); return route.fulfill({json:{content:{...saved,revision:1}}}); }
       return route.fulfill({status:404,json:{error:'Not found'}});
@@ -184,7 +184,7 @@ test('account service transport errors show actionable Vietnamese feedback and p
   await expect(page.locator('#google-signin')).toBeEnabled();
 });
 
-test('admin shows review stars, uses custom progress menu and explicitly approves or withdraws public reviews', async ({page}) => {
+test('admin moderates review stars without processing progress and keeps progress for bug reports', async ({page}) => {
   const server = createCloud({env:{}}).listen(0,'127.0.0.1'); await new Promise(resolve=>server.once('listening',resolve));
   let moderation = 'pending';
   try {
@@ -194,7 +194,7 @@ test('admin shows review stars, uses custom progress menu and explicitly approve
       if(path==='/v1/account')return route.fulfill({json:{user:{email:'admin@example.com',role:'admin'}}});
       if(path==='/v1/admin/overview')return route.fulfill({json:{users:1,activeUsers:1,sessions:1,content:defaultContent(),audit:[]}});
       if(path==='/v1/admin/users')return route.fulfill({json:{total:0,users:[]}});
-      if(path==='/v1/admin/feedback')return route.fulfill({json:{total:1,entries:[{id:'review-1',type:'review',rating:4,message:'Useful tool for Flutter development.',name:'Developer',email:'private@example.com',status:'new',moderation,publishConsent:true,createdAt:'2026-11-06T00:00:00Z'}]}});
+      if(path==='/v1/admin/feedback')return route.fulfill({json:{total:2,entries:[{id:'review-1',type:'review',rating:4,message:'Useful tool for Flutter development.',name:'Developer',email:'private@example.com',status:'new',moderation,publishConsent:true,createdAt:'2026-11-06T00:00:00Z'},{id:'bug-1',type:'bug',message:'Bug report retains processing progress.',name:'Reporter',status:'new',createdAt:'2026-11-06T00:00:00Z'}]}});
       if(path==='/v1/admin/feedback/moderation'){moderation=route.request().postDataJSON().moderation;return route.fulfill({json:{saved:true}});}
       return route.fulfill({status:404,json:{error:'Not found'}});
     });
@@ -210,12 +210,17 @@ test('admin shows review stars, uses custom progress menu and explicitly approve
     await page.getByRole('button',{name:'Ẩn khỏi landing page',exact:true}).click();
     await expect(page.locator('.moderation-badge')).toHaveText('Chờ duyệt'); expect(moderation).toBe('pending');
     await page.locator('#feedback-inbox').scrollIntoViewIfNeeded();
-    await page.locator('#feedback-inbox [role=combobox]').click();
-    await expect(page.locator('#feedback-inbox [role=listbox]')).toBeVisible();
+    await expect(page.locator('#feedback-inbox [role=combobox]')).toHaveCount(0);
+    await expect(page.locator('#feedback-inbox')).not.toContainText('Tiến độ xử lý');
+    await expect(page.locator('.inbox-row').first()).toContainText('Chờ duyệt');
     await page.screenshot({path:'/tmp/snapkit-admin-review-moderation.png'});
     await page.keyboard.press('Escape');
     await page.setViewportSize({width:390,height:950});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.locator('#feedback-inbox').scrollIntoViewIfNeeded(); await page.screenshot({path:'/tmp/snapkit-admin-review-mobile.png'});
+    await page.locator('.inbox-row').filter({hasText:'Bug report retains processing progress.'}).click();
+    await expect(page.locator('#feedback-inbox')).toContainText('Tiến độ xử lý');
+    await page.locator('#feedback-inbox [role=combobox]').click();
+    await expect(page.locator('#feedback-inbox [role=listbox]')).toBeVisible();
   } finally { server.close(); }
 });

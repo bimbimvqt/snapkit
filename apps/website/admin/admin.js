@@ -17,6 +17,7 @@
     audit:['Nhật ký hoạt động','Theo dõi ai đã thay đổi nội dung, quyền truy cập và đánh giá.','audit.read']
   };
   const typeLabels = {review:'Đánh giá',bug:'Báo lỗi',feature:'Đề xuất tính năng',other:'Góp ý khác'};
+  const moderationLabels = {approved:'Đã duyệt · Đang hiển thị',rejected:'Không công khai',pending:'Chờ duyệt'};
   const progressLabels = {new:'Mới',reviewing:'Đang xem xét',done:'Đã xử lý'};
   let account, permissions = new Set(), content, contentLoaded = false, contentBusy = false, contentPromise, contentDirty = false, currentPage = 'overview', offset = 0, total = 0, feedbackOffset = 0, feedbackEntries = [], selectedFeedbackId, feedbackEpoch = 0, loadEpoch = 0;
   const can = permission => permissions.has(permission);
@@ -109,6 +110,7 @@
         [...stars.children].forEach((star,index) => star.classList.toggle('filled',index < entry.rating)); card.append(stars);
       }
       card.append(meta,message);
+      if (entry.type !== 'review') {
       const controls = document.createElement('div'); controls.className = 'feedback-controls';
       const label = document.createElement('span'); label.id = 'feedback-status-' + entry.id; label.className = 'feedback-control-label'; label.textContent = 'Tiến độ xử lý';
       const select = document.createElement('snapkit-select'); select.configure({ labelledby:label.id, value:entry.status, items:[{value:'new',label:'Mới'},{value:'reviewing',label:'Đang xem xét'},{value:'done',label:'Đã xử lý'}], onChange: async value => {
@@ -119,10 +121,11 @@
       } });
       select.disabled = !can('feedback.manage');
       controls.append(label,select); card.append(controls);
+      }
       if (entry.type === 'review') {
         const moderation = document.createElement('div'); moderation.className = 'review-moderation';
         const badge = document.createElement('span'); badge.className = 'moderation-badge'; badge.dataset.state = entry.moderation || 'pending';
-        badge.textContent = ({approved:'Đã duyệt · Đang hiển thị',rejected:'Không công khai',pending:'Chờ duyệt'}[entry.moderation || 'pending']);
+        badge.textContent = moderationLabels[entry.moderation || 'pending'];
         moderation.append(badge);
         const note = document.createElement('p'); note.className = 'moderation-note';
         note.textContent = entry.publishConsent ? 'Người gửi đồng ý công khai tên, nội dung và số sao. Email được giữ riêng.' : 'Đánh giá riêng tư: người gửi chưa đồng ý công khai.';
@@ -149,6 +152,9 @@
       $('#feedback-inbox').append(card);
   }
   async function feedback() {
+    const reviewOnly=$('#feedback-filter-type').value==='review';
+    $('#feedback-filter-status').parentElement.hidden=reviewOnly;
+    if(reviewOnly)$('#feedback-filter-status').value='all';
     const epoch=++feedbackEpoch;const params=new URLSearchParams({offset:String(feedbackOffset),search:$('#feedback-query').value,type:$('#feedback-filter-type').value,status:$('#feedback-filter-status').value,moderation:$('#feedback-filter-moderation').value});
     $('#feedback-list').setAttribute('aria-busy','true');
     try {
@@ -158,7 +164,7 @@
       if(!feedbackEntries.some(entry=>entry.id===selectedFeedbackId))selectedFeedbackId=feedbackEntries[0]?.id;
       for(const entry of feedbackEntries){const row=document.createElement('button');row.type='button';row.className='inbox-row';row.setAttribute('aria-pressed',String(entry.id===selectedFeedbackId));
         const top=document.createElement('div');top.className='inbox-row-top';const type=document.createElement('span');type.className='inbox-type';type.textContent=typeLabels[entry.type]||entry.type;const time=document.createElement('time');time.textContent=date(entry.createdAt);top.append(type,time);
-        const name=document.createElement('strong');name.textContent=entry.name||'Người dùng Snapkit';const message=document.createElement('p');message.textContent=entry.message;const state=document.createElement('small');state.textContent=progressLabels[entry.status]||'Mới';
+        const name=document.createElement('strong');name.textContent=entry.name||'Người dùng Snapkit';const message=document.createElement('p');message.textContent=entry.message;const state=document.createElement('small');state.textContent=entry.type==='review'?moderationLabels[entry.moderation||'pending']:progressLabels[entry.status]||'Mới';
         row.append(top,name,message,state);row.onclick=()=>{selectedFeedbackId=entry.id;$$('.inbox-row').forEach(node=>node.setAttribute('aria-pressed',String(node===row)));renderFeedbackDetail(entry);};$('#feedback-list').append(row);
       }
       renderFeedbackDetail(feedbackEntries.find(entry=>entry.id===selectedFeedbackId));
