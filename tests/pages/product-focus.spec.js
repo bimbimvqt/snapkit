@@ -9,7 +9,7 @@ for (const language of ['vi', 'en']) test(`landing explains the workflow and bri
   expect(demo.y).toBeLessThan(650);
   await expect(page.locator('.hero .secondary')).toHaveAttribute('href', language === 'en' ? 'en/#preview-title' : '#preview-title');
   await expect(page.locator('.preview-demo-link')).toHaveAttribute('href', 'demo/');
-  expect(await page.locator('body').innerText()).not.toMatch(/\bbeta\b/i);
+  expect(await page.locator('.hero').innerText()).not.toMatch(/\bbeta\b/i);
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -47,6 +47,10 @@ Bộ cài đã kèm Node.js; bạn không cần cài Node.js để mở app. Flu
 
 ## Chọn workflow phù hợp
 
+### Personal và Teams
+
+Chuyển **Personal / Teams** ngay trong sidebar. Personal giữ project và thiết bị local hiện tại; Teams dùng workspace chung với thành viên, quyền theo project/môi trường/lớp dịch vụ, blueprint có phiên bản, lịch đặt thiết bị và bàn giao QA. Dữ liệu hai khu vực được lưu riêng. Teams cần account service đã cập nhật; xem [hướng dẫn và phạm vi Teams](docs/teams.md).
+
 ### Flutter
 
 Dùng profile Flutter hiện có trong IDE, chọn thiết bị trên Snapkit và bấm **F5**. Snapkit Debug Sync mở các phiên debug cho những thiết bị đã chọn; breakpoint, Hot Reload, Hot Restart và Debug Console tiếp tục dùng trong IDE.
@@ -64,7 +68,7 @@ Expo cần prebuild. Expo Go, khởi chạy IDE trên iPhone thật và build re
 ## Beta hiện tại
 
 - **Miễn phí, đăng nhập Google.** Checkout đang tắt; beta không tự chuyển thành subscription trả phí.
-- **Dữ liệu theo máy.** Workspace, cấu hình và ảnh/video lưu trong thư mục dữ liệu Snapkit. Xóa máy ảo sẽ xóa dữ liệu riêng của máy ảo đó và cần xác nhận.
+- **Personal lưu theo máy.** Workspace cá nhân, cấu hình và ảnh/video lưu trong thư mục dữ liệu Snapkit. Teams lưu metadata cộng tác riêng trên account service; không tự chia sẻ source hay thiết bị cá nhân. Xóa máy ảo sẽ xóa dữ liệu riêng của máy ảo đó và cần xác nhận.
 - **Cập nhật do bạn chọn.** App hỗ trợ kiểm tra và tải cập nhật; cài đặt cần thao tác xác nhận. Xem [cơ chế cập nhật](docs/in-app-updates.md).
 - **Phạm vi nền tảng rõ ràng.** iOS Simulator cần macOS + Xcode. Linux và Windows ARM64 chưa có bộ cài được công bố hỗ trợ. Kiểm thử tự động không thay thế QA trên máy và thiết bị thật.
 

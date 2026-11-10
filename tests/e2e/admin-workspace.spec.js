@@ -15,6 +15,7 @@ async function workspace(page,role='admin') {
     if(pathname==='/v1/admin/content'){
       if(request.method()==='POST'){state.content={...request.postDataJSON(),revision:state.content.revision+1};}return reply({content:state.content});
     }
+    if(pathname==='/v1/admin/teams')return reply({totals:{workspaces:1,memberships:7,projects:3,devices:2,handoffs:4},total:1,entries:[{id:'team',name:'Engineering <script>',members:7,projects:3,devices:2,reservations:1,handoffs:4,updatedAt:'2026-11-10T02:00:00Z'}]});
     if(pathname==='/v1/admin/users')return reply({total:3,users:[{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin',lastLoginAt:'2026-11-06T02:00:00Z'},{id:'teammate',name:'Nguyễn Minh',email:'minh@example.com',role:'moderator',disabled:false,lastLoginAt:'2026-11-06T02:00:00Z'},{id:'member',name:'<script>alert(1)</script>',email:'member@example.com',role:'user',disabled:false}]});
     if(pathname==='/v1/admin/users/role'){state.roleWrites.push(request.postDataJSON());return reply({saved:true});}
     if(pathname==='/v1/admin/users/access'){state.accessWrites.push(request.postDataJSON());return reply({saved:true});}
@@ -26,14 +27,21 @@ async function workspace(page,role='admin') {
   return {base:'http://127.0.0.1:'+server.address().port,state,close:()=>server.close()};
 }
 
-for(const [role,visible]of Object.entries({admin:['overview','feedback','users','content','roles','audit'],editor:['overview','content'],moderator:['overview','feedback'],viewer:['overview','feedback','users','content','audit']})) {
+for(const [role,visible]of Object.entries({admin:['overview','feedback','users','content','roles','audit','teams'],editor:['overview','content'],moderator:['overview','feedback'],viewer:['overview','feedback','users','content','audit','teams']})) {
   test(`admin workspace shows permitted navigation and operations for ${role}`,async({page})=>{
     const app=await workspace(page,role);const errors=[];page.on('pageerror',error=>errors.push(error.message));
     try {
       await page.goto(app.base+'/admin/');await expect(page.locator('#dashboard')).toBeVisible();await expect(page.locator('#stats .stat-card strong')).toHaveCount(4);
-      for(const key of ['overview','feedback','users','content','roles','audit']){
+      for(const key of ['overview','feedback','users','content','roles','audit','teams']){
         const button=page.locator(`.admin-sidebar [data-admin-page=${key}]`);
         if(visible.includes(key))await expect(button).toBeVisible();else await expect(button).toBeHidden();
+      }
+      if(visible.includes('teams')){
+        await page.locator('.admin-sidebar [data-admin-page=teams]').click();
+        await expect(page.locator('#teams-list')).toContainText('Engineering <script>');
+        await expect(page.locator('#teams-summary')).toContainText('7 thành viên');
+        await expect(page.locator('#teams-list script')).toHaveCount(0);
+        await page.screenshot({path:'/tmp/snapkit-admin-teams.png'});
       }
       if(visible.includes('content')){
         await page.locator('.admin-sidebar [data-admin-page=content]').click();await expect(page.locator('[name=headline-vi]')).toHaveValue(defaultContent().landing.vi.headline);

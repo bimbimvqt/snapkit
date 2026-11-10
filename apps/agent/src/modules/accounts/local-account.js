@@ -27,7 +27,9 @@ export class LocalAccount {
     let response;
     try { response = await this.fetcher(CLOUD + route, { method: body === undefined ? 'GET' : 'POST', headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000) }); }
     catch { throw Error('Cannot connect to the Snapkit account service. Check your connection and try again.'); }
-    const result = await response.json(); if (!response.ok) { const error = Error(result.error || 'Account service unavailable.'); error.status = response.status; throw error; } return result;
+    let result;
+    try { result = await response.json(); } catch { const error = Error('Account service unavailable.'); error.status = response.ok ? 502 : response.status; throw error; }
+    if (!response.ok) { const error = Error(result.error || 'Account service unavailable.'); error.status = response.status; throw error; } return result;
   }
   async review(input) { return this.request('/v1/feedback', input, '', {Origin: new URL(CLOUD).origin, 'X-Snapkit-Request': '1'}); }
   async status(fresh = false) {

@@ -15,6 +15,7 @@ The dashboard has no server-rendering requirement, so Next.js would add infrastr
 | Device cards and empty states | React, typed view models, keyed cards and memoization |
 | Updates page, badges, banner, cache controls and install overlay | React, typed external store and desktop bridge |
 | Agent HTTP client | TypeScript adapter; existing authorization and timeout behavior |
+| Snapkit Teams | Separate React/TypeScript shell, Personal/Teams switch, cloud-backed collaboration, scoped roles and local project bindings |
 | Startup | TypeScript module entrypoint; explicit asynchronous initialization |
 | Workspace, setup, account, captures, device tools and release builds | Existing JavaScript controllers converted to explicit ES modules |
 | Dashboard shell and remaining forms | Existing HTML/CSS and custom accessible dropdowns |

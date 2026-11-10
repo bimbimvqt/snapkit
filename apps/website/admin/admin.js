@@ -3,18 +3,19 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const roles = {
-    admin:{label:'Quản trị viên',description:'Quản lý tài khoản, phân quyền, nội dung và đánh giá.',permissions:['overview.read','users.read','users.manage','roles.manage','content.read','content.write','feedback.read','feedback.manage','audit.read']},
+    admin:{label:'Quản trị viên',description:'Quản lý tài khoản, phân quyền, nội dung và đánh giá.',permissions:['overview.read','users.read','users.manage','roles.manage','content.read','content.write','feedback.read','feedback.manage','audit.read','teams.read']},
     editor:{label:'Biên tập viên',description:'Biên tập và xuất bản nội dung website, thông báo ứng dụng.',permissions:['overview.read','content.read','content.write']},
     moderator:{label:'Kiểm duyệt viên',description:'Xử lý góp ý và duyệt hoặc ẩn đánh giá công khai.',permissions:['overview.read','feedback.read','feedback.manage']},
-    viewer:{label:'Người xem',description:'Xem tổng quan, nội dung, tài khoản và góp ý; không chỉnh sửa.',permissions:['overview.read','users.read','content.read','feedback.read','audit.read']}
+    viewer:{label:'Người xem',description:'Xem tổng quan, nội dung, tài khoản và góp ý; không chỉnh sửa.',permissions:['overview.read','users.read','content.read','feedback.read','audit.read','teams.read']}
   };
   const pages = {
     overview:['Tổng quan','Theo dõi sản phẩm và những điều cần bạn quan tâm.','overview.read'],
+    teams:['Snapkit Teams','Theo dõi workspace dùng chung và mức sử dụng. Quyền quản trị nền tảng độc lập với quyền trong team.','teams.read'],
     feedback:['Đánh giá & góp ý','Lắng nghe người dùng. Xử lý góp ý và duyệt những trải nghiệm được chia sẻ.','feedback.read'],
     users:['Tài khoản','Quản lý người dùng, vai trò và quyền truy cập Snapkit.','users.read'],
     content:['Nội dung sản phẩm','Biên tập thông điệp website và thông báo bằng hai ngôn ngữ.','content.read'],
     roles:['Vai trò & phân quyền','Đúng người. Đúng phạm vi công việc.','roles.manage'],
-    audit:['Nhật ký hoạt động','Theo dõi ai đã thay đổi nội dung, quyền truy cập và đánh giá.','audit.read']
+    audit:['Nhật ký hoạt động','Theo dõi ai đã thay đổi nội dung, quyền truy cập và đánh giá.','audit.read','teams.read']
   };
   const typeLabels = {review:'Đánh giá',bug:'Báo lỗi',feature:'Đề xuất tính năng',other:'Góp ý khác'};
   const moderationLabels = {approved:'Đã duyệt · Đang hiển thị',rejected:'Không công khai',pending:'Chờ duyệt'};
@@ -61,7 +62,7 @@
     const epoch=++loadEpoch;$('#panel-loading').hidden=false;$('#panel-error').hidden=true;
     $(`[data-admin-panel="${key}"]`).setAttribute('aria-busy','true');
     if(push){$('#page-title').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
-    try { await ({overview,feedback,users,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
+    try { await ({overview,teams,feedback,users,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
     catch(error) { if(epoch===loadEpoch){if(error.status===401)fail(error);else{$('#panel-error span').textContent=error.message;$('#panel-error').hidden=false;}} }
     finally { if(epoch===loadEpoch){$('#panel-loading').hidden=true;$(`[data-admin-panel="${key}"]`).removeAttribute('aria-busy');} }
   }
@@ -72,6 +73,25 @@
     $('#stats').replaceChildren();
     for(const [label,value,note,symbol]of items){const card=document.createElement('div');card.className='stat-card';card.innerHTML=icon(symbol);for(const [tag,text]of [['span',label],['strong',value],['small',note]]){const node=document.createElement(tag);node.textContent=text;card.append(node);}$('#stats').append(card);}
   }
+  let teamsOffset = 0;
+  async function teams() {
+    const data = await api('admin/teams?search='+encodeURIComponent($('#teams-query').value)+'&offset='+teamsOffset);
+    $('#teams-summary').textContent = `${data.totals.workspaces} workspace · ${data.totals.memberships} thành viên (theo workspace) · ${data.totals.projects} project · ${data.totals.devices} thiết bị · ${data.totals.handoffs} bàn giao`;
+    const body = $('#teams-list');body.replaceChildren();
+    for (const entry of data.entries) {
+      const row = document.createElement('tr');
+      for (const value of [entry.name,entry.members,entry.projects,entry.devices,entry.reservations,entry.handoffs,date(entry.updatedAt)]) {
+        const cell = document.createElement('td');cell.textContent=String(value);row.append(cell);
+      }
+      body.append(row);
+    }
+    if (!data.entries.length) {const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=7;cell.textContent='Chưa có workspace phù hợp.';row.append(cell);body.append(row);}
+    $('#teams-page').textContent=`${data.total} workspace · Trang ${Math.floor(teamsOffset/50)+1}`;
+    $('#teams-previous').disabled=teamsOffset===0;$('#teams-next').disabled=teamsOffset+50>=data.total;
+  }
+  $('#teams-search').onsubmit=event=>{event.preventDefault();teamsOffset=0;void showPanel('teams');};
+  $('#teams-previous').onclick=()=>{teamsOffset=Math.max(0,teamsOffset-50);void showPanel('teams');};
+  $('#teams-next').onclick=()=>{teamsOffset+=50;void showPanel('teams');};
   async function overview() {
     const data=await api('admin/overview');const feedback=data.feedback||{};
     if(can('users.read'))renderStats([['Tổng tài khoản',data.users,'Đã đăng nhập Snapkit','users'],['Được phép truy cập',data.activeUsers,'Tài khoản đang hoạt động','shield'],['Chờ duyệt công khai',feedback.pending??0,'Đánh giá được cho phép chia sẻ','inbox'],['Đánh giá công khai',feedback.published??0,'Đang hiển thị trên website','grid']]);
@@ -204,7 +224,7 @@
     const data=await api('admin/roles');$('#role-cards').replaceChildren();
     for(const role of Object.values(data.roles)){const card=document.createElement('article');card.className='role-card';card.innerHTML=icon('shield');const title=document.createElement('h2');title.textContent=role.label;const description=document.createElement('p');description.textContent=role.description;card.append(title,description);$('#role-cards').append(card);}
     const table=$('#permission-matrix');table.replaceChildren();const header=document.createElement('thead');const headerRow=document.createElement('tr');for(const label of ['Phạm vi quyền',...Object.values(data.roles).map(role=>role.label)]){const cell=document.createElement('th');cell.textContent=label;headerRow.append(cell);}header.append(headerRow);table.append(header);const body=document.createElement('tbody');
-    for(const [label,permission]of [['Xem tổng quan','overview.read'],['Xem tài khoản','users.read'],['Quản lý truy cập','users.manage'],['Cấp vai trò','roles.manage'],['Xem nội dung','content.read'],['Xuất bản nội dung','content.write'],['Xem góp ý','feedback.read'],['Xử lý & duyệt đánh giá','feedback.manage'],['Xem nhật ký','audit.read']]){const row=document.createElement('tr');const name=document.createElement('td');name.textContent=label;row.append(name);for(const role of Object.values(data.roles)){const cell=document.createElement('td');const yes=role.permissions.includes(permission);cell.innerHTML=icon(yes?'check':'minus');cell.className=yes?'matrix-check':'matrix-no';cell.setAttribute('aria-label',yes?'Được phép':'Không được phép');row.append(cell);}body.append(row);}table.append(body);
+    for(const [label,permission]of [['Xem tổng quan','overview.read'],['Xem tài khoản','users.read'],['Quản lý truy cập','users.manage'],['Cấp vai trò','roles.manage'],['Xem nội dung','content.read'],['Xuất bản nội dung','content.write'],['Xem góp ý','feedback.read'],['Xử lý & duyệt đánh giá','feedback.manage'],['Xem nhật ký','audit.read','teams.read']]){const row=document.createElement('tr');const name=document.createElement('td');name.textContent=label;row.append(name);for(const role of Object.values(data.roles)){const cell=document.createElement('td');const yes=role.permissions.includes(permission);cell.innerHTML=icon(yes?'check':'minus');cell.className=yes?'matrix-check':'matrix-no';cell.setAttribute('aria-label',yes?'Được phép':'Không được phép');row.append(cell);}body.append(row);}table.append(body);
   }
   function actionLabel(action){const labels={'sign-in':'Đăng nhập','publish-content':'Xuất bản nội dung','disable-user':'Khóa tài khoản','enable-user':'Mở khóa tài khoản','review-approved':'Duyệt đánh giá công khai','review-pending':'Ẩn đánh giá khỏi website','review-rejected':'Không công khai đánh giá','feedback-new':'Đánh dấu góp ý mới','feedback-reviewing':'Xem xét góp ý','feedback-done':'Hoàn tất xử lý góp ý'};return labels[action]||(action.startsWith('assign-role:')?'Cấp vai trò: '+(roles[action.split(':')[1]]?.label||'Người dùng ứng dụng'):action);}
   async function loadAudit() {const data=await api('admin/audit');$('#audit').replaceChildren();for(const entry of data.entries){const row=document.createElement('div');row.className='audit-row';row.innerHTML=icon('history');const copy=document.createElement('div');const action=document.createElement('strong');action.textContent=actionLabel(entry.action);const meta=document.createElement('p');meta.textContent=entry.actorName||entry.actor;if(entry.target)meta.textContent+=' · '+entry.target;copy.append(action,meta);const time=document.createElement('time');time.textContent=date(entry.at);row.append(copy,time);$('#audit').append(row);}if(!data.entries.length)empty($('#audit'),'Chưa có hoạt động nào.');}

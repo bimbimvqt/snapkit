@@ -122,7 +122,7 @@ test('current workflows and app gallery work in both languages with keyboard nav
   const errors=[]; page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/v1/public/content',route=>route.fulfill({json:{landing:{}}}));
   await page.goto('./?lang=vi');
-  await expect(page.locator('.feature-card')).toHaveCount(6);
+  await expect(page.locator('#features .feature-card')).toHaveCount(6);
   await page.getByRole('tab',{name:'React Native',exact:true}).click();
   await expect(page.locator('#workflow-react-native')).toContainText('Hermes');
   await expect(page.locator('#workflow-react-native')).toContainText('Expo cần prebuild');
@@ -174,4 +174,18 @@ test('an open landing page discovers newly published installers without a reload
   await page.clock.fastForward(300001);
   await expect(page.locator('#release-version')).toHaveText('v'+version.replace(/-beta\.(\d+)$/, ' ($1)'));
   for(const link of await page.locator('.download-button').all()) await expect(link).toHaveAttribute('href',new RegExp('v0\\.2\\.0-beta\\.38/'));
+});
+
+test('Personal and Teams explain separate data and desktop availability in both languages', async ({page}) => {
+  for (const [url,title,note] of [['./?lang=vi','Một ứng dụng. Hai không gian.','chưa có trong bộ cài beta.46'],['en/?lang=en','One app. Two spaces.','not included in the beta.46']]) {
+    await page.goto(url);
+    await expect(page.locator('#products-title')).toHaveText(title);
+    await expect(page.locator('#products')).toContainText(note);
+    await expect(page.locator('#teams .feature-card')).toHaveCount(3);
+    await page.locator('#products').screenshot({path:url.startsWith('en')?'/tmp/snapkit-products-en.png':'/tmp/snapkit-products-vi.png'});
+    await page.setViewportSize({width:390,height:844});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.locator('#products').screenshot({path:'/tmp/snapkit-products-mobile.png'});
+    await page.setViewportSize({width:1440,height:1000});
+  }
 });

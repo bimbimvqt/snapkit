@@ -1,5 +1,6 @@
 import express from 'express';
 import { createAccounts } from './accounts.js';
+import { createTeams } from './teams.js';
 import { readFile, mkdir, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -37,6 +38,9 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   });
   app.use(express.json({ limit: '256kb' }));
   accounts.install(app);
+  const teams = createTeams({ env, accounts });
+  app.get('/v1/admin/teams', teams.adminOverview);
+  app.use('/v1/teams', teams);
   app.get('/admin', (req, res, next) => req.path === '/admin' ? res.redirect('/admin/') : next());
   app.get('/auth/complete', (_req, res) => res.sendFile(path.join(root, 'apps/website/auth/complete.html')));
   app.get('/health', (_req, res) => res.json({ product: 'snapkit-cloud', version, status: 'ok', channel: 'beta' }));

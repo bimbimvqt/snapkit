@@ -1,5 +1,6 @@
 import express from 'express';
 import { WorkspaceSpaces } from './modules/workspace/spaces.js';
+import { teamRoutes } from './modules/workspace/team-routes.js';
 import { ReleaseBuilds } from './modules/releases/release-builds.js';
 import { selectIDETargets } from './application/select-ide-targets.js';
 import { DeviceTools } from './modules/device-tools/device-tools.js';
@@ -152,6 +153,7 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
+app.use('/api/teams', teamRoutes({ account, store, demo }));
 app.post('/api/reviews', async (req, res) => {
   if (demo || req.remoteToken) return res.status(403).json({error: 'Open Snapkit Desktop to send a review. Demo reviews are not submitted.'});
   const receipt = await account.review(reviewInput(req.body));

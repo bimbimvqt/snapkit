@@ -1,0 +1,15 @@
+export type TeamRole = 'owner'|'lead'|'developer'|'qa'|'devops'|'designer'|'viewer';
+export type Environment = 'development'|'staging'|'production';
+export type Page = 'home'|'projects'|'devices'|'handoffs'|'members'|'audit';
+export type Service = {name:string; kind:'mobile'|'frontend'|'backend'|'data'|'mock'; repository:string; runtime:string;ownerId?:string};
+export type Blueprint = {version:number; services:Service[]; updatedAt:string; updatedBy:string};
+export type Project = {id:string; name:string; description:string; blueprint:Blueprint; history:Blueprint[]};
+export type Member = {userId:string; name:string; email:string; role:TeamRole; projectIds:string[]|null; environments:Environment[]; serviceLayers?:string[]; joinedAt:string; permissions?:string[]};
+export type Invitation = {id:string; email:string; role:TeamRole; projectIds:string[]|null; environments:Environment[]; expiresAt:number};
+export type Device = {id:string; name:string; platform:'android'|'ios'; projectId:string; host:string; reservation:{userId:string; name:string; expiresAt:number}|null};
+export type Handoff = {id:string; title:string; projectId:string; environment:Environment; commit:string; buildUrl:string; artifactSha256:string; fixture:string; steps:string; blueprintVersion:number; blueprint:Blueprint; createdBy:string; createdAt:string; status:'pending'|'qa-approved'|'approved'|'changes-requested'; qa:{userId:string; at:string; note:string}|null; approval:{userId:string; at:string}|null};
+export type TeamWorkspace = {id:string; name:string; membership:Member&{permissions:string[]}; members:Member[]; invitations:Invitation[]; projects:Project[]; devices:Device[]; handoffs:Handoff[]; audit:{id:string; at:string; actorName:string; action:string; projectId:string|null; environment:string|null}[]};
+export type TeamListing = {userId:string; roles:TeamRole[]; environments:Environment[]; workspaces:{id:string; name:string; role:TeamRole}[]; invitations:{id:string; workspaceName:string; role:TeamRole; expiresAt:number}[]};
+export type LocalSession = {path:string; framework:string; blueprintVersion:number; preparedAt:string; status:'prepared'};
+export type FormKind = 'workspace'|'project'|'invite'|'member'|'service'|'device'|'handoff'|'local'|'remove-member';
+export type FormState = {kind:FormKind; member?:Member; service?:Service; serviceIndex?:number};

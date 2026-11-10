@@ -89,6 +89,8 @@ Luồng chọn thiết bị IDE: HTTP trong `apps/agent/src/main.js` → use cas
 
 ## Đặt thay đổi mới ở đâu?
 
+Snapkit Personal và Teams là hai khu vực riêng trong cùng desktop. React feature `features/teams/` sở hữu shell Teams và product switch; personal controller giữ nguyên state của nó. Teams cloud API và RBAC ở `apps/cloud/src/teams.js` và `domain/team-access.js`; local proxy/binding ở `apps/agent/src/modules/workspace/team-routes.js`. Dữ liệu Teams không dùng registry workspace cá nhân. Xem [Teams](teams.md) để biết giới hạn thực thi, lưu trữ và vận hành.
+
 | Thay đổi | Nơi sửa |
 | --- | --- |
 | Padding/màu/layout chung | `apps/dashboard/styles/` |

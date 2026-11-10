@@ -15,8 +15,8 @@ test('four console roles enforce API permissions, preserve roles on login, prote
   async function login(email){const start=await request('/auth/google/start');const url=new URL(start.headers.get('location'));claims={sub:email,email,email_verified:true,name:email.split('@')[0],nonce:url.searchParams.get('nonce')};const response=await request('/auth/google/callback?code=ok&state='+url.searchParams.get('state'),undefined,start.headers.get('set-cookie').split(';')[0]);assert.equal(response.status,302);return response.headers.get('set-cookie').split(';')[0];}
   const owner=await login('owner@example.com');const sessions={};
   for(const role of ['admin','editor','moderator','viewer']){sessions[role]=await login(role+'@example.com');assert.equal((await request('/v1/admin/users/role',{id:'google:'+role+'@example.com',role},owner)).status,200);const account=await(await request('/v1/account',undefined,sessions[role])).json();assert.equal(account.user.role,role);assert.ok(account.permissions.includes('overview.read'));}
-  const expected={admin:[200,200,200,200,200,200],editor:[200,403,200,403,403,403],moderator:[200,403,403,200,403,403],viewer:[200,200,200,200,403,200]};
-  const endpoints=['overview','users','content','feedback','roles','audit'];
+  const expected={admin:[200,200,200,200,200,200,200],editor:[200,403,200,403,403,403,403],moderator:[200,403,403,200,403,403,403],viewer:[200,200,200,200,403,200,200]};
+  const endpoints=['overview','users','content','feedback','roles','audit','teams'];
   for(const [role,statuses] of Object.entries(expected))for(let index=0;index<endpoints.length;index++)assert.equal((await request('/v1/admin/'+endpoints[index],undefined,sessions[role])).status,statuses[index],role+' GET '+endpoints[index]);
   for(const role of ['editor','moderator','viewer'])assert.equal((await request('/v1/admin/users/role',{id:'google:'+role+'@example.com',role:'admin'},sessions[role])).status,403,'cannot escalate role');
   for(const role of ['editor','viewer'])assert.equal((await request('/v1/admin/feedback/moderation',{id:'anything',moderation:'approved'},sessions[role])).status,403);
