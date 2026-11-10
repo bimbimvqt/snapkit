@@ -13,6 +13,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY apps/cloud/src ./apps/cloud/src
 COPY --from=website /build/dist ./apps/website
+COPY packages/domain ./packages/domain
 COPY packages/ui ./packages/ui
 COPY packages/web ./packages/web
 USER node
