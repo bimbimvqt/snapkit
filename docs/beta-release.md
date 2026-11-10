@@ -1,3 +1,11 @@
+New in 0.2.0 (47): Snapkit Personal and Teams are separate areas in the same desktop application. Personal projects, device choices and settings stay local. Teams adds shared cloud workspaces, email-bound in-app invitations, and Owner, Lead, Developer, QA, DevOps, Designer and Viewer roles scoped by project, environment and service layer.
+
+Teams includes versioned service blueprints, local project-folder binding, shared-device reservations with conflict checks, and handoffs containing a commit, build link, author-provided SHA-256, fixture and test steps. QA and final approval require distinct reviewers. Platform administrators see usage inventory without inheriting access to tenant contents. English/Vietnamese, light/dark and narrow-window layouts are supported.
+
+Invitations appear inside Snapkit; email delivery is not automatic. Device reservations do not provide remote control. Folder binding does not start services, provision secrets or deploy. Build links and hashes are supplied by the author and are not automatically verified. Teams requires an internet connection and Google sign-in.
+
+Validation: JavaScript/TypeScript checks, unit/API and browser tests, desktop startup/update smoke and per-platform packaging checks. Automated checks do not establish real-device behavior or clean-machine upgrades. macOS uses ad-hoc signing without Apple Developer ID/notarization; Windows publisher signing remains pending.
+
 New in 0.2.0 (46): Devices and IDE selection feedback now lead the workspace. Quick setup collapses when the project and devices are ready, stays available from its summary, and respects manual reopening. Device artwork is smaller so names, readiness and actions appear sooner. Setup & tools puts missing tools first, summarizes readiness and keeps macOS/Windows hardware information in a compact card. Both refresh controls share the existing diagnostics request and pending state. Light/dark appearance, English/Vietnamese and narrow windows are covered.
 
 The landing page now explains multi-device debugging directly, brings the existing clearly labeled demonstration higher, adds a direct interactive-preview link and removes remaining promotional beta labels. Existing release identifiers and platform limitations are preserved.

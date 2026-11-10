@@ -1,5 +1,14 @@
 # Snapkit changelog
 
+## 0.2.0-beta.47 — 2026-11-10
+
+- Tách Cá nhân và Teams thành hai khu vực trong cùng ứng dụng; giữ dữ liệu và cấu hình Cá nhân ở local.
+- Thêm workspace Teams với lời mời theo email và phân quyền Owner, Lead, Developer, QA, DevOps, Designer, Viewer theo project, môi trường và lớp dịch vụ.
+- Blueprint có phiên bản, liên kết thư mục local, đặt lượt thiết bị chống trùng và bàn giao có kiểm tra QA/duyệt bởi các thành viên khác nhau.
+- Cloud Teams lưu dữ liệu riêng; admin xem thống kê sử dụng theo quyền, không tự có quyền truy cập nội dung team.
+- Giao diện Việt/Anh, sáng/tối, cửa sổ nhỏ; vào Teams được ngay từ thiết lập ban đầu.
+- Lời mời hiển thị trong ứng dụng, chưa gửi email tự động; chưa điều khiển thiết bị từ xa, tự dựng stack hoặc tự deploy.
+
 ## 0.2.0-beta.44 — 2026-11-06
 
 - Thêm Appearance theo phong cách macOS: Sáng, Tối và Tự động theo hệ thống; lưu lựa chọn và đồng bộ giao diện cửa sổ desktop.

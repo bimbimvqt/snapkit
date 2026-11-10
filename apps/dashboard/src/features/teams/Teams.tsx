@@ -120,7 +120,7 @@ function Teams({personalHost}:{personalHost:HTMLElement}){
  const selectedTitle=navigation.find(([id])=>id===page)?.[2]||'Overview';
  return <>
   {createPortal(productSwitch(),personalHost)}
-  <div className="teams-application" hidden={mode!=='teams'}>
+  {mode==='teams'&&<div className="teams-application">
    <aside className="teams-sidebar"><a className="teams-brand" aria-label="Snapkit Teams" href="#" onClick={e=>{e.preventDefault();go('home');}}><span><Icon name="scan-line"/></span>Snapkit <small>TEAMS</small></a>{productSwitch(true)}
     <label className="teams-workspace-label"><span>{t('Team workspace')}</span><select aria-label={t('Team workspace')} value={workspaceId} disabled={busy||loading||!listing.workspaces.length} onChange={e=>void selectWorkspace(e.target.value)}>{!listing.workspaces.length&&<option value="">{t('Choose a workspace')}</option>}{listing.workspaces.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
     <button className="teams-create-workspace" disabled={busy} onClick={()=>open('workspace')} aria-label={t('Create team workspace')}><Icon name="plus"/><span>{t('Create workspace')}</span></button>
@@ -135,7 +135,7 @@ function Teams({personalHost}:{personalHost:HTMLElement}){
      {workspace?({home:overview,projects,devices,handoffs,members,audit})[page]():!loading&&!error?empty('Your team starts here','Create a shared workspace or accept an invitation. Your personal projects and devices stay on this computer.',callButton('Create team workspace',()=>open('workspace'),true)):loading?<p className="teams-help" role="status">{t('Loading team workspace…')}</p>:null}
     </main>
    </div>
-  </div>
+  </div>}
   {form&&<TeamForm key={form.kind+(form.member?.userId||'')} form={form} workspace={workspace} project={project} busy={busy} error={formError} close={()=>{if(!busy)setForm(null);}} submit={submit}/>}
  </>;
 }
