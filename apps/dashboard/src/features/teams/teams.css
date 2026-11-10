@@ -22,3 +22,5 @@ body[data-product-mode=teams]>.sidebar,body[data-product-mode=teams]>.app-shell{
 @media(max-width:760px){.teams-sidebar{width:64px;padding:23px 9px 0;align-items:center}.teams-shell{margin-left:64px}.sidebar .brand,.teams-brand{margin:0 0 22px;font-size:0;gap:0}.personal-product-switch,.teams-sidebar>.product-mode-switch{width:44px}.personal-product-switch .product-mode-switch,.teams-sidebar>.product-mode-switch{padding:2px;margin-bottom:16px}.personal-product-switch button,.teams-sidebar>.product-mode-switch button{min-height:40px;padding:6px}}
 
 body>.sidebar,.teams-sidebar{width:240px;padding:26px 16px 16px}.app-shell,.teams-shell{margin-left:240px}@media(max-width:760px){body>.sidebar,.teams-sidebar{width:64px;padding:23px 9px 0}.app-shell,.teams-shell{margin-left:64px}}
+
+@media(min-width:761px) and (max-width:1250px){body>.sidebar,.teams-sidebar{width:210px;padding-inline:12px}.app-shell,.teams-shell{margin-left:210px}.teams-brand>small{display:none}}
