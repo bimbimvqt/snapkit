@@ -125,10 +125,10 @@ test('setup journey follows saved data and invitation acceptance; every Teams me
   await dialog.getByRole('button',{name:'Create invitation',exact:true}).click();await expect(journey).toContainText('Completed 3 of 4 steps');await expect(journey).toContainText('Waiting for your teammate to accept');
   await page.reload();await expect(journey).toContainText('Completed 3 of 4 steps');
   const listing=await cleanup.api('qa','');await cleanup.api('qa','/invitations/'+listing.invitations[0].id+'/accept',{});
-  await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(journey).toContainText('Workspace ready');await expect(journey).toContainText('Completed 4 of 4 steps');
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(journey).toHaveCount(0);await expect(page.locator('.teams-workspace-summary')).toContainText('Workspace ready');
   const teams=await cleanup.api('owner','');const workspace=await cleanup.api('owner','/'+teams.workspaces[0].id);expect(workspace.members.find(m=>m.userId==='qa').role).toBe('viewer');expect(workspace.projects[0].blueprint.services[0]).toMatchObject({kind:'frontend',ownerId:'owner'});
-  await journey.getByRole('button',{name:'Register team device',exact:true}).click();await choose('Platform','iOS');await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.getByRole('combobox',{name:'Language',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).click();await expect(page.getByRole('combobox',{name:'Language',exact:true})).toHaveAttribute('aria-expanded','false');
+  await page.getByRole('button',{name:'Device Lab',exact:true}).click();await page.getByRole('button',{name:'Register team device',exact:true}).click();await choose('Platform','iOS');await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.getByRole('button',{name:'Overview',exact:true}).click();await page.getByRole('combobox',{name:'Language',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).click();await expect(page.getByRole('combobox',{name:'Language',exact:true})).toHaveAttribute('aria-expanded','false');
   expect(await page.locator('.teams-application select,.teams-dialog select').count()).toBe(0);
   await page.screenshot({path:testInfo.outputPath('teams-setup-complete.png'),fullPage:true});
   await page.setViewportSize({width:375,height:812});await choose('Switch team workspace','Guided team');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -184,4 +184,41 @@ test('QA notification opens the referenced project and environment',async({page}
   await expect(page.locator('.teams-handoff-list')).toContainText('Staging checkout');await expect(page.getByRole('button',{name:'Confirm QA passed',exact:true})).toBeVisible();
   await page.locator('.notification-trigger:visible').click();await page.screenshot({path:testInfo.outputPath('notifications-desktop.png'),animations:'disabled'});
  }finally{await cleanup();}
+});
+
+test('project icon presets and image upload persist with the project name',async({page},testInfo)=>{
+ const cleanup=await teamService(page,testInfo);
+ try{
+  const w=await cleanup.api('owner','',{name:'Icon team'});await cleanup.api('owner','/'+w.id+'/projects',{name:'Flutter app'});
+  await page.goto('/?product=teams');await page.getByRole('button',{name:'Projects & services',exact:true}).click();await page.getByRole('button',{name:'Edit project',exact:true}).click();
+  const dialog=page.locator('.teams-dialog');await dialog.getByRole('button',{name:'Mobile app',exact:true}).click();await dialog.getByLabel('Project name',{exact:true}).fill('Flutter Delivery');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();
+  await page.reload();await page.getByRole('button',{name:'Projects & services',exact:true}).click();await expect(page.locator('.teams-project')).toContainText('Flutter Delivery');await page.getByRole('button',{name:'Edit project',exact:true}).click();await expect(dialog.getByRole('button',{name:'Mobile app',exact:true})).toHaveAttribute('aria-pressed','true');
+  const png=Buffer.from(await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=32;const ctx=canvas.getContext('2d');ctx.fillStyle='#7654bb';ctx.fillRect(0,0,32,32);return canvas.toDataURL('image/png').split(',')[1];}),'base64');
+  await dialog.getByLabel('Upload project icon').setInputFiles({name:'logo.png',mimeType:'image/png',buffer:png});await expect(dialog.locator('.teams-icon-preview img')).toBeVisible();await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();await page.reload();await page.getByRole('button',{name:'Projects & services',exact:true}).click();await expect(page.locator('.teams-project .project-icon img')).toBeVisible();
+  await page.getByRole('button',{name:'Edit project',exact:true}).click();await dialog.getByLabel('Upload project icon').setInputFiles({name:'unsafe.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});await expect(dialog.getByRole('alert')).toContainText('Choose a PNG');
+  await page.screenshot({path:testInfo.outputPath('project-icon-editor.png'),animations:'disabled'});
+ }finally{await cleanup();}
+});
+
+test('notification chime sounds for new items once and respects persisted mute',async({page})=>{
+ const cleanup=await teamService(page);
+ try{
+  const w=await cleanup.api('owner','',{name:'Sound team'}),base='/'+w.id,p=await cleanup.api('owner',base+'/projects',{name:'Flutter'}),project=p.projects[0];
+  const invited=await cleanup.api('owner',base+'/invitations',{email:'qa@example.com',role:'qa',projectIds:null,environments:['development']});await cleanup.api('qa','/invitations/'+invited.invitations[0].id+'/accept',{});cleanup.asUser('qa');
+  await page.addInitScript(()=>{window.__tones=0;const original=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.__tones++;return original.call(this);};});
+  const handoff=title=>cleanup.api('owner',base+'/handoffs',{title,projectId:project.id,environment:'development',commit:'abc1234',artifactSha256:'a'.repeat(64),blueprintVersion:project.blueprint.version,buildUrl:'https://example.com/build.zip'});
+  await page.goto('/?product=teams');await page.locator('.notification-trigger:visible').click();const panel=page.locator('.notification-panel');await panel.getByRole('button',{name:'Test sound',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__tones)).toBe(2);await page.evaluate(()=>window.__tones=0);
+  await handoff('First build');await page.evaluate(()=>document.dispatchEvent(new Event('snapkit:teams-updated')));await expect.poll(()=>page.evaluate(()=>window.__tones)).toBe(2);
+  await page.evaluate(()=>document.dispatchEvent(new Event('snapkit:teams-updated')));await expect(panel).toContainText('First build');expect(await page.evaluate(()=>window.__tones)).toBe(2);
+  await panel.getByRole('button',{name:'Notification sound',exact:true}).click();await page.reload();await page.locator('.notification-trigger:visible').click();await expect(panel.getByRole('button',{name:'Notification sound',exact:true})).toHaveAttribute('aria-pressed','false');expect(await page.evaluate(()=>window.__tones)).toBe(0);
+  await handoff('Muted build');await page.evaluate(()=>document.dispatchEvent(new Event('snapkit:teams-updated')));await expect(panel).toContainText('Muted build');expect(await page.evaluate(()=>window.__tones)).toBe(0);
+ }finally{await cleanup();}
+});
+
+test('local Teams transport accepts normalized icons while keeping other request limits small',async({page})=>{
+ const state=await page.request.get('/api/state').then(r=>r.json()),headers={'X-Snapkit-Token':state.token};
+ const data={name:'Icon',icon:'data:image/png;base64,'+'A'.repeat(90000)};
+ const accepted=await page.request.post('/api/teams/example/projects',{headers,data});expect(accepted.status()).toBe(503);expect(await accepted.json()).toMatchObject({error:expect.stringContaining('signed-in local app')});
+ const standardLimit=await page.request.post('/api/settings',{headers,data});expect(standardLimit.status()).toBe(400);expect((await standardLimit.json()).error).toContain('too large');
+ const teamsLimit=await page.request.post('/api/teams/example/projects',{headers,data:{...data,icon:'A'.repeat(140000)}});expect(teamsLimit.status()).toBe(400);expect((await teamsLimit.json()).error).toContain('too large');
 });

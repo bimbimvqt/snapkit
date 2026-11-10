@@ -156,3 +156,22 @@ test('notification reads persist per account and reject unrelated or revoked IDs
  assert.deepEqual((await ok('guest','/notifications')).items,[]);
  assert.equal((await request('guest','/notifications/read',{ids:[id]})).status,400);
 });
+
+test('project identity persists raster icons and enforces tenant and role permissions',async t=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'snapkit-project-icon-'));t.after(()=>rm(directory,{recursive:true,force:true}));const users=['owner','dev','pm','outsider'];
+ await writeFile(path.join(directory,'accounts.json'),JSON.stringify({users:Object.fromEntries(users.map(id=>[id,{id,email:id+'@example.com',name:id}])),sessions:Object.fromEntries(users.map(id=>[createHash('sha256').update('icon-'+id).digest('hex'),{userId:id,expires:Date.now()+86400000}])),content:defaultContent(),audit:[]}));
+ const server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory}}).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));
+ const request=async(user,route,data)=>fetch('http://127.0.0.1:'+server.address().port+'/v1/teams'+route,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer icon-'+user,'Content-Type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});
+ const ok=async(user,route,data)=>{const r=await request(user,route,data),v=await r.json();assert.ok(r.ok,JSON.stringify(v));return v;};
+ const workspace=await ok('owner','',{name:'Icons'}),base='/'+workspace.id;
+ let w=await ok('owner',base+'/projects',{name:'Flutter',icon:'smartphone'});const project=w.projects[0],route=base+'/projects/'+project.id+'/identity';
+ assert.equal(project.icon,'smartphone');
+ for(const role of ['dev','pm']){w=await ok('owner',base+'/invitations',{email:role+'@example.com',role:role==='dev'?'developer':'pm',projectIds:[project.id],environments:['development']});await ok(role,'/invitations/'+w.invitations.find(i=>i.email===role+'@example.com').id+'/accept',{});}
+ const payload={name:'Flutter Commerce',description:'Mobile delivery',icon:'gem'};
+ assert.equal((await request('dev',route,payload)).status,403);assert.equal((await request('outsider',route,payload)).status,404);
+ assert.equal((await request('owner',route,{...payload,icon:'data:image/svg+xml;base64,PHN2Zy8+'})).status,400);
+ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+ await ok('pm',route,{...payload,icon:png});assert.equal((await ok('owner',base)).projects[0].icon,png);assert.ok((await ok('owner','/notifications')).items.some(item=>item.title==='Project updated'&&item.page==='projects'));
+ const disk=JSON.parse(await readFile(path.join(directory,'teams.json'),'utf8'));assert.equal(disk.workspaces[0].projects[0].icon,png);
+ await ok('owner',base+'/members/pm',{role:'viewer',projectIds:[project.id],environments:['development']});assert.equal((await request('pm',route,payload)).status,403);
+});

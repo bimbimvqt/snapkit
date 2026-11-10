@@ -196,16 +196,16 @@ test('Teams gallery opens a read-only showcase without account data or network A
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto('./?lang=en');
  await page.locator('[data-preview=teams]').click();
- await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-notifications50');
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-flutter52');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
  const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
  expect(links.some(link=>/blob\/|#readme|huong-dan\/|en\/guides\//.test(link))).toBe(false);
  calls.length=0;
  await page.locator('#preview-demo-link').click();
- await expect(page.locator('.teams-topbar')).toContainText('Product Studio');
- await expect(page.locator('.teams-main')).toContainText('fictional data');
- await expect(page.getByRole('button',{name:'Create team workspace',exact:true})).toBeDisabled();
+ await expect(page.locator('.teams-topbar')).toContainText('Flutter Delivery Team');
+ await expect(page.locator('.teams-main')).toContainText('fictional teammates');
+ await expect(page.getByRole('button',{name:'Create team workspace',exact:true})).toHaveCount(0);
  for(const name of ['Projects & services','Device Lab','Handoffs & approvals','Members & access','Activity log']){
   await page.getByRole('button',{name,exact:true}).click();
   await expect(page.locator('.teams-main h1')).toHaveText(name);
@@ -232,4 +232,18 @@ test('Teams preview notification bell stays local and fits Vietnamese mobile',as
  await expect.poll(()=>panel.evaluate(el=>{const color=getComputedStyle(el).color;return getComputedStyle(el.querySelector('strong')).color===color&&getComputedStyle(el.querySelector('button[aria-pressed=false]')).color===color;})).toBe(true);
  await page.screenshot({path:testInfo.outputPath('notifications-vi-mobile-dark.png'),animations:'disabled'});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(requests).toEqual([]);expect(errors).toEqual([]);
+});
+
+test('Flutter workspace sample explains all 11 teammates, project layers and the missing QA step',async({page},testInfo)=>{
+ const calls=[],errors=[];page.on('request',r=>{if(/\/(api|v1)\//.test(new URL(r.url()).pathname))calls.push(r.url());});page.on('pageerror',e=>errors.push(e.message));
+ await page.setViewportSize({width:1440,height:1100});await page.goto('demo/?product=teams&lang=vi');
+ await expect(page.locator('.teams-workspace-summary')).toContainText('Flutter Commerce');await expect(page.locator('.teams-team-groups')).toContainText('Mobile 03');await expect(page.locator('.teams-team-groups')).toContainText('Backend 06');await expect(page.locator('.teams-next-action')).toContainText('Cần thêm người kiểm thử QA');await expect(page.locator('.teams-setup')).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath('flutter-overview-desktop.png'),animations:'disabled'});
+ await page.evaluate(()=>{localStorage.setItem('snapkit-theme','dark');window.dispatchEvent(new StorageEvent('storage',{key:'snapkit-theme',newValue:'dark'}));});
+ await expect.poll(()=>page.locator('.teams-module').first().evaluate(el=>getComputedStyle(el).color===getComputedStyle(document.body).color)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('flutter-overview-desktop-dark.png'),animations:'disabled'});
+ await page.getByRole('button',{name:'Thành viên & quyền',exact:true}).click();await expect(page.locator('.teams-table tbody tr').first()).toBeVisible();await expect(page.locator('.teams-table').first().locator('tbody tr')).toHaveCount(11);await expect(page.locator('.teams-permissions')).not.toHaveAttribute('open');
+ await page.getByRole('button',{name:'Dự án & dịch vụ',exact:true}).click();await expect(page.locator('.teams-service')).toHaveCount(7);await expect(page.locator('.teams-service-list')).toContainText('Flutter');await expect(page.locator('.teams-project .project-icon')).toBeVisible();
+ await page.setViewportSize({width:375,height:812});await page.getByRole('button',{name:'Tổng quan',exact:true}).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('flutter-overview-mobile.png'),animations:'disabled'});
+ expect(calls).toEqual([]);expect(errors).toEqual([]);
 });

@@ -133,6 +133,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
   next();
 });
+// Project icons are normalized raster images; keep their larger body budget scoped to Teams.
+app.use('/api/teams', express.json({ limit: '128kb' }));
 app.use(express.json({ limit: '16kb' }));
 app.get('/api/auth/status', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Open the local app to sign in.' });

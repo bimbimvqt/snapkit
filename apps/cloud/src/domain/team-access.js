@@ -1,9 +1,10 @@
-export const teamRoles = ['owner', 'lead', 'developer', 'qa', 'devops', 'designer', 'viewer'];
+export const teamRoles = ['owner', 'lead', 'pm', 'developer', 'qa', 'devops', 'designer', 'viewer'];
 export const teamEnvironments = ['development', 'staging', 'production'];
 export const teamLayers = ['mobile', 'frontend', 'backend', 'data', 'mock'];
 const grants = {
-  owner: ['members.manage', 'projects.create', 'blueprint.write', 'devices.manage', 'devices.reserve', 'handoffs.create', 'sessions.prepare'],
-  lead: ['projects.create', 'blueprint.write', 'devices.manage', 'devices.reserve', 'handoffs.create', 'release.approve', 'sessions.prepare'],
+  owner: ['members.manage', 'projects.create', 'projects.edit', 'blueprint.write', 'devices.manage', 'devices.reserve', 'handoffs.create', 'sessions.prepare'],
+  lead: ['projects.create', 'projects.edit', 'blueprint.write', 'devices.manage', 'devices.reserve', 'handoffs.create', 'release.approve', 'sessions.prepare'],
+  pm: ['projects.create','projects.edit'],
   developer: ['devices.reserve', 'handoffs.create', 'sessions.prepare'],
   qa: ['devices.reserve', 'handoffs.create', 'qa.confirm', 'sessions.prepare'],
   devops: ['blueprint.write', 'devices.manage', 'devices.reserve', 'handoffs.create', 'release.approve', 'sessions.prepare'],

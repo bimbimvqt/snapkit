@@ -29,9 +29,9 @@ test('refresh Teams showcase screenshots from fictional preview data', async ({p
  await page.setViewportSize({width:1440,height:1020});
  for(const language of ['en','vi']){
   await page.goto('demo/?product=teams&lang='+language);
-  await expect(page.locator('.teams-topbar')).toContainText('Product Studio');
+  await expect(page.locator('.teams-topbar')).toContainText('Flutter Delivery Team');
   await expect(page.locator('.teams-module')).toHaveCount(4);
-  await expect(page.locator('.teams-main')).toContainText(language==='en'?'fictional data':'dữ liệu minh hoạ');
+  await expect(page.locator('.teams-main')).toContainText(language==='en'?'fictional teammates':'thành viên minh hoạ');
   await page.mouse.move(1438,2);
   await page.screenshot({path:`apps/website/assets/teams${language==='vi'?'-vi':''}.png`,animations:'disabled'});
  }

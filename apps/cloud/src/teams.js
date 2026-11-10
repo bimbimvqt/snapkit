@@ -1,4 +1,5 @@
 import express from 'express';
+import {validProjectIcon} from '../../../packages/domain/project-identity.js';
 import { teamNotifications } from './domain/team-notifications.js';
 import { invitationMailer } from './infrastructure/invitation-mail.js';
 import { randomUUID, createHash } from 'node:crypto';
@@ -234,8 +235,16 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     if (workspace.projects.length >= 100) fail(409, 'Team project limit reached.');
     const name = text(input.name);
     if (workspace.projects.some(p => p.name.toLowerCase() === name.toLowerCase())) fail(409, 'A project with this name already exists.');
-    const project = { id: randomUUID(), name, description: note(input.description, 500), createdBy: user.id, createdAt: now(), blueprint: { version: 1, services: [], updatedAt: now(), updatedBy: user.id }, history: [] };
+    if(input.icon!==undefined&&!validProjectIcon(input.icon))fail(400,'Choose a project icon or upload a PNG or WebP image.');
+    const project = { id: randomUUID(), name, icon:input.icon||'folder-code', description: note(input.description, 500), createdBy: user.id, createdAt: now(), blueprint: { version: 1, services: [], updatedAt: now(), updatedBy: user.id }, history: [] };
     workspace.projects.push(project); audit(workspace, user, 'project.created', project.id);
+  });
+  mutate('/projects/:projectId/identity','projects.edit',(workspace,member,user,input,params)=>{
+    const project=projectOf(workspace,params.projectId,member);permit(member,'projects.edit',project.id);
+    const name=text(input.name);
+    if(workspace.projects.some(p=>p.id!==project.id&&p.name.toLowerCase()===name.toLowerCase()))fail(409,'A project with this name already exists.');
+    if(!validProjectIcon(input.icon))fail(400,'Choose a project icon or upload a PNG or WebP image.');
+    Object.assign(project,{name,icon:input.icon,description:note(input.description,500)});audit(workspace,user,'project.updated',project.id);
   });
   mutate('/projects/:projectId/blueprint', null, (workspace, member, user, input, params) => {
     const project = projectOf(workspace, params.projectId, member); permit(member, 'blueprint.write', project.id, 'development');
