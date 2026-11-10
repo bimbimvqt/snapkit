@@ -1,3 +1,4 @@
+import {taskVisible} from './team-tasks.js';
 import {teamCan,teamProjectVisible} from './team-access.js';
 // Derive notifications from live authorized records; revoked access removes them immediately.
 export function teamNotifications(db,user,now=Date.now()) {
@@ -14,6 +15,9 @@ export function teamNotifications(db,user,now=Date.now()) {
    if(qa||approve)add('handoff:'+handoff.id+':'+handoff.status,'handoff',qa?'QA review needed':'Release approval needed',handoff.qa?.at||handoff.createdAt,'handoffs',{projectId:handoff.projectId,environment:handoff.environment,detail:handoff.title});
   }
   if(teamCan(member,'members.manage'))for(const invitation of workspace.invitations){if(invitation.expiresAt>now&&['failed','not_configured'].includes(invitation.delivery?.status))add('mail:'+invitation.id+':'+(invitation.delivery.attemptedAt||0),'warning','Invitation email needs attention',new Date(invitation.delivery.attemptedAt||invitation.expiresAt-7*86400000).toISOString(),'members');}
+  const taskTitles={assigned:'Task assigned',updated:'Task assignment updated',accepted:'Task accepted',status:'Task status changed',comment:'New task comment',unblocked:'A dependency is complete',blocked:'Task blocker updated'};
+  for(const task of workspace.tasks||[]){if(!taskVisible(member,task))continue;for(const event of task.history||[]){if(!taskTitles[event.type]||!event.recipients.includes(user.id)||event.actorId===user.id)continue;add('task:'+event.id,'task',taskTitles[event.type],event.at,'tasks',{taskId:task.id,projectId:task.projectId,environment:task.environment,detail:task.title});}}
+  for(const session of workspace.debugSessions||[]){if(session.userId===user.id&&session.stopRequestedAt&&visible(session.projectId,session.environment)&&session.status!=='ended')add('debug-stop:'+session.id+':'+session.stopRequestedAt,'warning','A teammate requested a debug stop',session.stopRequestedAt,'sessions',{projectId:session.projectId,environment:session.environment});}
   const titles={'invitation.accepted':'A teammate joined','project.updated':'Project updated','blueprint.updated':'Project configuration updated','handoff.approved':'Release approved','handoff.changes-requested':'Changes requested'};
   for(const event of workspace.audit){if(!titles[event.action]||event.actorId===user.id||event.at<member.joinedAt||!visible(event.projectId,event.environment))continue;
    add('event:'+event.id,event.action.startsWith('handoff.')?'handoff':'activity',titles[event.action],event.at,event.action==='invitation.accepted'?'members':['blueprint.updated','project.updated'].includes(event.action)?'projects':'handoffs',{projectId:event.projectId,environment:event.environment});

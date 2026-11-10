@@ -196,7 +196,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto('./?lang=en');
  await page.locator('[data-preview=teams]').click();
- await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-flutter52');
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-workflow53');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
  const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
@@ -206,7 +206,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  await expect(page.locator('.teams-topbar')).toContainText('Flutter Delivery Team');
  await expect(page.locator('.teams-main')).toContainText('fictional teammates');
  await expect(page.getByRole('button',{name:'Create team workspace',exact:true})).toHaveCount(0);
- for(const name of ['Projects & services','Device Lab','Handoffs & approvals','Members & access','Activity log']){
+ for(const name of ['Tasks','Team Debug Sync','Projects & services','Device Lab','Handoffs & approvals','Members & access','Activity log']){
   await page.getByRole('button',{name,exact:true}).click();
   await expect(page.locator('.teams-main h1')).toHaveText(name);
   const text=await page.locator('.teams-application').innerText();

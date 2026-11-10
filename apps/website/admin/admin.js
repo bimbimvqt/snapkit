@@ -76,7 +76,7 @@
   let teamsOffset = 0;
   async function teams() {
     const data = await api('admin/teams?search='+encodeURIComponent($('#teams-query').value)+'&offset='+teamsOffset);
-    $('#teams-summary').textContent = `${data.totals.workspaces} workspace · ${data.totals.memberships} thành viên (theo workspace) · ${data.totals.projects} project · ${data.totals.devices} thiết bị · ${data.totals.handoffs} bàn giao`;
+    $('#teams-summary').textContent = `${data.totals.workspaces} workspace · ${data.totals.memberships} thành viên (theo workspace) · ${data.totals.projects} project · ${data.totals.devices} thiết bị · ${data.totals.handoffs} bàn giao · ${data.totals.tasks||0} task · ${data.totals.activeDebugSessions||0} phiên debug đang hoạt động`;
     const body = $('#teams-list');body.replaceChildren();
     for (const entry of data.entries) {
       const row = document.createElement('tr');

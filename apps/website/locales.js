@@ -209,3 +209,16 @@ window.SnapkitMessages = {
     "Đã nhận đánh giá. Nội dung sẽ hiển thị sau khi được duyệt.": "Review received. It will appear after approval."
   }
 };
+
+Object.assign(window.SnapkitMessages.translations, {
+ "Từ giao việc đến hoàn tất. Cả team cùng một nhịp.":"From assignment to done. One shared team workflow.",
+ "01 / GIAO VIỆC":"01 / ASSIGN WORK","Đúng người. Rõ tiêu chí.":"Clear owners. Clear acceptance.",
+ "Lead và PM giao task theo chuyên môn, đặt tiêu chí hoàn thành và công việc phụ thuộc. Mỗi thành viên biết việc cần làm tiếp theo.":"Leads and PMs assign work by specialty, define acceptance criteria and link dependencies. Everyone knows their next step.",
+ "02 / DEBUG CÙNG NGỮ CẢNH":"02 / DEBUG IN CONTEXT","Task kết nối Debug Sync.":"Tasks connect to Debug Sync.",
+ "Chọn task mobile, kết nối project local và chạy từ IDE. Team thấy ai đang debug, trên nền tảng nào và đang phục vụ công việc gì.":"Choose a mobile task, connect your local project and launch from the IDE. Your team sees who is debugging, on which platform and for which task.",
+ "03 / HOÀN TẤT CÓ XÁC NHẬN":"03 / VERIFIED DELIVERY","Review. Kiểm thử. Duyệt.":"Review. Test. Approve.",
+ "Từng bước có người chịu trách nhiệm. Bàn giao build gắn với task và nhận thông báo khi công việc cần bạn xử lý.":"Each step has an owner. Link build handoffs to tasks and receive notifications when work needs your attention.",
+ "Thông báo hệ thống và âm thanh tuỳ chọn. Bật trên từng thiết bị trong biểu tượng chuông. Debug chạy trên máy của thành viên.":"Optional system notifications and sound. Enable them on each device from the bell. Debug sessions run on each member’s computer.",
+ "Hướng dẫn quy trình Teams":"Teams workflow guide","Mỗi công việc đều có bước tiếp theo.":"Every task has a next step.",
+ "Giao task, kết nối Debug Sync, review và kiểm thử ngay trong workspace của team. Theo dõi tiến độ và nhận thông báo khi đến lượt bạn.":"Assign tasks, connect Debug Sync, review and test in your team workspace. Follow progress and get notified when it is your turn."
+});

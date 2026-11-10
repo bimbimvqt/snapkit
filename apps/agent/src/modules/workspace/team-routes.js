@@ -1,9 +1,11 @@
 import express from 'express';
+import {createTeamDeviceHosts} from './team-device-hosts.js';
+import {createTeamRuntime} from './team-runtime.js';
 import { readFile, writeFile, mkdir, rename, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { workspaceFramework } from './workspace.js';
 
-export function teamRoutes({ account, store, demo }) {
+export function teamRoutes({ account, store, demo,getDevices,getSessions,stopSessions }) {
   const router = express.Router(), file = path.join(store, 'teams-local.json');
   let queue = Promise.resolve();
   router.use((req, res, next) => {
@@ -16,7 +18,7 @@ export function teamRoutes({ account, store, demo }) {
     if (![workspaceId, projectId].every(id => typeof id === 'string' && /^[a-zA-Z0-9-]{1,80}$/.test(id))) throw Object.assign(Error('Select a team workspace and project.'), { status: 400 });
     const workspace = await account.request('/v1/teams/' + workspaceId);
     const project = workspace.projects.find(p => p.id === projectId), member = workspace.membership;
-    if (!project || !member.permissions.includes('sessions.prepare') || !member.environments.includes('development')) throw Object.assign(Error('Your team role or scope does not allow this action.'), { status: 403 });
+    if (!project || !member.permissions.includes('sessions.prepare') || !(input.environment?member.environments.includes(input.environment):member.environments.some(e=>['development','staging'].includes(e)))) throw Object.assign(Error('Your team role or scope does not allow this action.'), { status: 403 });
     return { workspace, project, key: `${member.userId}/${workspaceId}/${projectId}` };
   }
   async function read() {
@@ -42,6 +44,15 @@ export function teamRoutes({ account, store, demo }) {
     }); queue = pending; await pending;
     res.json({ session });
   });
+  const deviceHosts=createTeamDeviceHosts({account,store,getDevices});router.deviceHosts=deviceHosts;
+  router.get('/local-devices',(_req,res)=>res.json({devices:deviceHosts.localDevices()}));
+  router.post('/local-devices/bind',async(req,res)=>res.json(await deviceHosts.bind(req.body)));
+  const runtime=createTeamRuntime({account,store,getDevices,getSessions,resources:deviceHosts.resources,binding:async(input)=>{const {key}=await context(input);return (await read()).sessions.find(s=>s.key===key)||null;}});
+  router.teamRuntime=runtime;
+  router.get('/local-debug',async(req,res)=>res.json(await runtime.options(req.query)));
+  router.post('/local-debug/start',async(req,res)=>res.json(await runtime.start(req.body)));
+  router.post('/local-debug/deactivate',async(_req,res)=>{await runtime.deactivate();res.json({active:false});});
+  router.post('/local-debug/stop',async(_req,res)=>res.json(await runtime.confirmStop(stopSessions)));
   router.use(async (req, res) => {
     let segments;
     try { segments = req.path.split('/').filter(Boolean).map(segment => decodeURIComponent(segment)); } catch { return res.status(400).json({ error: 'Invalid Teams request.' }); }

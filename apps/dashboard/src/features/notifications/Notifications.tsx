@@ -1,3 +1,4 @@
+import {pushEnabled,pushSupported,setPush,testPush,desktopPush,listenPush} from './push';
 import {createNotificationTracker} from './sound.js';
 import {soundEnabled,setSoundEnabled,unlockSound,playChime,chimeForNewItems} from './notification-sound';
 import {createRoot} from 'react-dom/client';
@@ -8,16 +9,17 @@ import {Icon} from '../../shared/ui/icons';
 import {t,useLanguage} from '../../shared/ui/use-language';
 import './notifications.css';
 import './messages.js';
-type Notification={id:string;type:string;title:string;at:string;workspaceId:string;workspaceName:string;page:string;projectId?:string;environment?:string;detail?:string;read:boolean};
+type Notification={id:string;type:string;title:string;at:string;workspaceId:string;workspaceName:string;page:string;projectId?:string;environment?:string;detail?:string;taskId?:string;read:boolean};
 type Feed={userId:string;items:Notification[]};
 function Notifications({personalHost}:{personalHost:HTMLElement}){
  const language=useLanguage(),id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),epoch=useRef(0),writing=useRef(false),track=useRef(createNotificationTracker());
  const [sound,setSound]=useState(soundEnabled);
+ const [push,setPushState]=useState(false),[pushError,setPushError]=useState(''),[pushBusy,setPushBusy]=useState(false);const pushUser=useRef('');
  const [mode,setMode]=useState(document.body.dataset.productMode),[open,setOpen]=useState(false),[feed,setFeed]=useState<Feed>({userId:'',items:[]}),[loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(false),[unreadOnly,setUnreadOnly]=useState(false);
  const preview=!!window.SNAPKIT_PREVIEW,available=preview||!(state as {demo?:boolean}).demo||mode==='teams';
  const refresh=useCallback(async()=>{
   if(!available||writing.current)return;const current=++epoch.current;setLoading(true);
-  try{const result=await api('/api/teams/notifications',undefined,true) as Feed;if(current!==epoch.current)return;const fresh=track.current(result);if(!preview)void chimeForNewItems(result.userId,fresh);setFeed(previous=>preview&&previous.userId===result.userId?{...result,items:result.items.map(item=>({...item,read:previous.items.find(old=>old.id===item.id)?.read??item.read}))}:result);setError(false);}
+  try{const result=await api('/api/teams/notifications',undefined,true) as Feed;if(current!==epoch.current)return;const fresh=track.current(result);pushUser.current=result.userId;setPushState(pushEnabled(result.userId));if(!preview)desktopPush(result.userId,result.items.filter(i=>fresh.includes(i.id)));if(!preview)void chimeForNewItems(result.userId,fresh);setFeed(previous=>preview&&previous.userId===result.userId?{...result,items:result.items.map(item=>({...item,read:previous.items.find(old=>old.id===item.id)?.read??item.read}))}:result);setError(false);}
   catch{if(current===epoch.current){setError(true);setFeed({userId:'',items:[]});}}
   finally{if(current===epoch.current)setLoading(false);}
  },[available,preview]);
@@ -25,7 +27,7 @@ function Notifications({personalHost}:{personalHost:HTMLElement}){
  function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}
  useEffect(()=>{const change=(e:Event)=>{setMode((e as CustomEvent).detail);close();};document.addEventListener('snapkit:product-mode',change);return()=>document.removeEventListener('snapkit:product-mode',change);},[]);
  useEffect(()=>{
-  void refresh();const update=()=>{if(!document.hidden||soundEnabled())void refresh();};const timer=setInterval(update,30000);
+  void refresh();const update=()=>{if(!document.hidden||soundEnabled()||pushEnabled(pushUser.current))void refresh();};const timer=setInterval(update,30000);
   document.addEventListener('snapkit:teams-updated',update);document.addEventListener('visibilitychange',update);window.addEventListener('focus',update);
   return()=>{epoch.current++;clearInterval(timer);document.removeEventListener('snapkit:teams-updated',update);document.removeEventListener('visibilitychange',update);window.removeEventListener('focus',update);};
  },[refresh]);
@@ -41,6 +43,7 @@ function Notifications({personalHost}:{personalHost:HTMLElement}){
   if(writing.current)return;writing.current=true;setSaving(true);epoch.current++;setLoading(false);
   try{if(preview)setFeed(previous=>({...previous,items:previous.items.map(item=>({...item,read:!ids||ids.includes(item.id)||item.read}))}));else setFeed(await api('/api/teams/notifications/read',ids?{ids}:{all:true}) as Feed);setError(false);}catch{setError(true);}finally{writing.current=false;setSaving(false);}
  }
+ useEffect(()=>listenPush(()=>pushUser.current),[feed.userId]);
  const unread=feed.items.filter(item=>!item.read).length,items=unreadOnly?feed.items.filter(item=>!item.read):feed.items;
  const host=mode==='teams'?document.getElementById('teams-notifications-slot'):personalHost;
  return <>
@@ -51,7 +54,7 @@ function Notifications({personalHost}:{personalHost:HTMLElement}){
   <div className="notification-content" aria-busy={loading||saving}>
    {!available?<p className="notification-empty">{t('Sign in to receive team notifications.')}</p>:error?<div className="notification-empty" role="alert"><p>{t('Could not update notifications.')}</p><button type="button" className="button" onClick={()=>void refresh()}>{t('Retry')}</button></div>:loading&&!items.length?<p className="notification-empty" role="status">{t('Loading notifications…')}</p>:!items.length?<div className="notification-empty"><Icon name="bell"/><p>{t(unreadOnly?'You are all caught up.':'No notifications yet.')}</p></div>:<ul>{items.map(item=><li key={item.id} data-unread={!item.read}><button type="button" disabled={saving} className="notification-item" onClick={()=>{if(!item.read)void read([item.id]);close(true);document.dispatchEvent(new CustomEvent('snapkit:notification-open',{detail:item}));}}><span className="notification-symbol"><Icon name={item.type==='invitation'?'group':item.type==='handoff'?'package':item.type==='warning'?'circle-alert':'layers'}/></span><span><strong>{t(item.title)}</strong><small>{item.workspaceName}{item.detail?' · '+item.detail:''}</small><time dateTime={item.at}>{new Date(item.at).toLocaleString(language==='vi'?'vi-VN':'en-US',{dateStyle:'short',timeStyle:'short'})}</time></span>{!item.read&&<span className="notification-unread-dot" aria-label={t('Unread')}/>}</button></li>)}</ul>}
   </div>
-  <footer className="notification-sound-settings"><span>{t(sound?'Sound on':'Sound off')}</span><button type="button" disabled={!sound} onClick={()=>void unlockSound().then(()=>playChime())}>{t('Test sound')}</button></footer>
+  {!preview&&<div className="notification-push-settings"><button className="button" type="button" disabled={pushBusy||!feed.userId||!pushSupported()} aria-pressed={push} onClick={()=>{setPushBusy(true);setPushError('');void setPush(feed.userId,!push).then(()=>setPushState(!push)).catch((e:Error)=>setPushError(e.message)).finally(()=>setPushBusy(false));}}>{t(push?'Disable push notifications':'Enable push notifications')}</button>{push&&<button className="button" type="button" disabled={pushBusy} onClick={()=>{setPushError('');void testPush(feed.userId).catch((e:Error)=>setPushError(e.message));}}>{t('Test notification')}</button>}{pushError&&<p role="alert">{t(pushError)}</p>}</div>}<footer className="notification-sound-settings"><span>{t(sound?'Sound on':'Sound off')}</span><button type="button" disabled={!sound} onClick={()=>void unlockSound().then(()=>playChime())}>{t('Test sound')}</button></footer>
  </div>
  </>;
 }

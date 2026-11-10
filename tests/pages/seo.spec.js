@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows'];
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow'];
 const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
 test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
  const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
@@ -22,7 +22,7 @@ test('all public search URLs render useful HTML without JavaScript and have reci
   const schemas=await page.locator('script[type="application/ld+json"]').allTextContents();
   for(const schema of schemas) expect(JSON.parse(schema)['@graph'].length).toBeGreaterThan(0);
  }
- const sitemap=await (await request.get('sitemap.xml')).text();expect([...sitemap.matchAll(/<loc>/g)].length).toBe(12);
+ const sitemap=await (await request.get('sitemap.xml')).text();expect([...sitemap.matchAll(/<loc>/g)].length).toBe(paths.length);
  for(const route of paths) expect(sitemap).toContain(`<loc>https://snapkit.vn/${route}</loc>`);
  await context.close();
 });
@@ -30,7 +30,7 @@ test('English landing stays English with JavaScript and its guide links, preview
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('en/');await expect(page.locator('html')).toHaveAttribute('lang','en');
  await expect(page.locator('.hero-product')).toContainText('desktop app');
- await expect(page.locator('#teams a.button')).toHaveAttribute('href','demo/?product=teams');
+ await expect(page.locator('#teams a.button').first()).toHaveAttribute('href','demo/?product=teams');
  await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261106-images46');
  await page.locator('[data-language-select]').click();await page.locator('[data-language=vi]').click();
  await expect(page.locator('.hero-product')).toContainText('Ứng dụng desktop');
@@ -42,7 +42,7 @@ test('guides are usable on small screens, provide related links and keyboard nav
   await page.goto(`${lang==='vi'?'huong-dan':'en/guides'}/${slugs[0]}/`);
   for(const width of [375,768,1440]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
   await page.locator('.guide-toc a').first().click();await expect(page.locator('#step-1')).toBeInViewport();
-  await expect(page.locator('.guide-related .guide-card')).toHaveCount(3);
+  await expect(page.locator('.guide-related .guide-card')).toHaveCount(slugs.length-1);
   await page.screenshot({path:`/tmp/snapkit-seo-guide-${lang}.png`,fullPage:true});
  }
 });

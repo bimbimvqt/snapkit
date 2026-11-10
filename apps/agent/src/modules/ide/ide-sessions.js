@@ -18,7 +18,8 @@ export class IDESessions {
     if (!this.owners.has(ownerId) && this.owners.size >= 32) throw new Error('Too many IDE clients');
     const before = JSON.stringify(this.list());
     const stops = this.owners.get(ownerId)?.stops || new Set();
-    const clean = sessions.map(({ id, deviceId, name }) => ({ id, deviceId, name }));
+    if(sessions.some(s=>s.teamSessionId!==undefined&&!/^[a-f0-9-]{36}$/.test(s.teamSessionId)))throw new Error('Invalid Teams session reference');
+    const clean = sessions.map(({ id, deviceId, name,teamSessionId }) => ({ id, deviceId, name,...(teamSessionId?{teamSessionId}:{}) }));
     for (const id of stops) if (!clean.some(s => s.id === id)) stops.delete(id);
     if (clean.length) this.owners.set(ownerId, { sessions: clean, stops, seen: this.now() });
     else this.owners.delete(ownerId);

@@ -2,3 +2,4 @@
 
 .notification-panel button{color:var(--text);background:transparent;border:0;font-family:inherit;cursor:pointer}.notification-panel button:disabled{opacity:.45;cursor:default}
 .notification-header-actions{display:flex;align-items:center;gap:4px}.notification-header-actions button[aria-pressed=true]{color:var(--purple)}.notification-sound-settings{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}.notification-sound-settings button{font-size:12px;min-height:44px;color:var(--purple)}
+.notification-push-settings{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border)}.notification-push-settings p{font-size:12px;margin:0}

@@ -87,7 +87,7 @@ test('onboarding React Native connects a detected native workspace and blocks Fl
     await expect(page.locator('#workspace-dialog')).not.toBeVisible();
     await expect(page.locator('#workspace-switch small')).toHaveText('React Native · Workspace');
     await page.locator('.sidebar [data-app-page="setup"]').click();
-    await expect(page.locator('#editor-help')).toContainText('Snapkit Debug Sync 1.5.0');
+    await expect(page.locator('#editor-help')).toContainText('Snapkit Debug Sync 1.6.0');
     await expect(page.locator('#tool-checks')).toContainText('Node.js');
     await expect(page.locator('#tool-checks')).not.toContainText('Flutter');
     await page.locator('.sidebar [data-app-page="guide"]').click();

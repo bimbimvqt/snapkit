@@ -95,7 +95,7 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       const configs = plan.configurations.map(c => {
         if (native) return member({ ...config, ...c, type: config.type }, group);
         const combined = { ...config, name: c.name, type: 'dart', request: 'launch', flutterMode: 'debug',
-          program: c.program, cwd: c.cwd, deviceId: c.deviceId, args: [], toolArgs: c.toolArgs };
+          ...(c.__snapkitTeamSession?{__snapkitTeamSession:c.__snapkitTeamSession}:{}),program: c.program, cwd: c.cwd, deviceId: c.deviceId, args: [], toolArgs: c.toolArgs };
         delete combined.dartCodeDebugSessionID;
         return member(combined, group);
       });

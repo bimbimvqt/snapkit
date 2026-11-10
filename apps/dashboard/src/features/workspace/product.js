@@ -48,7 +48,7 @@ function renderEditors() {
   $('#editor-options').innerHTML = productEditors.map(([id, name, detail, symbol]) => `<button type="button" class="editor-option ${selected === id ? 'chosen' : ''}" data-editor="${id}" aria-pressed="${selected === id}">${icon(symbol)}<strong>${escape(t(name))}</strong><small>${escape(t(detail))}</small>${selected === id ? icon('circle-check') : ''}</button>`).join('');
   $('#extension-download').classList.remove('hidden');
   const name = productEditors.find(([id]) => id === selected)[1];
-  $('#editor-help').textContent = document.body.dataset.framework === 'react-native' ? t('Install Snapkit Debug Sync 1.5.0 in your editor. Select Snapkit React Native in Run and Debug, then press F5.') : t("In {0}, install Snapkit Debug Sync and press F5 to debug on your selected devices.", [name]);
+  $('#editor-help').textContent = document.body.dataset.framework === 'react-native' ? t('Install Snapkit Debug Sync 1.6.0 in your editor. Select Snapkit React Native in Run and Debug, then press F5.') : t("In {0}, install Snapkit Debug Sync and press F5 to debug on your selected devices.", [name]);
   if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) $('#extension-download').href = 'https://github.com/bimbimvqt/snapkit/releases/latest';
   icons();
 }
@@ -213,7 +213,7 @@ const frameworkGuidance = [
   [
     "#guide-debug > p",
     "In VS Code, Cursor or Antigravity, install Snapkit Debug Sync and the Dart/Flutter extensions. Open the same project, select online devices in Snapkit and press F5 in your normal Flutter profile.",
-    "Install Snapkit Debug Sync 1.5.0 in VS Code, Cursor or Antigravity. Select online devices, choose Snapkit React Native in Run and Debug, then press F5."
+    "Install Snapkit Debug Sync 1.6.0 in VS Code, Cursor or Antigravity. Select online devices, choose Snapkit React Native in Run and Debug, then press F5."
   ],
   [
     "#guide-debug > .tool-note",

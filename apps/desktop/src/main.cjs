@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -85,7 +85,15 @@ async function start() {
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
-  ipcMain.handle('snapkit:language', (event, value) => {
+  ipcMain.handle('snapkit:team-notify', (event, data) => {
+    if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
+    if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
+    const target = Object.fromEntries(['userId','workspaceId','projectId','environment','taskId','page'].filter(k => typeof data.target[k] === 'string' && data.target[k].length <= 180).map(k => [k,data.target[k]]));
+    const notification = new Notification({title:'Snapkit Teams', body:desktopLanguage==='vi'?'Bạn có cập nhật mới. Mở Snapkit để xem.':'You have a new update. Open Snapkit to view.',silent:!data.test});
+    notification.on('click', () => {if(mainWindow&&!mainWindow.isDestroyed()){if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();mainWindow.webContents.send('snapkit:team-notification',target);}});
+    notification.show();return true;
+  });
+  ipcMain.handle('snapkit:language' , (event, value) => {
     if (!fromApp(event) || !['en', 'vi'].includes(value)) throw new Error('Invalid language');
     desktopLanguage = value;
     fs.mkdirSync(path.dirname(languageFile), { recursive: true });

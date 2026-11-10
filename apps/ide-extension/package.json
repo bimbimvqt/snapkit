@@ -2,7 +2,7 @@
   "name": "snapkit-debug-sync",
   "displayName": "Snapkit Debug Sync",
   "description": "Debug Dashboard-selected Flutter and React Native devices without modifying project files; fall back to normal IDE debugging offline.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "snapkit-local",
   "engines": {
     "vscode": "^1.85.0"

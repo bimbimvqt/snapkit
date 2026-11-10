@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
+  notifyTeam: data => ipcRenderer.invoke('snapkit:team-notify', data),
+  onTeamNotification: callback => { const handler = (_event,target) => callback(target); ipcRenderer.on('snapkit:team-notification',handler); return () => ipcRenderer.removeListener('snapkit:team-notification',handler); },
   openXcode: () => ipcRenderer.invoke('snapkit:open-xcode'),
   chooseReleaseFile: kind => ipcRenderer.invoke('snapkit:release-file', kind),
   ready: () => ipcRenderer.send('snapkit:ready'),

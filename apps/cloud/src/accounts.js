@@ -263,6 +263,6 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       }); res.json({ content: result });
     });
   }
-  return { install, identity, content, config, origin };
+  return { install, identity, content, config, origin, isActiveUser:async id=>{await loaded;return !!db.users[id]&&!db.users[id].disabled;} };
 }
 function hashForPKCE(value) { return createHash('sha256').update(value).digest('base64url'); }

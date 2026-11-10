@@ -2,7 +2,7 @@ import { choose } from './choices.js';
 import { test, expect } from './fixtures.js';
 test('detailed guide navigates to real actions, translates and fits a narrow window', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message)); await page.goto('/?lang=en'); await page.locator('#guide-button').click();
-  await expect(page.locator('#panel-guide')).toBeVisible(); await expect(page.locator('.guide-chapter')).toHaveCount(8);
+  await expect(page.locator('#panel-guide')).toBeVisible(); await expect(page.locator('.guide-chapter')).toHaveCount(9);
   await page.locator('#guide-sets [data-go="sets"]').click(); await expect(page.locator('#panel-sets')).toBeVisible();
   await page.evaluate(() => window.SnapkitI18n.setLanguage('vi')); await expect(page.locator('#panel-sets h1')).toHaveText('Bộ thiết bị');
   await page.locator('#guide-button').click(); await expect(page.locator('#guide-tools h2')).toHaveText('Chuẩn bị máy tính');

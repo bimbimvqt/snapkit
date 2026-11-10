@@ -10,7 +10,7 @@ import { subscriptionFromCustomer, webhookUsers } from './domain/subscription.js
 import { websiteNotFound } from '../../../packages/web/not-found.js';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const version = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
-export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle } = {}) {
+export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle,pushSender } = {}) {
   const accounts = createAccounts({ env, fetcher, verifyGoogle });
   const app = express(); app.disable('x-powered-by'); app.set('trust proxy', 1);
   const key = env.REVENUECAT_SECRET_API_KEY, webhookAuth = env.REVENUECAT_WEBHOOK_AUTH;
@@ -38,7 +38,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   });
   app.use(express.json({ limit: '256kb' }));
   accounts.install(app);
-  const teams = createTeams({ env, accounts, fetcher });
+  const teams = createTeams({ env, accounts, fetcher,pushSender });
   app.get('/v1/admin/teams', teams.adminOverview);
   app.use('/v1/teams', teams);
   app.get('/admin', (req, res, next) => req.path === '/admin' ? res.redirect('/admin/') : next());

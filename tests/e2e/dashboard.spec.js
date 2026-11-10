@@ -409,7 +409,7 @@ test('sidebar groups separate workspace, setup, account and support while retain
   await expect(page.locator('.sidebar [data-app-page].active')).toHaveCount(1);
   await page.locator('#guide-button').click();
   await expect(page.locator('#panel-guide')).toBeVisible();
-  await expect(page.locator('.guide-chapter')).toHaveCount(8);
+  await expect(page.locator('.guide-chapter')).toHaveCount(9);
   await expect(page.locator('#guide-dialog')).toHaveCount(0);
   await page.setViewportSize({width:900,height:680});
   const status=await page.locator('.local-status').boundingBox(); expect(status.y+status.height).toBeLessThanOrEqual(680);

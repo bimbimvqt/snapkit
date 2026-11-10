@@ -1,4 +1,9 @@
 import express from 'express';
+import {createTeamPush} from './infrastructure/team-push.js';
+import {installPushRoutes} from './push-routes.js';
+import {installTaskRoutes} from './task-routes.js';
+import {taskVisible} from './domain/team-tasks.js';
+import {installTeamRuntimeRoutes} from './runtime-routes.js';
 import {validProjectIcon} from '../../../packages/domain/project-identity.js';
 import { teamNotifications } from './domain/team-notifications.js';
 import { invitationMailer } from './infrastructure/invitation-mail.js';
@@ -65,15 +70,17 @@ function view(workspace, userId) {
     members: workspace.members.map(m => ({ ...m, projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
     invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(({delivery,...i}) => ({ ...i, delivery:delivery?{status:delivery.status,attemptedAt:delivery.attemptedAt,sentAt:delivery.sentAt}: {status:'not_sent'} })) : [],
     projects: workspace.projects.filter(p => visible(p.id)).map(p => ({ ...p, blueprint: blueprintView(p.blueprint), history: p.history.map(blueprintView) })),
-    devices: workspace.devices.filter(d => visible(d.projectId)).map(d => ({ ...d, reservation: d.reservation?.expiresAt > Date.now() && memberOf(workspace, d.reservation.userId) ? d.reservation : null })),
+    devices: workspace.devices.filter(d => visible(d.projectId)).map(d => ({ ...d, hostPresence:d.hostPresence?{userId:d.hostPresence.userId,online:d.hostPresence.online&&Date.now()-d.hostPresence.seenAt<45000,seenAt:d.hostPresence.seenAt}:null, reservation: d.reservation?.expiresAt > Date.now() && memberOf(workspace, d.reservation.userId) ? d.reservation : null })),
     handoffs: workspace.handoffs.filter(h => visible(h.projectId) && member.environments.includes(h.environment)).map(h => ({ ...h, blueprint: blueprintView(h.blueprint) })),
+    tasks:(workspace.tasks||[]).filter(t=>taskVisible(member,t)).map(t=>({...t,dependencyStates:t.dependencies.map(id=>{const dep=workspace.tasks.find(x=>x.id===id);return {id,number:dep?.number,status:dep?.status||'missing'};})})),
+    debugSessions:(workspace.debugSessions||[]).filter(s=>visible(s.projectId)&&member.environments.includes(s.environment)).map(s=>({...s,status:['running','preparing'].includes(s.status)&&Date.now()-s.seenAt>45000?'disconnected':s.status})),
     audit: workspace.audit.filter(a => (!a.projectId || visible(a.projectId)) && (!a.environment || member.environments.includes(a.environment))).slice().reverse(),
   };
 }
 
 // Separate from account/admin data and every local personal workspace. One writer
 // serializes permission checks and atomic commits; never serve uncommitted state.
-export function createTeams({ env, accounts, fetcher=fetch }) {
+export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
   const mailer=invitationMailer({env,fetcher});
   const file = path.join(env.SNAPKIT_CLOUD_DATA || 'cloud-data', 'teams.json');
   let db = { version: 1, workspaces: [] }, queue = Promise.resolve();
@@ -83,6 +90,10 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     db = saved;
   }).catch(error => { if (error.code !== 'ENOENT') throw error; });
   loaded.catch(() => {});
+  const push=createTeamPush({env,sender:pushSender});let pushRoutes;
+  async function systemWrite(task){
+    const pending=queue.catch(()=>{}).then(async()=>{await loaded;const next=structuredClone(db),result=task(next);const serialized=JSON.stringify(next);if(Buffer.byteLength(serialized)>16*1024*1024)fail(409,'Teams storage limit reached.');await mkdir(path.dirname(file),{recursive:true});await writeFile(file+'.tmp',serialized,{mode:0o600});await rename(file+'.tmp',file);db=next;return result;});queue=pending;return pending;
+  }
   async function transaction(req, task) {
     const pending = queue.catch(() => {}).then(async () => {
       await loaded;
@@ -91,11 +102,12 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
       const identity = await accounts.identity(req);
       if (!identity) fail(401, 'Sign in to Snapkit again.');
       const next = structuredClone(db), result = task(next, identity.user);
+      pushRoutes?.enqueue(db,next,req.params?.workspaceId);
       const serialized = JSON.stringify(next);
       if (Buffer.byteLength(serialized) > 16 * 1024 * 1024) fail(409, 'Teams storage limit reached. Contact your workspace administrator.');
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file + '.tmp', serialized, { mode: 0o600 });
-      await rename(file + '.tmp', file); db = next;
+      await rename(file + '.tmp', file); db = next;pushRoutes?.schedule();
       return result;
     });
     queue = pending; return pending;
@@ -107,8 +119,8 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     const query = String(req.query.search || '').slice(0, 160).toLowerCase();
     const offset = Math.max(0, Math.min(10000, Number.parseInt(req.query.offset, 10) || 0));
     const workspaces = db.workspaces.filter(w => !query || w.name.toLowerCase().includes(query));
-    const count = key => db.workspaces.reduce((sum, w) => sum + w[key].length, 0);
-    res.json({ totals: { workspaces: db.workspaces.length, memberships: count('members'), projects: count('projects'), devices: count('devices'), handoffs: count('handoffs') },
+    const count = key => db.workspaces.reduce((sum, w) => sum + (w[key]||[]).length, 0);
+    res.json({ totals: { workspaces: db.workspaces.length, memberships: count('members'), projects: count('projects'), devices: count('devices'), handoffs: count('handoffs'),tasks:count('tasks'),activeDebugSessions:db.workspaces.reduce((sum,w)=>sum+(w.debugSessions||[]).filter(s=>s.status==='running'&&Date.now()-s.seenAt<=45000).length,0) },
       total: workspaces.length, offset, entries: workspaces.slice().reverse().slice(offset, offset + 50).map(w => ({ id: w.id, name: w.name, createdAt: w.createdAt, updatedAt: w.updatedAt,
         members: w.members.length, projects: w.projects.length, devices: w.devices.length, handoffs: w.handoffs.length,
         reservations: w.devices.filter(d => d.reservation?.expiresAt > Date.now() && memberOf(w, d.reservation.userId)).length })) });
@@ -121,6 +133,7 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
       req.teamUser = identity.user; next();
     } catch { res.status(503).json({ error: 'Teams storage is unavailable. Try again later.' }); }
   });
+  pushRoutes=installPushRoutes({router,transaction,systemWrite,readDB:()=>db,push,fail,isActiveUser:accounts.isActiveUser});loaded.then(()=>pushRoutes.schedule()).catch(()=>{});
   router.get('/notifications',(req,res)=>res.json({userId:req.teamUser.id,items:teamNotifications(db,req.teamUser)}));
   router.post('/notifications/read',async(req,res)=>{
     const result=await transaction(req,(next,user)=>{
@@ -166,6 +179,8 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
       return view(workspace, user.id);
     }); res.json(result);
   });
+  installTaskRoutes({mutate,fail,text,note,audit,projectOf,now});
+  installTeamRuntimeRoutes({mutate,fail,text,audit,projectOf,now});
   async function sendInvitation(req,invitationId) {
     let message;
     await transaction(req,(next,user)=>{
@@ -220,6 +235,8 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     if (!teamRoles.includes(input.role)) fail(400, 'Select a member role.');
     Object.assign(target, { role: input.role, ...scope(input, workspace) });
     for (const device of workspace.devices) if (device.reservation?.userId === target.userId && !teamCan(target, 'devices.reserve', device.projectId, 'development')) device.reservation = null;
+    for(const session of workspace.debugSessions||[])if(session.userId===target.userId&&(!teamCan(target,'sessions.prepare',session.projectId,session.environment)||!(target.serviceLayers??teamLayers).includes('mobile'))){session.status='ended';session.endedAt=now();}
+    for(const device of workspace.devices)if(device.hostPresence?.userId===target.userId&&!teamCan(target,'devices.manage',device.projectId,'development'))device.hostPresence.online=false;
     audit(workspace, user, 'member.access.updated');
   });
   mutate('/members/:memberId/remove', 'members.manage', (workspace, _member, user, _input, params) => {
@@ -228,6 +245,8 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     if (target.role === 'owner') fail(409, 'The workspace owner cannot be removed.');
     workspace.members = workspace.members.filter(m => m.userId !== target.userId);
     for (const device of workspace.devices) if (device.reservation?.userId === target.userId) device.reservation = null;
+    for(const session of workspace.debugSessions||[])if(session.userId===target.userId){session.status='ended';session.endedAt=now();}
+    for(const device of workspace.devices)if(device.hostPresence?.userId===target.userId)device.hostPresence.online=false;
     audit(workspace, user, 'member.removed');
   });
   mutate('/projects', 'projects.create', (workspace, member, user, input) => {
@@ -296,19 +315,25 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
     if (!/^[0-9a-f]{7,40}$/i.test(input.commit || '')) fail(400, 'Enter a commit hash of 7 to 40 hexadecimal characters.');
     if (!/^[0-9a-f]{64}$/i.test(input.artifactSha256 || '')) fail(400, 'Enter the 64-character SHA-256 of this build artifact.');
     if (input.blueprintVersion !== project.blueprint.version) fail(409, 'The blueprint changed. Refresh before handing off.');
-    workspace.handoffs.push({ id: randomUUID(), projectId: project.id, title: text(input.title, 160), environment: input.environment, commit: input.commit, buildUrl: publicUrl(input.buildUrl, true), artifactSha256: input.artifactSha256.toLowerCase(), fixture: text(input.fixture, 160, true), steps: note(input.steps, 4000), blueprintVersion: project.blueprint.version, blueprint: structuredClone(project.blueprint), createdBy: user.id, createdAt: now(), status: 'pending', qa: null, approval: null });
+    const linkedTask=input.taskId&&(workspace.tasks||[]).find(t=>t.id===input.taskId&&t.projectId===project.id&&t.environment===input.environment);
+    if(input.taskId&&(!linkedTask||linkedTask.assigneeId!==user.id||linkedTask.version!==input.taskVersion||linkedTask.status!=='in-progress'))fail(409,'Choose your current task and refresh before handing off.');
+    const handoffId=randomUUID();
+    workspace.handoffs.push({ taskId:linkedTask?.id||'',id: handoffId, projectId: project.id, title: text(input.title, 160), environment: input.environment, commit: input.commit, buildUrl: publicUrl(input.buildUrl, true), artifactSha256: input.artifactSha256.toLowerCase(), fixture: text(input.fixture, 160, true), steps: note(input.steps, 4000), blueprintVersion: project.blueprint.version, blueprint: structuredClone(project.blueprint), createdBy: user.id, createdAt: now(), status: 'pending', qa: null, approval: null });
+    if(linkedTask){linkedTask.handoffId=handoffId;linkedTask.reviewedBy='';linkedTask.testedBy='';linkedTask.approvedBy='';linkedTask.version++;}
     audit(workspace, user, 'handoff.created', project.id, input.environment);
   });
   mutate('/handoffs/:handoffId/review', null, (workspace, member, user, input, params) => {
     const handoff = workspace.handoffs.find(h => h.id === params.handoffId);
     if (!handoff) fail(404, 'Team handoff not found.');
     projectOf(workspace, handoff.projectId, member);
+    const linkedTask=(workspace.tasks||[]).find(t=>t.id===handoff.taskId);
+    if(linkedTask&&(linkedTask.handoffId!==handoff.id||linkedTask.assigneeId!==handoff.createdBy))fail(409,'This build was superseded. Use the current task handoff.');
     if (input.decision === 'approve') {
       permit(member, 'release.approve', handoff.projectId, handoff.environment);
       if (handoff.status !== 'qa-approved' || handoff.createdBy === user.id || handoff.qa?.userId === user.id) fail(409, 'QA must confirm this handoff and a different reviewer must approve it.');
       handoff.status = 'approved'; handoff.approval = { userId: user.id, at: now() };
     } else {
-      permit(member, 'qa.confirm', handoff.projectId, handoff.environment);
+      if(!(linkedTask&&linkedTask.handoffId===handoff.id&&linkedTask.testerId===user.id&&taskVisible(member,linkedTask)))permit(member, 'qa.confirm', handoff.projectId, handoff.environment);
       if (!['pass', 'changes'].includes(input.decision) || handoff.status !== 'pending' || handoff.createdBy === user.id) fail(409, 'A different QA member must review a pending handoff.');
       handoff.status = input.decision === 'pass' ? 'qa-approved' : 'changes-requested'; handoff.qa = { userId: user.id, at: now(), note: note(input.note, 1000) };
     }

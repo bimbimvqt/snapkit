@@ -8,6 +8,7 @@ const escape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&l
 const route = (lang, slug = '') => `${lang === 'vi' ? 'huong-dan' : 'en/guides'}/${slug ? slug + '/' : ''}`;
 const home = lang => lang === 'vi' ? '' : 'en/';
 const screenshotAlt = (image, lang) => ({
+ teams: {vi:'Bảng công việc Snapkit Teams với dữ liệu minh hoạ',en:'Snapkit Teams task board with fictional data'},
  devices: { vi: 'Danh sách Android Emulator và iOS Simulator cùng trạng thái thiết bị trong Snapkit', en: 'Android Emulator and iOS Simulator list with device status in Snapkit' },
  setup: { vi: 'Màn hình thiết lập workspace, project và công cụ phát triển trong Snapkit', en: 'Workspace, project and development tool setup in Snapkit' }
 }[image][lang]);

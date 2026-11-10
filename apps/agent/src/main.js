@@ -155,7 +155,8 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
-app.use('/api/teams', teamRoutes({ account, store, demo }));
+const teamRouter=teamRoutes({account,store,demo,getDevices:()=>snapshot.devices,getSessions:()=>ideSessions.list(),stopSessions:ids=>ideSessions.requestStop(ids)});
+app.use('/api/teams',teamRouter);
 app.post('/api/reviews', async (req, res) => {
   if (demo || req.remoteToken) return res.status(403).json({error: 'Open Snapkit Desktop to send a review. Demo reviews are not submitted.'});
   const receipt = await account.review(reviewInput(req.body));
@@ -384,6 +385,7 @@ app.post('/api/ide/mode', async (req, res) => {
 app.get('/api/ide/plan', async (_req, res) => {
   // Demo state is never used to launch real IDE sessions.
   if (demo) return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
+  const teamPlan=await teamRouter.teamRuntime.plan();if(teamPlan)return res.json(teamPlan);
   let plan = launchPlan(settings, snapshot.devices);
   if (plan.status === 'ready') {
     try { await validateBuild(await validateWorkspace(settings.workspace), settings); }
@@ -478,7 +480,7 @@ function refreshStatus() {
   return statusPending;
 }
 const statusPoll = setInterval(() => {
-  ideSessions.prune();
+  ideSessions.prune();if(!demo){void teamRouter.teamRuntime.sync();void teamRouter.deviceHosts.sync();}
   if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);

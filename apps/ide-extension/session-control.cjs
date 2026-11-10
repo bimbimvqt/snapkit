@@ -30,7 +30,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         if (typeof state.token !== 'string') throw new Error('No local session token');
         credentials = { base, token: state.token };
       }
-      const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug' }));
+      const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug',...(s.configuration.__snapkitTeamSession?{teamSessionId:s.configuration.__snapkitTeamSession}:{}) }));
       const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed }, credentials.token);
       for (const id of result.stopSessionIds || []) {
         const session = sessions.get(id);

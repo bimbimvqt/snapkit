@@ -33,7 +33,7 @@ const accountReady = (() => {
     const label = document.createElement('span'); label.textContent = data.user.name; label.title = data.user.email; profile.append(label);
     if (data.user.role === 'admin') { const admin = document.createElement('button'); admin.className = 'button'; admin.textContent = 'Admin'; admin.onclick = () => openBrowser(cloud + '/admin/'); profile.append(admin); }
     const out = document.createElement('button'); out.className = 'button'; const update = () => out.textContent = words('Sign out', 'Đăng xuất'); update(); document.addEventListener('snapkit:language', update);
-    out.onclick = async () => { out.disabled = true; try { await api('logout', {}); location.reload(); } catch (e) { out.disabled = false; alert(e.message); } }; profile.append(out);
+    out.onclick = async () => { out.disabled = true; try { await import('../notifications/push.ts').then(m=>m.setPush(data.user.id,false)).catch(()=>{}); await api('logout', {}); location.reload(); } catch (e) { out.disabled = false; alert(e.message); } }; profile.append(out);
     document.querySelector('.topbar-right')?.append(profile);
     const avatar = document.querySelector('.avatar'); if (avatar) { avatar.textContent = data.user.name.slice(0, 1).toUpperCase(); avatar.setAttribute('aria-label', data.user.email); }
     fetch('/api/account/content').then(r => r.ok ? r.json() : null).then(content => {
