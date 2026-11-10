@@ -196,7 +196,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto('./?lang=en');
  await page.locator('[data-preview=teams]').click();
- await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-setup48');
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-notifications50');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
  const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
@@ -217,4 +217,15 @@ test('Teams gallery opens a read-only showcase without account data or network A
  await page.getByRole('button',{name:'Personal',exact:true}).click();
  await expect(page.locator('#devices-grid')).toBeVisible();
  expect(calls).toEqual([]);expect(errors).toEqual([]);
+});
+
+test('Teams preview notification bell stays local and fits Vietnamese mobile',async({page},testInfo)=>{
+ const requests=[],errors=[];page.on('request',r=>{if(r.url().includes('/api/'))requests.push(r.url());});page.on('pageerror',e=>errors.push(e.message));
+ await page.setViewportSize({width:375,height:812});await page.goto('demo/?product=teams&lang=vi');
+ const bell=page.locator('.notification-trigger:visible'),panel=page.locator('.notification-panel');
+ await bell.click();await expect(panel).toBeVisible();await expect(panel).toContainText('Cấu hình dự án đã cập nhật');
+ await panel.getByRole('button',{name:'Đọc tất cả',exact:true}).click();await expect(bell.locator('.notification-count')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Chưa đọc',exact:true}).click();await expect(panel).toContainText('Bạn đã đọc hết thông báo.');
+ await page.screenshot({path:testInfo.outputPath('notifications-vi-mobile.png'),animations:'disabled'});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(requests).toEqual([]);expect(errors).toEqual([]);
 });

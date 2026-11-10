@@ -1,0 +1,58 @@
+import {createRoot} from 'react-dom/client';
+import {createPortal} from 'react-dom';
+import {useCallback,useEffect,useId,useRef,useState} from 'react';
+import {api,state} from '../../legacy/device-controller.js';
+import {Icon} from '../../shared/ui/icons';
+import {t,useLanguage} from '../../shared/ui/use-language';
+import './notifications.css';
+import './messages.js';
+type Notification={id:string;type:string;title:string;at:string;workspaceId:string;workspaceName:string;page:string;projectId?:string;environment?:string;detail?:string;read:boolean};
+type Feed={userId:string;items:Notification[]};
+function Notifications({personalHost}:{personalHost:HTMLElement}){
+ const language=useLanguage(),id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),epoch=useRef(0),writing=useRef(false);
+ const [mode,setMode]=useState(document.body.dataset.productMode),[open,setOpen]=useState(false),[feed,setFeed]=useState<Feed>({userId:'',items:[]}),[loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(false),[unreadOnly,setUnreadOnly]=useState(false);
+ const preview=!!window.SNAPKIT_PREVIEW,available=preview||!(state as {demo?:boolean}).demo||mode==='teams';
+ const refresh=useCallback(async()=>{
+  if(!available||writing.current)return;const current=++epoch.current;setLoading(true);
+  try{const result=await api('/api/teams/notifications',undefined,true) as Feed;if(current!==epoch.current)return;setFeed(previous=>preview&&previous.userId===result.userId?{...result,items:result.items.map(item=>({...item,read:previous.items.find(old=>old.id===item.id)?.read??item.read}))}:result);setError(false);}
+  catch{if(current===epoch.current){setError(true);setFeed({userId:'',items:[]});}}
+  finally{if(current===epoch.current)setLoading(false);}
+ },[available,preview]);
+ function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}
+ useEffect(()=>{const change=(e:Event)=>{setMode((e as CustomEvent).detail);close();};document.addEventListener('snapkit:product-mode',change);return()=>document.removeEventListener('snapkit:product-mode',change);},[]);
+ useEffect(()=>{
+  void refresh();const update=()=>{if(!document.hidden)void refresh();};const timer=setInterval(update,30000);
+  document.addEventListener('snapkit:teams-updated',update);document.addEventListener('visibilitychange',update);window.addEventListener('focus',update);
+  return()=>{epoch.current++;clearInterval(timer);document.removeEventListener('snapkit:teams-updated',update);document.removeEventListener('visibilitychange',update);window.removeEventListener('focus',update);};
+ },[refresh]);
+ useEffect(()=>{
+  if(!open)return;const element=panel.current!,button=trigger.current!;
+  function position(){const r=button.getBoundingClientRect(),width=Math.min(400,innerWidth-24);Object.assign(element.style,{width:width+'px',left:Math.max(12,Math.min(r.right-width,innerWidth-width-12))+'px',top:Math.min(r.bottom+8,innerHeight-160)+'px',maxHeight:Math.max(120,innerHeight-r.bottom-24)+'px'});}
+  element.showPopover();position();element.querySelector<HTMLButtonElement>('[data-close]')?.focus({preventScroll:true});
+  const outside=(e:Event)=>{if(!element.contains(e.target as Node)&&!button.contains(e.target as Node))close();};
+  document.addEventListener('pointerdown',outside,true);document.addEventListener('focusin',outside);window.addEventListener('resize',position);
+  return()=>{if(element.isConnected&&element.matches(':popover-open'))element.hidePopover();document.removeEventListener('pointerdown',outside,true);document.removeEventListener('focusin',outside);window.removeEventListener('resize',position);};
+ },[open]);
+ async function read(ids?:string[]){
+  if(writing.current)return;writing.current=true;setSaving(true);epoch.current++;setLoading(false);
+  try{if(preview)setFeed(previous=>({...previous,items:previous.items.map(item=>({...item,read:!ids||ids.includes(item.id)||item.read}))}));else setFeed(await api('/api/teams/notifications/read',ids?{ids}:{all:true}) as Feed);setError(false);}catch{setError(true);}finally{writing.current=false;setSaving(false);}
+ }
+ const unread=feed.items.filter(item=>!item.read).length,items=unreadOnly?feed.items.filter(item=>!item.read):feed.items;
+ const host=mode==='teams'?document.getElementById('teams-notifications-slot'):personalHost;
+ return <>
+ {host&&createPortal(<button ref={trigger} type="button" className="icon-button notification-trigger" aria-label={unread?t('Notifications ({0} unread)',[unread]):t('Notifications')} aria-expanded={open} aria-haspopup="dialog" aria-controls={id} onClick={()=>{setOpen(!open);if(!open)void refresh();}}><Icon name="bell"/>{unread>0&&<span className="notification-count" aria-hidden="true">{unread>99?'99+':unread}</span>}</button>,host)}
+ <div ref={panel} id={id} popover="manual" className="notification-panel" role="dialog" aria-labelledby={id+'-title'} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close(true);}}}>
+  <header><h2 id={id+'-title'}>{t('Notifications')}</h2><button className="icon-button" data-close type="button" aria-label={t('Close notifications')} onClick={()=>close(true)}><Icon name="x"/></button></header>
+  <div className="notification-tools"><div role="group" aria-label={t('Filter notifications')}><button type="button" aria-pressed={!unreadOnly} onClick={()=>setUnreadOnly(false)}>{t('All')}</button><button type="button" aria-pressed={unreadOnly} onClick={()=>setUnreadOnly(true)}>{t('Unread')}{unread>0?' · '+unread:''}</button></div><button type="button" disabled={saving||loading||!unread} onClick={()=>void read()}>{t('Mark all as read')}</button></div>
+  <div className="notification-content" aria-busy={loading||saving}>
+   {!available?<p className="notification-empty">{t('Sign in to receive team notifications.')}</p>:error?<div className="notification-empty" role="alert"><p>{t('Could not update notifications.')}</p><button type="button" className="button" onClick={()=>void refresh()}>{t('Retry')}</button></div>:loading&&!items.length?<p className="notification-empty" role="status">{t('Loading notifications…')}</p>:!items.length?<div className="notification-empty"><Icon name="bell"/><p>{t(unreadOnly?'You are all caught up.':'No notifications yet.')}</p></div>:<ul>{items.map(item=><li key={item.id} data-unread={!item.read}><button type="button" disabled={saving} className="notification-item" onClick={()=>{if(!item.read)void read([item.id]);close(true);document.dispatchEvent(new CustomEvent('snapkit:notification-open',{detail:item}));}}><span className="notification-symbol"><Icon name={item.type==='invitation'?'group':item.type==='handoff'?'package':item.type==='warning'?'circle-alert':'layers'}/></span><span><strong>{t(item.title)}</strong><small>{item.workspaceName}{item.detail?' · '+item.detail:''}</small><time dateTime={item.at}>{new Date(item.at).toLocaleString(language==='vi'?'vi-VN':'en-US',{dateStyle:'short',timeStyle:'short'})}</time></span>{!item.read&&<span className="notification-unread-dot" aria-label={t('Unread')}/>}</button></li>)}</ul>}
+  </div>
+ </div>
+ </>;
+}
+export function mountNotifications(){
+ const rootHost=document.createElement('div');rootHost.id='notifications-root';document.body.append(rootHost);
+ const personalHost=document.createElement('span');personalHost.className='notifications-slot';document.getElementById('help-button')!.before(personalHost);
+ const root=createRoot(rootHost);root.render(<Notifications personalHost={personalHost}/>);
+ return()=>{root.unmount();rootHost.remove();personalHost.remove();};
+}

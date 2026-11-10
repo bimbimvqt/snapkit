@@ -1,4 +1,5 @@
 import express from 'express';
+import { teamNotifications } from './domain/team-notifications.js';
 import { invitationMailer } from './infrastructure/invitation-mail.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
@@ -118,6 +119,16 @@ export function createTeams({ env, accounts, fetcher=fetch }) {
       if (req.method !== 'GET' && !identity.bearer && (req.headers.origin !== accounts.origin || req.headers['x-snapkit-request'] !== '1')) return res.status(403).json({ error: 'Invalid request origin.' });
       req.teamUser = identity.user; next();
     } catch { res.status(503).json({ error: 'Teams storage is unavailable. Try again later.' }); }
+  });
+  router.get('/notifications',(req,res)=>res.json({userId:req.teamUser.id,items:teamNotifications(db,req.teamUser)}));
+  router.post('/notifications/read',async(req,res)=>{
+    const result=await transaction(req,(next,user)=>{
+      const items=teamNotifications(next,user),visible=new Set(items.map(item=>item.id));
+      const ids=req.body?.all===true?items.map(item=>item.id):req.body?.ids;
+      if(!Array.isArray(ids)||ids.length>100||ids.some(id=>typeof id!=='string'||!visible.has(id)))fail(400,'Select valid notifications.');
+      next.notificationReads||={};next.notificationReads[user.id]=[...new Set([...(next.notificationReads[user.id]||[]).filter(id=>visible.has(id)),...ids])].slice(-100);
+      return {userId:user.id,items:teamNotifications(next,user)};
+    });res.json(result);
   });
   router.get('/', (req, res) => res.json({
     emailDeliveryConfigured:mailer.configured, userId: req.teamUser.id, roles: teamRoles, environments: teamEnvironments,

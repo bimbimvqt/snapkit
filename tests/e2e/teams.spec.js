@@ -90,7 +90,7 @@ test('QA, Lead and Viewer see their real permissions and move the same immutable
    const invitation=workspace.invitations.find(i=>i.email===role+'@example.com');await cleanup.api(role,'/invitations/'+invitation.id+'/accept',{});
   }
   await cleanup.api('owner',base+'/handoffs',{projectId,title:'API release candidate',environment:'development',commit:'abc1234',buildUrl:'https://builds.example.com/api/1',artifactSha256:'a'.repeat(64),blueprintVersion:1});
-  cleanup.asUser('qa');await page.addInitScript(()=>localStorage.setItem('snapkit-product-mode','teams'));await page.goto('/');
+  cleanup.asUser('qa');await page.route('**/api/state',async route=>{const response=await route.fetch(),result=await response.json();result.demo=false;await route.fulfill({json:result});});await page.addInitScript(()=>localStorage.setItem('snapkit-product-mode','teams'));await page.goto('/');
   await page.getByRole('button',{name:'Handoffs & approvals',exact:true}).click();await page.getByRole('button',{name:'Confirm QA passed',exact:true}).click();await expect(page.locator('.teams-handoff-list')).toContainText('QA confirmed');await expect(page.getByRole('button',{name:'Approve release',exact:true})).toHaveCount(0);
   cleanup.asUser('lead');await page.reload();await page.getByRole('button',{name:'Handoffs & approvals',exact:true}).click();await page.getByRole('button',{name:'Approve release',exact:true}).click();await expect(page.locator('.teams-handoff-list')).toContainText('Approved');
   cleanup.asUser('viewer');await page.reload();await expect(page.getByRole('button',{name:'Prepare local session',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Handoffs & approvals',exact:true}).click();await expect(page.locator('.teams-handoff-list')).toContainText('Approved');await expect(page.getByRole('button',{name:'Create QA handoff',exact:true})).toHaveCount(0);
@@ -142,5 +142,46 @@ test('invitation email status is visible and resend reports its cooldown without
   let workspace=await cleanup.api('owner','',{name:'Email team'});workspace=await cleanup.api('owner','/'+workspace.id+'/invitations',{email:'qa@example.com',role:'qa',projectIds:null,environments:['development']});
   await page.goto('/?product=teams');await page.getByRole('button',{name:'Members & access',exact:true}).click();await expect(page.locator('.teams-events')).toContainText('Invitation email sent');
   await page.getByRole('button',{name:'Resend email',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Wait one minute');await expect(page.locator('.teams-events')).toContainText('qa@example.com');
+ }finally{await cleanup();}
+});
+
+test('notification bell shows invitations, persists reads and navigates from Personal to Teams',async({page},testInfo)=>{
+ const cleanup=await teamService(page,testInfo);
+ try{
+  const w=await cleanup.api('owner','',{name:'Bell team'});
+  await cleanup.api('owner','/'+w.id+'/invitations',{email:'qa@example.com',role:'qa',projectIds:null,environments:['development']});
+  cleanup.asUser('qa');
+  await page.route('**/api/state',async route=>{const response=await route.fetch(),result=await response.json();result.demo=false;await route.fulfill({json:result});});
+  await page.goto('/');
+  const bell=page.locator('.notification-trigger:visible'),panel=page.locator('.notification-panel');
+  await bell.click();await expect(panel).toBeVisible();await expect(bell).toContainText('1');
+  await expect(panel.getByText('You have a team invitation',{exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(bell).toBeFocused();
+  await bell.click();await panel.getByRole('button',{name:'Mark all as read',exact:true}).click();await expect(bell.locator('.notification-count')).toHaveCount(0);
+  await panel.getByRole('button',{name:'Unread',exact:true}).click();await expect(panel).toContainText('You are all caught up.');
+  await page.reload();await page.locator('.notification-trigger:visible').click();await expect(panel).toContainText('You have a team invitation');await expect(page.locator('.notification-count')).toHaveCount(0);
+  await panel.getByRole('button',{name:/You have a team invitation/}).click();
+  await expect(page.locator('body')).toHaveAttribute('data-product-mode','teams');await expect(page.getByRole('button',{name:'Accept invitation',exact:true})).toBeVisible();
+  await page.locator('.notification-trigger:visible').click();await expect(panel).toBeVisible();await page.locator('.teams-sidebar').click();await expect(panel).toBeHidden();
+  await page.setViewportSize({width:375,height:812});await page.locator('.notification-trigger:visible').click();
+  await expect(panel).toBeVisible();const box=await panel.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(375);
+  await page.screenshot({path:testInfo.outputPath('notifications-mobile.png'),animations:'disabled'});
+ }finally{await cleanup();}
+});
+
+test('QA notification opens the referenced project and environment',async({page},testInfo)=>{
+ const cleanup=await teamService(page,testInfo);
+ try{
+  const w=await cleanup.api('owner','',{name:'Build team'}),base='/'+w.id;
+  await cleanup.api('owner',base+'/projects',{name:'First project'});
+  const p2=await cleanup.api('owner',base+'/projects',{name:'Target project'}),project=p2.projects[1];
+  const invited=await cleanup.api('owner',base+'/invitations',{email:'qa@example.com',role:'qa',projectIds:null,environments:['development','staging']});
+  await cleanup.api('qa','/invitations/'+invited.invitations[0].id+'/accept',{});
+  await cleanup.api('owner',base+'/handoffs',{title:'Staging checkout',projectId:project.id,environment:'staging',commit:'abc1234',artifactSha256:'a'.repeat(64),blueprintVersion:project.blueprint.version,buildUrl:'https://example.com/build.zip',steps:'Check checkout'});
+  cleanup.asUser('qa');await page.route('**/api/state',async route=>{const response=await route.fetch(),result=await response.json();result.demo=false;await route.fulfill({json:result});});await page.addInitScript(()=>localStorage.setItem('snapkit-product-mode','teams'));await page.goto('/');
+  await expect(page.locator('.teams-topbar')).toContainText('Build team');await page.getByRole('button',{name:'Personal',exact:true}).click();await page.locator('.notification-trigger:visible').click();
+  await page.locator('.notification-panel').getByRole('button',{name:/QA review needed/}).click();
+  await expect(page.locator('.teams-handoff-list')).toContainText('Staging checkout');await expect(page.getByRole('button',{name:'Confirm QA passed',exact:true})).toBeVisible();
+  await page.locator('.notification-trigger:visible').click();await page.screenshot({path:testInfo.outputPath('notifications-desktop.png'),animations:'disabled'});
  }finally{await cleanup();}
 });

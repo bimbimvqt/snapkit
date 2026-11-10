@@ -133,3 +133,26 @@ test('Teams local preparation never changes personal setup or sends local paths 
   assert.equal((await fetch(origin + '/api/teams/workspace-id/members/google%3Averified', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 200);
   assert.equal(requests.at(-1).route, '/v1/teams/workspace-id/members/google%3Averified', 'encoded Google ids are supported without allowing path traversal');
 });
+
+test('notification reads persist per account and reject unrelated or revoked IDs',async t=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'snapkit-notifications-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const users=['owner','guest','outsider'];
+ await writeFile(path.join(directory,'accounts.json'),JSON.stringify({users:Object.fromEntries(users.map(id=>[id,{id,email:id+'@example.com',name:id}])),sessions:Object.fromEntries(users.map(id=>[createHash('sha256').update('notification-'+id).digest('hex'),{userId:id,expires:Date.now()+86400000}])),content:defaultContent(),audit:[]}));
+ let server,origin;
+ const start=async()=>{server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory}}).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));origin='http://127.0.0.1:'+server.address().port;};
+ await start();t.after(()=>new Promise(r=>server.close(r)));
+ const request=async(user,route,data)=>fetch(origin+'/v1/teams'+route,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer notification-'+user,'Content-Type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});
+ const ok=async(user,route,data)=>{const response=await request(user,route,data),result=await response.json();assert.ok(response.ok,JSON.stringify(result));return result;};
+ const w=await ok('owner','',{name:'Notification team'});
+ const invited=await ok('owner','/'+w.id+'/invitations',{email:'guest@example.com',role:'viewer',projectIds:null,environments:['development']});
+ const id='invite:'+invited.invitations[0].id;
+ assert.equal((await ok('guest','/notifications')).items[0].read,false);
+ assert.equal((await request('outsider','/notifications/read',{ids:[id]})).status,400);
+ assert.equal((await ok('guest','/notifications/read',{ids:[id]})).items[0].read,true);
+ assert.ok((await ok('owner','/notifications')).items.every(item=>!item.read));
+ await new Promise(r=>server.close(r));await start();
+ assert.equal((await ok('guest','/notifications')).items[0].read,true);
+ await ok('owner','/'+w.id+'/invitations/'+invited.invitations[0].id+'/revoke',{});
+ assert.deepEqual((await ok('guest','/notifications')).items,[]);
+ assert.equal((await request('guest','/notifications/read',{ids:[id]})).status,400);
+});

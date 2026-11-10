@@ -28,9 +28,13 @@ const groupLabel = { ios: 'iOS SIMULATOR', android: 'ANDROID EMULATOR', physical
 const groupIcon = { ios: 'smartphone', android: 'bot', physical: 'usb' };
 const previewReadOnlyMessage = "Preview only. Open the local Dashboard at http://127.0.0.1:4310 to control your devices.";
 
-async function api(url, data) {
+async function api(url, data, quiet = false) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error(previewReadOnlyMessage);
+    if (url === '/api/teams/notifications') {
+      const workspace=window.SNAPKIT_PREVIEW.teams;
+      return {userId:workspace.membership.userId,items:workspace.audit.filter(event=>event.action==='blueprint.updated').map(event=>({id:'event:'+event.id,type:'activity',title:'Project configuration updated',at:event.at,workspaceId:workspace.id,workspaceName:workspace.name,projectId:event.projectId,page:'projects',read:false}))};
+    }
     if (url === '/api/teams' && window.SNAPKIT_PREVIEW.teams) {
       const workspace = window.SNAPKIT_PREVIEW.teams;
       return { userId:workspace.membership.userId, roles:[], environments:workspace.membership.environments, workspaces:[{id:workspace.id,name:workspace.name,role:'viewer'}], invitations:[] };
@@ -52,7 +56,7 @@ async function api(url, data) {
   }
   if (window.SNAPKIT_CONTROLLER && !connection) throw new Error(t("Connect your local Snapkit server first."));
   try { return await agentRequest(url, data, { connection, token: state.token, unauthorized: forgetConnection }); }
-  catch (error) { document.dispatchEvent(new Event('snapkit:review-error')); throw error; }
+  catch (error) { if (!quiet) document.dispatchEvent(new Event('snapkit:review-error')); throw error; }
 }
 function toast(message, error = false) {
   // Sample-device actions remain read-only without reporting an expected limitation as an error.
