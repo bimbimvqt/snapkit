@@ -96,6 +96,18 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   assert.equal(restricted.projects[0].blueprint.hasServices, true, 'setup can acknowledge configured services without exposing their details');
   const revoked = await ok('dev', base); assert.equal(revoked.projects.length, 0); assert.equal(revoked.handoffs.length, 0); assert.equal(revoked.devices.length, 0);
   assert.equal((await request('dev', base + '/devices/' + deviceId + '/reserve', { minutes: 30 })).status, 404);
+  const beforeCustom = (await ok('owner', base)).projects.find(p=>p.id===projectId);
+  const customRoute=base+'/projects/'+projectId+'/blueprint';
+  assert.equal((await request('lead',customRoute,{version:beforeCustom.blueprint.version,services:[{name:'Escalation',kind:'AI & ML'}]})).status,403);
+  const custom=await ok('owner',customRoute,{version:beforeCustom.blueprint.version,services:[...beforeCustom.blueprint.services,{name:'Ranking',kind:'AI & ML',ownerId:'owner'}]});
+  assert.ok(custom.layers.includes('AI & ML'));assert.ok(custom.membership.serviceLayers.includes('AI & ML'));
+  assert.ok(!(await ok('lead',base)).projects[0].blueprint.services.some(s=>s.kind==='AI & ML'),'new scopes require explicit grants');
+  assert.equal((await request('owner',customRoute,{version:custom.projects[0].blueprint.version,services:[{name:'Duplicate',kind:'ai & ml'}]})).status,400);
+  const leadBeforeGrant=await ok('lead',base);
+  await ok('lead',customRoute,{version:leadBeforeGrant.projects[0].blueprint.version,services:leadBeforeGrant.projects[0].blueprint.services});
+  assert.ok((await ok('owner',base)).projects[0].blueprint.services.some(s=>s.kind==='AI & ML'),'scoped updates preserve hidden custom services');
+  await ok('owner',base+'/members/lead',{role:'lead',projectIds:[projectId],environments:['development'],serviceLayers:['AI & ML']});
+  assert.deepEqual((await ok('lead',base)).projects[0].blueprint.services.map(s=>s.kind),['AI & ML']);
   // Failed persistence never publishes a workspace in memory or on disk.
   await mkdir(path.join(directory, 'teams.json.tmp'));
   assert.equal((await request('owner', base + '/projects', { name: 'Failed' })).status, 503);
@@ -104,6 +116,7 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   const restarted = createCloud({ env }).listen(0, '127.0.0.1'); await new Promise(r => restarted.once('listening', r)); t.after(() => restarted.close());
   const persisted = await fetch('http://127.0.0.1:' + restarted.address().port + '/v1/teams' + base, { headers: { Authorization: 'Bearer test-owner' } }).then(r => r.json());
   assert.equal(persisted.handoffs[0].status, 'approved'); assert.equal(persisted.projects.length, 2);
+  assert.ok(persisted.layers.includes('AI & ML'),'custom layers survive a server restart');
   await ok('owner', base + '/members/dev/remove', {});
   assert.equal((await request('dev', base)).status, 404);
   assert.ok(persisted.audit.some(a => a.action === 'handoff.approved'));

@@ -1,13 +1,16 @@
-import {useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {api} from '../../legacy/device-controller.js';
 import {t} from '../../shared/ui/use-language';
 import type {Environment,Project,Task,TeamWorkspace} from './types';
+import {reconcileSnapshot} from '../../shared/state/reconcile.js';
 import {taskLabel} from './TaskBoard';
 type Options={binding:{path:string;framework:string}|null;devices:{id:string;name:string;platform:string;state:string}[];active:{sessionId:string;taskId:string;status:string;disabled?:boolean}|null;extensionConnected:boolean};
 export function TeamDebug({workspace:w,project,environment,preview,task,connect,refresh,bindingRevision}:{workspace:TeamWorkspace;project?:Project;environment:Environment;preview:boolean;task:Task|null;bindingRevision?:string;connect:()=>void;refresh:()=>void}){
  const [options,setOptions]=useState<Options|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- async function load(){if(preview||!project||!w.membership.permissions.includes('sessions.prepare'))return;try{setError('');setOptions(await api('/api/teams/local-debug?workspaceId='+w.id+'&projectId='+project.id+'&environment='+environment,undefined,true));}catch(e){setError(e instanceof Error?e.message:String(e));}}
- useEffect(()=>{setOptions(null);setError('');void load();},[w,project?.id,environment,preview,bindingRevision]);
+ const sequence=useRef(0),context=useRef('');
+ const allowed=w.membership.permissions.includes('sessions.prepare');
+ const load=useCallback(async()=>{if(preview||!project?.id||!allowed)return;const key=[w.id,project.id,environment,w.membership.userId,allowed].join(':');if(context.current!==key)return;const request=++sequence.current;try{const result=await api('/api/teams/local-debug?workspaceId='+w.id+'&projectId='+project.id+'&environment='+environment,undefined,true);if(request===sequence.current){setError('');setOptions(previous=>reconcileSnapshot(previous,result));}}catch(e){if(request===sequence.current){if([401,403,404].includes(Number((e as {status?:number})?.status)))setOptions(null);setError(e instanceof Error?e.message:String(e));}}},[w.id,project?.id,environment,preview,allowed,w.membership.userId]);
+ useEffect(()=>{const key=[w.id,project?.id,environment,w.membership.userId,allowed].join(':');if(context.current!==key){context.current=key;setOptions(null);setError('');setMessage('');}void load();const poll=()=>{if(!document.hidden)void load();};const timer=setInterval(poll,15000);document.addEventListener('visibilitychange',poll);return()=>{sequence.current++;clearInterval(timer);document.removeEventListener('visibilitychange',poll);};},[load,bindingRevision,w.membership.userId]);
  async function action(route:string,data:unknown){setBusy(true);setError('');try{await api('/api/teams/local-debug/'+route,data,true);setMessage(t(route==='start'?'Ready. Open this folder in VS Code or Cursor, then launch Snapkit Debug Sync from the IDE.':'Debug context updated.'));await load();refresh();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
  const sessions=(w.debugSessions||[]).filter(s=>s.projectId===project?.id&&s.environment===environment);
  return <>{error&&<p className="teams-error" role="alert">{error}</p>}{message&&<p className="teams-info" role="status">{message}</p>}

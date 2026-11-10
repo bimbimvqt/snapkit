@@ -50,8 +50,9 @@ function scope(input, workspace) {
   if (projectIds !== null && (!Array.isArray(projectIds) || projectIds.length > 100 || projectIds.some(id => typeof id !== 'string' || !workspace.projects.some(p => p.id === id)))) fail(400, 'Select valid project scopes.');
   const environments = input.environments;
   if (!Array.isArray(environments) || !environments.length || environments.length > 3 || environments.some(e => !teamEnvironments.includes(e))) fail(400, 'Select valid environment scopes.');
-  const serviceLayers = input.serviceLayers ?? teamLayers;
-  if (!Array.isArray(serviceLayers) || serviceLayers.length > 5 || serviceLayers.some(layer => !teamLayers.includes(layer))) fail(400, 'Select valid service layers.');
+  const availableLayers = [...teamLayers, ...(workspace.customLayers || [])];
+  const serviceLayers = input.serviceLayers ?? availableLayers;
+  if (!Array.isArray(serviceLayers) || serviceLayers.length > 30 || serviceLayers.some(layer => !availableLayers.includes(layer))) fail(400, 'Select valid service layers.');
   return { projectIds: projectIds === null ? null : [...new Set(projectIds)], environments: [...new Set(environments)], serviceLayers: [...new Set(serviceLayers)] };
 }
 function audit(workspace, user, action, projectId = null, environment = null) {
@@ -65,7 +66,7 @@ function view(workspace, userId) {
   const layers = member.serviceLayers ?? teamLayers;
   const blueprintView = blueprint => ({ ...blueprint, hasServices: blueprint.services.length > 0, services: blueprint.services.filter(s => layers.includes(s.kind)) });
   return {
-    id: workspace.id, name: workspace.name, createdAt: workspace.createdAt, updatedAt: workspace.updatedAt,
+    id: workspace.id, name: workspace.name, layers: [...teamLayers, ...(workspace.customLayers || [])].filter(layer=>member.role==='owner'||layers.includes(layer)), createdAt: workspace.createdAt, updatedAt: workspace.updatedAt,
     membership: { ...member, permissions: teamPermissions(member.role) },
     members: workspace.members.map(m => ({ ...m, projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
     invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(({delivery,...i}) => ({ ...i, delivery:delivery?{status:delivery.status,attemptedAt:delivery.attemptedAt,sentAt:delivery.sentAt}: {status:'not_sent'} })) : [],
@@ -269,9 +270,22 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     const project = projectOf(workspace, params.projectId, member); permit(member, 'blueprint.write', project.id, 'development');
     if (input.version !== project.blueprint.version) fail(409, 'The blueprint changed. Refresh before saving.');
     if (!Array.isArray(input.services) || input.services.length > 30) fail(400, 'Add up to 30 services.');
+    // Only the Owner can introduce a scope. Existing members never gain it implicitly.
+    const availableLayers = [...teamLayers, ...(workspace.customLayers || [])];
+    for(const service of input.services){
+      const kind=text(service?.kind,48).normalize('NFKC');
+      if(!/^[\p{L}\p{N}][\p{L}\p{N} ._+&/-]*$/u.test(kind))fail(400,'Use letters and numbers in the project layer name.');
+      if(kind!==service.kind)fail(400,'Use a normalized project layer name.');
+      if(availableLayers.includes(kind))continue;
+      if(member.role!=='owner')fail(403,'Only the Owner can create custom project layers.');
+      if(availableLayers.length>=30)fail(400,'Add up to 25 custom project layers.');
+      if(availableLayers.some(layer=>layer.toLocaleLowerCase()===kind.toLocaleLowerCase()))fail(400,'A project layer with this name already exists.');
+      workspace.customLayers??=[];workspace.customLayers.push(kind);availableLayers.push(kind);
+      for(const owner of workspace.members.filter(m=>m.role==='owner'))owner.serviceLayers=[...new Set([...(owner.serviceLayers??teamLayers),kind])];
+    }
     const layers = member.serviceLayers ?? teamLayers;
     const services = input.services.map(s => {
-      if (!teamLayers.includes(s?.kind)) fail(400, 'Select a valid service layer.');
+      if (!availableLayers.includes(s?.kind)) fail(400, 'Select a valid service layer.');
       if (!layers.includes(s.kind)) fail(403, 'Your team scope does not include this service layer.');
       const ownerId = text(s.ownerId, 160, true), owner = ownerId && memberOf(workspace, ownerId);
       if (ownerId && (!owner || !teamProjectVisible(owner, project.id) || !(owner.serviceLayers ?? teamLayers).includes(s.kind))) fail(400, 'Select an owner with access to this project and service layer.');
