@@ -38,7 +38,7 @@ test('missing website pages return localized 404 while API and asset errors rema
 
 test('static 404 recovery and asset URLs keep the configured base at arbitrary depth', () => {
   const html = notFoundPage({ language: 'en', base: '/snapkit/' });
-  assert.match(html, /href="\/snapkit\/en\/guides\/"/);
+  assert.match(html, /href="\/snapkit\/en\/#products"/);
   assert.match(html, /src="\/snapkit\/favicon.svg"/);
   assert.match(html, /href="#main"/);
   assert.throws(() => notFoundPage({ base: '//evil.test/' }));

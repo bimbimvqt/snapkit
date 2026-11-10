@@ -79,7 +79,7 @@ jobs:
           sha256sum *.dmg *.zip *.exe *.vsix *.blockmap.json > SHA256SUMS.txt
           cd ..
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME" --notes-file docs/beta-release.md
+            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --prerelease --title "Snapkit $GITHUB_REF_NAME" --notes "Download Snapkit for macOS or Windows at https://snapkit.vn. Personal and Teams are available in the same application."
           else
-            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Snapkit $GITHUB_REF_NAME" --notes-file docs/beta-release.md
+            gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Snapkit $GITHUB_REF_NAME" --notes "Download Snapkit for macOS or Windows at https://snapkit.vn. Personal and Teams are available in the same application."
           fi

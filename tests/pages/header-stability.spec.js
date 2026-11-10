@@ -82,26 +82,3 @@ for (const width of [375, 1440]) {
     });
   }
 }
-
-const guideSlugs = ['flutter-multi-device-debugging', 'react-native-multi-device-debugging', 'android-emulator-ios-simulator', 'install-snapkit-macos-windows'];
-for (const route of ['huong-dan/', 'en/guides/', ...guideSlugs.flatMap(slug => [`huong-dan/${slug}/`, `en/guides/${slug}/`])]) {
-  test(`guide reload resets scroll while fresh deep links still work (${route})`, async ({ page }) => {
-    for (const width of [375, 1440]) {
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto(route + '?source=reload-test');
-      await page.evaluate(() => window.scrollTo({ top: 1200, behavior: 'instant' }));
-      expect(await page.evaluate(() => scrollY)).toBeGreaterThan(300);
-      await page.reload();
-      await expectReloadAtTop(page);
-      await expect(page.locator('.header')).toBeInViewport();
-      expect(new URL(page.url()).search).toBe('?source=reload-test');
-      if (route.split('/').filter(Boolean).length > (route.startsWith('en/') ? 2 : 1)) {
-        await page.goto(route + '?source=reload-test#step-2');
-        await expect(page.locator('#step-2')).toBeInViewport();
-        await page.reload();
-        await expectReloadAtTop(page);
-        expect(new URL(page.url()).hash).toBe('');
-      }
-    }
-  });
-}

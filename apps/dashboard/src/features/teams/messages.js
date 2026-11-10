@@ -1,4 +1,6 @@
 Object.assign(window.SnapkitMessages.translations, {
+  "Interactive preview · fictional data. Explore pages; changes are disabled.":"Bản xem trước · dữ liệu minh hoạ. Bạn có thể khám phá các trang; thao tác thay đổi đã tắt.",
+  "Sample service":"Dịch vụ minh hoạ",
   'Save':'Lưu', 'Language':'Ngôn ngữ', 'Refresh':'Làm mới', 'Environment':'Môi trường', 'Project':'Dự án', 'Member':'Thành viên', 'Action':'Thao tác', 'Time':'Thời điểm', 'Edit':'Sửa', 'Remove':'Xóa', 'Open':'Mở',
   'Service layer scope':'Phạm vi lớp dịch vụ', 'Service owner':'Người phụ trách dịch vụ', 'Unassigned':'Chưa phân công',
   'Remove service':'Xóa dịch vụ', 'Switch team workspace':'Đổi workspace của team',

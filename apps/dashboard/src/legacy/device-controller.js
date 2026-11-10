@@ -31,6 +31,11 @@ const previewReadOnlyMessage = "Preview only. Open the local Dashboard at http:/
 async function api(url, data) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error(previewReadOnlyMessage);
+    if (url === '/api/teams' && window.SNAPKIT_PREVIEW.teams) {
+      const workspace = window.SNAPKIT_PREVIEW.teams;
+      return { userId:workspace.membership.userId, roles:[], environments:workspace.membership.environments, workspaces:[{id:workspace.id,name:workspace.name,role:'viewer'}], invitations:[] };
+    }
+    if (url === '/api/teams/' + window.SNAPKIT_PREVIEW.teams?.id) return structuredClone(window.SNAPKIT_PREVIEW.teams);
     if (url === '/api/apple/teams') return { teams: [], selections: {} };
     if (url === '/api/apple/detected') return { teams: [] };
     if (url === '/api/releases') return { jobs: [], busy: false, uploadConfigured: false, demo: true };

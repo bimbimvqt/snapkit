@@ -50,6 +50,7 @@ setInterval(refreshDownloads, 300000);
 
 const preview = document.querySelector('#app-preview');
 const captions = {
+  teams: ['Giao diện Snapkit Teams với dữ liệu minh hoạ', 'Snapkit Teams · Giao diện thật, dữ liệu minh hoạ.'],
   debug: ['Video minh họa Debug Sync', 'Debug Sync · Video minh họa Flutter Hot Reload trên 3 thiết bị.'],
   captures: ['Ảnh chụp và video được sắp xếp theo project trong Snapkit', 'Thư viện ảnh & video · Giao diện thật, dữ liệu minh họa.'],
   releases: ['Giao diện build Flutter APK, AAB và IPA trong Snapkit', 'Build & phát hành Flutter · Giao diện thật, dữ liệu minh họa.'],
@@ -106,12 +107,14 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261106-images46`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=${key === 'teams' ? '20261110-teams' : '20261106-images46'}`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();
     if (epoch !== previewEpoch) return;
     if (key !== 'debug') preview.src = source;
+    const demoLink = document.querySelector('#preview-demo-link');
+    demoLink.href = key === 'teams' ? 'demo/?product=teams' : 'demo/';
     activePreview = key; preview.hidden = key === 'debug';
     debugPreview.hidden = key !== 'debug'; figure.querySelector('.window-top').hidden = key === 'debug';
     if (key === 'debug') {

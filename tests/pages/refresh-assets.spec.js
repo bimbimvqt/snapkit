@@ -23,3 +23,16 @@ test('refresh authored website screenshots from the current sample app', async (
     }
   }
 });
+
+test('refresh Teams showcase screenshots from fictional preview data', async ({page})=>{
+ test.skip(process.env.SNAPKIT_REFRESH_WEBSITE !== '1', 'Explicit screenshot refresh only.');
+ await page.setViewportSize({width:1440,height:1020});
+ for(const language of ['en','vi']){
+  await page.goto('demo/?product=teams&lang='+language);
+  await expect(page.locator('.teams-topbar')).toContainText('Product Studio');
+  await expect(page.locator('.teams-module')).toHaveCount(4);
+  await expect(page.locator('.teams-main')).toContainText(language==='en'?'fictional data':'dữ liệu minh hoạ');
+  await page.mouse.move(1438,2);
+  await page.screenshot({path:`apps/website/assets/teams${language==='vi'?'-vi':''}.png`,animations:'disabled'});
+ }
+});

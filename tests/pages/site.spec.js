@@ -189,3 +189,32 @@ test('Personal and Teams explain separate data and desktop availability in both 
     await page.setViewportSize({width:1440,height:1000});
   }
 });
+
+test('Teams gallery opens a read-only showcase without account data or network API calls',async({page})=>{
+ const calls=[],errors=[];
+ page.on('request',request=>{if(/\/(?:api|v1)\//.test(new URL(request.url()).pathname))calls.push(request.url());});
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('./?lang=en');
+ await page.locator('[data-preview=teams]').click();
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-teams');
+ await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
+ await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
+ const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
+ expect(links.some(link=>/blob\/|#readme|huong-dan\/|en\/guides\//.test(link))).toBe(false);
+ calls.length=0;
+ await page.locator('#preview-demo-link').click();
+ await expect(page.locator('.teams-topbar')).toContainText('Product Studio');
+ await expect(page.locator('.teams-main')).toContainText('fictional data');
+ await expect(page.getByRole('button',{name:'Create team workspace',exact:true})).toBeDisabled();
+ for(const name of ['Projects & services','Device Lab','Handoffs & approvals','Members & access','Activity log']){
+  await page.getByRole('button',{name,exact:true}).click();
+  await expect(page.locator('.teams-main h1')).toHaveText(name);
+  const text=await page.locator('.teams-application').innerText();
+  expect(text).not.toMatch(/@[a-z0-9.-]+\.[a-z]{2,}|\/Users\/|\/Volumes\/|github\.com|[a-f0-9]{40,}/i);
+ }
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Personal',exact:true}).click();
+ await expect(page.locator('#devices-grid')).toBeVisible();
+ expect(calls).toEqual([]);expect(errors).toEqual([]);
+});
