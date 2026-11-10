@@ -155,3 +155,14 @@ test('desktop login uses the canonical account server and reports network failur
   await assert.rejects(account.start(), {message:'Cannot connect to the Snapkit account service. Check your connection and try again.'});
   assert.equal(account.flow,null);
 });
+
+test('Google login returns invitees only to the allowed join page and rejects arbitrary return URLs',async t=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'snapkit-invite-auth-'));t.after(()=>rm(directory,{recursive:true,force:true}));let claims;
+ const server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory,GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'secret'},fetcher:async()=>Response.json({id_token:'signed'}),verifyGoogle:async()=>claims}).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));
+ const base='http://127.0.0.1:'+server.address().port;
+ for(const [returnTo,expected] of [['/join/','/join/'],['https://evil.example/','/admin/'],['//evil.example/','/admin/'],['/join/?next=https://evil.example','/admin/']]){
+  const start=await fetch(base+'/auth/google/start?returnTo='+encodeURIComponent(returnTo),{redirect:'manual'}),google=new URL(start.headers.get('location'));
+  claims={sub:'invitee',email:'invitee@example.com',email_verified:true,nonce:google.searchParams.get('nonce')};
+  const response=await fetch(base+'/auth/google/callback?state='+google.searchParams.get('state')+'&code=test',{redirect:'manual',headers:{Cookie:start.headers.get('set-cookie').split(';')[0]}});assert.equal(response.headers.get('location'),expected);
+ }
+});

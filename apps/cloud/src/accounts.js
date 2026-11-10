@@ -125,7 +125,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       const desktopId = typeof req.query.desktop === 'string' && desktop.has(req.query.desktop) ? req.query.desktop : null;
       if (req.query.desktop && !desktopId) return res.status(400).send('Sign-in expired. Please start again in Snapkit.');
       const state = secret(), nonce = secret(), verifier = secret(), browserBinding = secret();
-      flows.set(state, { nonce, verifier, desktopId, browserHash: hash(browserBinding), expires: Date.now() + 10 * 60000 });
+      flows.set(state, { nonce, verifier, desktopId, returnTo:req.query.returnTo==='/join/'?'/join/':null, browserHash: hash(browserBinding), expires: Date.now() + 10 * 60000 });
       res.setHeader('Set-Cookie', `snapkit_oauth=${browserBinding}; Path=/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600`);
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.search = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: origin + '/auth/google/callback', response_type: 'code', scope: 'openid email profile', state, nonce, code_challenge: hashForPKCE(verifier), code_challenge_method: 'S256', prompt: 'select_account' }).toString();
@@ -161,10 +161,10 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
           target.token = token; target.user = user;
           return res.redirect('/auth/complete');
         }
-        cookie(res, token); res.redirect('/admin/');
+        cookie(res, token); res.redirect(flow.returnTo||'/admin/');
       } catch {
         if (flow.desktopId && desktop.has(flow.desktopId)) desktop.get(flow.desktopId).failed = true;
-        res.redirect(flow.desktopId ? '/auth/complete?result=failed' : '/admin/?auth=failed');
+        res.redirect(flow.desktopId ? '/auth/complete?result=failed' : flow.returnTo?'/join/?auth=failed':'/admin/?auth=failed');
       }
     });
     app.get('/v1/account', async (req, res) => {

@@ -1,5 +1,6 @@
 import express from 'express';
-import { randomUUID } from 'node:crypto';
+import { invitationMailer } from './infrastructure/invitation-mail.js';
+import { randomUUID, createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { teamRoles, teamEnvironments, teamLayers, teamPermissions, teamCan, teamProjectVisible } from './domain/team-access.js';
@@ -60,7 +61,7 @@ function view(workspace, userId) {
     id: workspace.id, name: workspace.name, createdAt: workspace.createdAt, updatedAt: workspace.updatedAt,
     membership: { ...member, permissions: teamPermissions(member.role) },
     members: workspace.members.map(m => ({ ...m, projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
-    invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(i => ({ ...i })) : [],
+    invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(({delivery,...i}) => ({ ...i, delivery:delivery?{status:delivery.status,attemptedAt:delivery.attemptedAt,sentAt:delivery.sentAt}: {status:'not_sent'} })) : [],
     projects: workspace.projects.filter(p => visible(p.id)).map(p => ({ ...p, blueprint: blueprintView(p.blueprint), history: p.history.map(blueprintView) })),
     devices: workspace.devices.filter(d => visible(d.projectId)).map(d => ({ ...d, reservation: d.reservation?.expiresAt > Date.now() && memberOf(workspace, d.reservation.userId) ? d.reservation : null })),
     handoffs: workspace.handoffs.filter(h => visible(h.projectId) && member.environments.includes(h.environment)).map(h => ({ ...h, blueprint: blueprintView(h.blueprint) })),
@@ -70,7 +71,8 @@ function view(workspace, userId) {
 
 // Separate from account/admin data and every local personal workspace. One writer
 // serializes permission checks and atomic commits; never serve uncommitted state.
-export function createTeams({ env, accounts }) {
+export function createTeams({ env, accounts, fetcher=fetch }) {
+  const mailer=invitationMailer({env,fetcher});
   const file = path.join(env.SNAPKIT_CLOUD_DATA || 'cloud-data', 'teams.json');
   let db = { version: 1, workspaces: [] }, queue = Promise.resolve();
   const loaded = readFile(file, 'utf8').then(raw => {
@@ -118,7 +120,7 @@ export function createTeams({ env, accounts }) {
     } catch { res.status(503).json({ error: 'Teams storage is unavailable. Try again later.' }); }
   });
   router.get('/', (req, res) => res.json({
-    userId: req.teamUser.id, roles: teamRoles, environments: teamEnvironments,
+    emailDeliveryConfigured:mailer.configured, userId: req.teamUser.id, roles: teamRoles, environments: teamEnvironments,
     workspaces: db.workspaces.filter(w => memberOf(w, req.teamUser.id)).map(w => ({ id: w.id, name: w.name, role: memberOf(w, req.teamUser.id).role })),
     invitations: db.workspaces.flatMap(w => w.invitations.filter(i => i.expiresAt > Date.now() && i.email === req.teamUser.email.toLowerCase() && !memberOf(w, req.teamUser.id)).map(i => ({ id: i.id, workspaceName: w.name, role: i.role, expiresAt: i.expiresAt }))),
   }));
@@ -152,16 +154,49 @@ export function createTeams({ env, accounts }) {
       return view(workspace, user.id);
     }); res.json(result);
   });
-  mutate('/invitations', 'members.manage', (workspace, _member, user, input) => {
-    const email = text(input.email, 254).toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
-    if (!teamRoles.includes(input.role) || input.role === 'owner') fail(400, 'Select a member role.');
-    if (workspace.members.some(m => m.email === email) || workspace.invitations.some(i => i.email === email && i.expiresAt > Date.now())) fail(409, 'This person is already a member or has a pending invitation.');
-    workspace.invitations = workspace.invitations.filter(i => i.expiresAt > Date.now());
-    if (workspace.invitations.length >= 200) fail(409, 'Team invitation limit reached.');
-    workspace.invitations.push({ id: randomUUID(), email, role: input.role, ...scope(input, workspace), expiresAt: Date.now() + 7 * 86400000 });
-    audit(workspace, user, 'invitation.created');
+  async function sendInvitation(req,invitationId) {
+    let message;
+    await transaction(req,(next,user)=>{
+      const workspace=workspaceOf(next,req.params.workspaceId,user.id);permit(memberOf(workspace,user.id),'members.manage');
+      const invitation=workspace.invitations.find(i=>i.id===invitationId&&i.expiresAt>Date.now());
+      if(!invitation)fail(404,'Team invitation not found or expired.');
+      if(!mailer.configured){invitation.delivery={status:'not_configured'};return;}
+      if(invitation.delivery?.attemptedAt>Date.now()-60000)fail(429,'Wait one minute before sending this invitation again.');
+      const emailHash=createHash('sha256').update(invitation.email).digest('hex');
+      workspace.mailAttempts=(workspace.mailAttempts||[]).filter(a=>a.at>Date.now()-86400000);
+      if(workspace.mailAttempts.filter(a=>a.at>Date.now()-3600000).length>=50||workspace.mailAttempts.filter(a=>a.emailHash===emailHash).length>=5)fail(429,'Invitation email limit reached. Try again later.');
+      workspace.mailAttempts.push({at:Date.now(),emailHash});
+      const key=invitation.delivery?.status==='failed'||invitation.delivery?.status==='sending'?invitation.delivery.key:'team-invitation-'+randomUUID();
+      invitation.delivery={status:'sending',key,attemptedAt:Date.now()};
+      message={invitation:{...invitation},workspace:workspace.name,inviter:user.name||'Workspace Owner',idempotencyKey:key};
+    });
+    if(message){
+      let sent=false;try{await mailer.send(message);sent=true;}catch{/* Provider responses and credentials never leave the server. */}
+      await transaction(req,(next,user)=>{
+        const workspace=workspaceOf(next,req.params.workspaceId,user.id),invitation=workspace.invitations.find(i=>i.id===invitationId);
+        if(invitation?.delivery?.key===message.idempotencyKey){invitation.delivery.status=sent?'sent':'failed';if(sent)invitation.delivery.sentAt=Date.now();audit(workspace,user,sent?'invitation.email.sent':'invitation.email.failed');}
+      });
+    }
+    return view(workspaceOf(db,req.params.workspaceId,req.teamUser.id),req.teamUser.id);
+  }
+  router.post('/:workspaceId/invitations',async(req,res)=>{
+    const invitationId=await transaction(req,(next,user)=>{
+      const workspace=workspaceOf(next,req.params.workspaceId,user.id);permit(memberOf(workspace,user.id),'members.manage');
+      const input=req.body||{};
+      const email = text(input.email, 254).toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
+      if (!teamRoles.includes(input.role) || input.role === 'owner') fail(400, 'Select a member role.');
+      if (workspace.members.some(m => m.email === email) || workspace.invitations.some(i => i.email === email && i.expiresAt > Date.now())) fail(409, 'This person is already a member or has a pending invitation.');
+      workspace.invitations = workspace.invitations.filter(i => i.expiresAt > Date.now());
+      if (workspace.invitations.length >= 200) fail(409, 'Team invitation limit reached.');
+      const invitation={ id: randomUUID(), email, role: input.role, ...scope(input, workspace), expiresAt: Date.now() + 7 * 86400000 };
+      workspace.invitations.push(invitation);
+
+      audit(workspace,user,'invitation.created');return invitation.id;
+    });
+    try{res.json(await sendInvitation(req,invitationId));}catch(error){if(error.status!==429)throw error;res.json(view(workspaceOf(db,req.params.workspaceId,req.teamUser.id),req.teamUser.id));}
   });
+  router.post('/:workspaceId/invitations/:invitationId/resend',async(req,res)=>res.json(await sendInvitation(req,req.params.invitationId)));
   mutate('/invitations/:invitationId/revoke', 'members.manage', (workspace, _member, user, _input, params) => {
     if (!workspace.invitations.some(i => i.id === params.invitationId)) fail(404, 'Team invitation not found.');
     workspace.invitations = workspace.invitations.filter(i => i.id !== params.invitationId); audit(workspace, user, 'invitation.revoked');
@@ -260,6 +295,6 @@ export function createTeams({ env, accounts }) {
     audit(workspace, user, 'handoff.' + handoff.status, handoff.projectId, handoff.environment);
   });
   router.use((_req, res) => res.status(404).json({ error: 'Teams endpoint not found.' }));
-  router.use((error, _req, res, _next) => res.status([400, 401, 403, 404, 409].includes(error.status) ? error.status : 503).json({ error: error.status ? error.message : 'Teams could not save this change. Try again.' }));
+  router.use((error, _req, res, _next) => res.status([400, 401, 403, 404, 409, 429].includes(error.status) ? error.status : 503).json({ error: error.status ? error.message : 'Teams could not save this change. Try again.' }));
   return router;
 }

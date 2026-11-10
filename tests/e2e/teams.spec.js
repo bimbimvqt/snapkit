@@ -6,11 +6,11 @@ import path from 'node:path';
 import {createCloud} from '../../apps/cloud/src/index.js';
 import {defaultContent} from '../../apps/cloud/src/accounts.js';
 
-async function teamService(page,testInfo){
+async function teamService(page,testInfo,mail=false){
  const directory=await mkdtemp(path.join(os.tmpdir(),'snapkit-teams-ui-'));
  const users=['owner','qa','lead','viewer'];let token='ui-team-owner';
  await writeFile(path.join(directory,'accounts.json'),JSON.stringify({users:Object.fromEntries(users.map(id=>[id,{id,email:id+'@example.com',name:id==='owner'?'Team Owner':id}])),sessions:Object.fromEntries(users.map(id=>[createHash('sha256').update('ui-team-'+id).digest('hex'),{userId:id,expires:Date.now()+86400000}])),content:defaultContent(),audit:[]}));
- const server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory}}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ const server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory,...(mail?{RESEND_API_KEY:'fixture-key',SNAPKIT_MAIL_FROM:'teams@example.com'}:{})},...(mail?{fetcher:async()=>Response.json({id:'fixture-mail'})}:{})}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
  const base='http://127.0.0.1:'+server.address().port;
  await page.route('**/api/teams**',async route=>{
   const url=new URL(route.request().url()),suffix=url.pathname.slice('/api/teams'.length);
@@ -133,5 +133,14 @@ test('setup journey follows saved data and invitation acceptance; every Teams me
   await page.screenshot({path:testInfo.outputPath('teams-setup-complete.png'),fullPage:true});
   await page.setViewportSize({width:375,height:812});await choose('Switch team workspace','Guided team');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(errors).toEqual([]);
+ }finally{await cleanup();}
+});
+
+test('invitation email status is visible and resend reports its cooldown without losing the invitation',async({page},testInfo)=>{
+ const cleanup=await teamService(page,testInfo,true);
+ try{
+  let workspace=await cleanup.api('owner','',{name:'Email team'});workspace=await cleanup.api('owner','/'+workspace.id+'/invitations',{email:'qa@example.com',role:'qa',projectIds:null,environments:['development']});
+  await page.goto('/?product=teams');await page.getByRole('button',{name:'Members & access',exact:true}).click();await expect(page.locator('.teams-events')).toContainText('Invitation email sent');
+  await page.getByRole('button',{name:'Resend email',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Wait one minute');await expect(page.locator('.teams-events')).toContainText('qa@example.com');
  }finally{await cleanup();}
 });

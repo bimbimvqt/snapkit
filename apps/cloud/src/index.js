@@ -22,7 +22,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   const sweep = setInterval(() => { for (const [ip, entry] of limits) if (Date.now() > entry.until) limits.delete(ip); }, 60000); sweep.unref();
   app.use((req, res, next) => {
     // Only paired controllers may contact the user's loopback agent.
-    if (/^\/(admin|auth|v1|control|preview|demo)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
+    if (/^\/(admin|auth|v1|control|preview|demo|join)(\/|$)/.test(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
     const controller = /^\/(control|preview)(\/|$)/.test(req.path);
     const connections = controller ? ' http://127.0.0.1:* http://localhost:*' : '';
     res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': `default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com${connections}; frame-ancestors 'none'; base-uri 'self'`, 'Cache-Control': 'no-store' });
@@ -38,7 +38,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle }
   });
   app.use(express.json({ limit: '256kb' }));
   accounts.install(app);
-  const teams = createTeams({ env, accounts });
+  const teams = createTeams({ env, accounts, fetcher });
   app.get('/v1/admin/teams', teams.adminOverview);
   app.use('/v1/teams', teams);
   app.get('/admin', (req, res, next) => req.path === '/admin' ? res.redirect('/admin/') : next());

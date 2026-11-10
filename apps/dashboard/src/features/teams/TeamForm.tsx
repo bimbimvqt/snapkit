@@ -8,7 +8,7 @@ import type {FormState,TeamWorkspace,Project,Environment} from './types';
 export const roleLabel=(role:string)=>t(({owner:'Owner',lead:'Tech Lead',developer:'Developer',qa:'QA',devops:'DevOps',designer:'Designer',viewer:'Viewer'} as Record<string,string>)[role]||role);
 export const envLabel=(env:string)=>t(({development:'Development',staging:'Staging',production:'Production'} as Record<string,string>)[env]||env);
 export const formTitles:Record<FormState['kind'],string>={workspace:'Create team workspace',project:'Create team project',invite:'Invite team member',member:'Edit member access',service:'Configure service',device:'Register team device',handoff:'Create QA handoff',local:'Prepare local session','remove-member':'Remove team member'};
-export function TeamForm({form,workspace,project,busy,error,close,submit}:{form:FormState;workspace:TeamWorkspace|null;project:Project|undefined;busy:boolean;error:string;close:()=>void;submit:(data:FormData)=>Promise<void>}){
+export function TeamForm({form,workspace,project,busy,error,close,submit,emailConfigured}:{emailConfigured?:boolean;form:FormState;workspace:TeamWorkspace|null;project:Project|undefined;busy:boolean;error:string;close:()=>void;submit:(data:FormData)=>Promise<void>}){
  const dialog=useRef<HTMLDialogElement>(null);
  const [allProjects,setAllProjects]=useState(form.member?.projectIds===null||form.kind==='invite');
  const [browseError,setBrowseError]=useState('');const [browsing,setBrowsing]=useState(false);const pathInput=useRef<HTMLInputElement>(null);
@@ -25,12 +25,13 @@ export function TeamForm({form,workspace,project,busy,error,close,submit}:{form:
    {form.kind==='workspace'&&<>{field('Team workspace name','name',{required:true,maxLength:80})}<p className="teams-help">{t('You will own this workspace. Next, add your first project.')}</p></>}
    {form.kind==='project'&&<>{field('Project name','name',{required:true,maxLength:80})}<label className="teams-field">{t('Description')}<textarea name="description" maxLength={500} rows={3}/></label></>}
    {(form.kind==='invite'||form.kind==='member')&&<>
+    {form.kind==='invite'&&emailConfigured===false&&<p className="teams-help" role="status">{t('Email delivery is not configured. Invitations remain available in Teams.')}</p>}
     {form.kind==='invite'?field('Google account email','email',{required:true,type:'email',maxLength:254}):<p className="teams-help">{form.member?.email}</p>}
     <label className="teams-field">{t('Team role')}<Select name="role" aria-label={t('Team role')} defaultValue={form.member?.role||'developer'}>{['lead','developer','qa','devops','designer','viewer'].map(r=><option value={r} key={r}>{roleLabel(r)}</option>)}</Select></label>
     <div className="teams-field"><span>{t('Project scope')}</span><label className="teams-check"><input type="checkbox" name="allProjects" checked={allProjects} onChange={e=>setAllProjects(e.target.checked)}/>{t('All current and future projects')}</label>{!allProjects&&workspace?.projects.map(p=><label className="teams-check" key={p.id}><input type="checkbox" name="projectIds" value={p.id} defaultChecked={form.member?.projectIds?.includes(p.id)}/>{p.name}</label>)}</div>
     <div className="teams-field"><span>{t('Environment scope')}</span>{(['development','staging','production'] as Environment[]).map(e=><label className="teams-check" key={e}><input type="checkbox" name="environments" value={e} defaultChecked={form.member?.environments.includes(e)??e!=='production'}/>{envLabel(e)}</label>)}</div>
     <div className="teams-field"><span>{t('Service layer scope')}</span>{['mobile','frontend','backend','data','mock'].map(layer=><label className="teams-check" key={layer}><input type="checkbox" name="serviceLayers" value={layer} defaultChecked={form.member?.serviceLayers?.includes(layer)??true}/>{t(layer)}</label>)}</div>
-    <p className="teams-help">{t('Ask your teammate to sign in with this Google email and accept in Teams. No email is sent. Expires in 7 days.')}</p>
+    <p className="teams-help">{t('An invitation email will be sent to this Google account. Your teammate can accept from the email or in Teams. Expires in 7 days.')}</p>
    </>}
    {form.kind==='service'&&<>
     {field('Service name','name',{required:true,maxLength:80,defaultValue:form.service?.name})}
