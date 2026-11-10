@@ -9,7 +9,7 @@ export function applyAppearance(value: Appearance) {
   const light = value === 'light' || value === 'system' && media.matches;
   document.documentElement.classList.toggle('light', light);
   document.documentElement.dataset.appearance = value;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#f6f7f8' : '#101214');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#f6f7f8' : '#000000');
   void window.snapkitDesktop?.setAppearance?.(value).catch(() => {});
   document.dispatchEvent(new Event('snapkit:appearance'));
 }

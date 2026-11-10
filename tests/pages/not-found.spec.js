@@ -11,7 +11,7 @@ for (const width of [375, 768, 1440]) {
       await expect(page.locator('meta[name=robots]')).toHaveAttribute('content', 'noindex,follow');
       expect(await page.locator('body').evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(await page.locator('.brand img').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
-      expect(await page.locator('.error-zero').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(25, 28, 31)');
+      expect(await page.locator('.error-zero').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(26, 26, 26)');
       await page.keyboard.press('Tab');
       await expect(page.locator('.skip-link')).toBeFocused();
       await page.keyboard.press('Enter');

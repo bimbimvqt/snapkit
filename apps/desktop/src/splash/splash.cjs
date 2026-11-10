@@ -1,7 +1,7 @@
 'use strict';
 const path = require('node:path');
 exports.createSplash = async ({ BrowserWindow, language, onCancel }) => {
-  const window = new BrowserWindow({ width: 420, height: 340, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false, show: false, center: true, title: 'Snapkit', backgroundColor: '#101614', autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
+  const window = new BrowserWindow({ width: 420, height: 340, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false, show: false, center: true, title: 'Snapkit', backgroundColor: '#000000', autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   let finishing = false;
   const painted = new Promise(resolve => window.once('ready-to-show', resolve));
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

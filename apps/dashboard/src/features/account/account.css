@@ -1,5 +1,5 @@
 html.account-locked body > :not(.account-gate) { display:none!important }
-.account-gate { min-height:100vh; display:grid; place-items:center; padding:32px; background:radial-gradient(ellipse at top,#193b31,#101214 65%); color:#eee; }
+.account-gate { min-height:100vh; display:grid; place-items:center; padding:32px; background:var(--bg); color:#eee; }
 .account-card { width:min(100%,480px); padding:40px; border:1px solid #33443b; border-radius:24px; background:#171d1b; box-shadow:0 24px 80px #0004; }
 .account-card h1 { font-size:34px; line-height:1.2; margin:20px 0; }
 .account-copy { color:#b8c4bd; line-height:1.7; margin-bottom:28px }

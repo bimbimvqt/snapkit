@@ -119,9 +119,9 @@ async function start() {
     if (!fromApp(event) || !['system', 'light', 'dark'].includes(value)) throw new Error('Invalid appearance');
     await fs.promises.writeFile(appearanceFile, JSON.stringify(value));
     nativeTheme.themeSource = value;
-    mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8');
+    mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8');
   });
-  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8'));
+  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8'));
   ipcMain.handle('snapkit:clear-cache', async event => { if (!fromApp(event)) throw new Error('Invalid caller'); await mainWindow.webContents.session.clearCache(); return { ok: true }; });
   ipcMain.handle('snapkit:update-install', async event => {
     if (!fromApp(event)) throw new Error('Invalid caller');
@@ -136,7 +136,7 @@ async function start() {
     setImmediate(() => app.quit()); return updater.snapshot();
   });
   ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });
-  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#101214' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
