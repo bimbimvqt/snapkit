@@ -196,7 +196,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto('./?lang=en');
  await page.locator('[data-preview=teams]').click();
- await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-teams');
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261110-setup48');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
  const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));

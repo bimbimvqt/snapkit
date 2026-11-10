@@ -55,7 +55,7 @@ function view(workspace, userId) {
   const member = memberOf(workspace, userId);
   const visible = id => teamProjectVisible(member, id);
   const layers = member.serviceLayers ?? teamLayers;
-  const blueprintView = blueprint => ({ ...blueprint, services: blueprint.services.filter(s => layers.includes(s.kind)) });
+  const blueprintView = blueprint => ({ ...blueprint, hasServices: blueprint.services.length > 0, services: blueprint.services.filter(s => layers.includes(s.kind)) });
   return {
     id: workspace.id, name: workspace.name, createdAt: workspace.createdAt, updatedAt: workspace.updatedAt,
     membership: { ...member, permissions: teamPermissions(member.role) },

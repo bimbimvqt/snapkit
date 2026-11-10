@@ -107,7 +107,7 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=${key === 'teams' ? '20261110-teams' : '20261106-images46'}`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=${key === 'teams' ? '20261110-setup48' : '20261106-images46'}`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();

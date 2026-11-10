@@ -1,3 +1,4 @@
+import {Select} from '../../shared/controls/Select';
 import {useEffect,useRef,useState} from 'react';
 import {Icon} from '../../shared/ui/icons';
 import {t} from '../../shared/ui/use-language';
@@ -19,32 +20,33 @@ export function TeamForm({form,workspace,project,busy,error,close,submit}:{form:
   <form onSubmit={e=>{e.preventDefault();void submit(new FormData(e.currentTarget));}}>
    <header><span className="teams-eyebrow">SNAPKIT TEAMS</span><button className="icon-button" type="button" aria-label={t('Close')} disabled={busy||browsing} onClick={close}><Icon name="x"/></button></header>
    <h2 id="teams-form-title">{t(formTitles[form.kind])}</h2>
+   {['workspace','project','service','invite'].includes(form.kind)&&<p className="teams-form-step">{t('Step {0} of 4',[({workspace:1,project:2,service:3,invite:4} as Record<string,number>)[form.kind]])}</p>}
    <fieldset disabled={busy||browsing}>
-   {form.kind==='workspace'&&<>{field('Team workspace name','name',{required:true,maxLength:80})}<p className="teams-help">{t('Shared team data stays separate from your personal workspaces. You become the workspace Owner.')}</p></>}
+   {form.kind==='workspace'&&<>{field('Team workspace name','name',{required:true,maxLength:80})}<p className="teams-help">{t('You will own this workspace. Next, add your first project.')}</p></>}
    {form.kind==='project'&&<>{field('Project name','name',{required:true,maxLength:80})}<label className="teams-field">{t('Description')}<textarea name="description" maxLength={500} rows={3}/></label></>}
    {(form.kind==='invite'||form.kind==='member')&&<>
     {form.kind==='invite'?field('Google account email','email',{required:true,type:'email',maxLength:254}):<p className="teams-help">{form.member?.email}</p>}
-    <label className="teams-field">{t('Team role')}<select name="role" aria-label={t('Team role')} defaultValue={form.member?.role||'developer'}>{['lead','developer','qa','devops','designer','viewer'].map(r=><option value={r} key={r}>{roleLabel(r)}</option>)}</select></label>
+    <label className="teams-field">{t('Team role')}<Select name="role" aria-label={t('Team role')} defaultValue={form.member?.role||'developer'}>{['lead','developer','qa','devops','designer','viewer'].map(r=><option value={r} key={r}>{roleLabel(r)}</option>)}</Select></label>
     <div className="teams-field"><span>{t('Project scope')}</span><label className="teams-check"><input type="checkbox" name="allProjects" checked={allProjects} onChange={e=>setAllProjects(e.target.checked)}/>{t('All current and future projects')}</label>{!allProjects&&workspace?.projects.map(p=><label className="teams-check" key={p.id}><input type="checkbox" name="projectIds" value={p.id} defaultChecked={form.member?.projectIds?.includes(p.id)}/>{p.name}</label>)}</div>
     <div className="teams-field"><span>{t('Environment scope')}</span>{(['development','staging','production'] as Environment[]).map(e=><label className="teams-check" key={e}><input type="checkbox" name="environments" value={e} defaultChecked={form.member?.environments.includes(e)??e!=='production'}/>{envLabel(e)}</label>)}</div>
     <div className="teams-field"><span>{t('Service layer scope')}</span>{['mobile','frontend','backend','data','mock'].map(layer=><label className="teams-check" key={layer}><input type="checkbox" name="serviceLayers" value={layer} defaultChecked={form.member?.serviceLayers?.includes(layer)??true}/>{t(layer)}</label>)}</div>
-    <p className="teams-help">{t('Invitations appear in Snapkit Teams after the recipient signs in with this Google email. No email is sent automatically. Invitations expire after 7 days.')}</p>
+    <p className="teams-help">{t('Ask your teammate to sign in with this Google email and accept in Teams. No email is sent. Expires in 7 days.')}</p>
    </>}
    {form.kind==='service'&&<>
     {field('Service name','name',{required:true,maxLength:80,defaultValue:form.service?.name})}
-    <label className="teams-field">{t('Project layer')}<select name="kind" aria-label={t('Project layer')} value={serviceKind} onChange={e=>setServiceKind(e.target.value)}>{['mobile','frontend','backend','data','mock'].filter(k=>workspace?.membership.serviceLayers?.includes(k)??true).map(k=><option value={k} key={k}>{t(k)}</option>)}</select></label>
+    <label className="teams-field">{t('Project layer')}<Select name="kind" aria-label={t('Project layer')} value={serviceKind} onChange={e=>setServiceKind(e.target.value)}>{['mobile','frontend','backend','data','mock'].filter(k=>workspace?.membership.serviceLayers?.includes(k)??true).map(k=><option value={k} key={k}>{t(k)}</option>)}</Select></label>
     {field('Repository URL','repository',{type:'url',maxLength:2000,defaultValue:form.service?.repository,placeholder:'https://github.com/team/project'})}
     {field('Runtime requirement','runtime',{maxLength:120,defaultValue:form.service?.runtime,placeholder:'Node 22 / Flutter 3.35 / Postgres 16'})}
-    <label className="teams-field">{t('Service owner')}<select name="ownerId" aria-label={t('Service owner')} defaultValue={form.service?.ownerId||''}><option value="">{t('Unassigned')}</option>{workspace?.members.filter(m=>(m.projectIds===null||m.projectIds.includes(project?.id||''))&&(m.serviceLayers?.includes(serviceKind)??true)).map(m=><option key={m.userId} value={m.userId}>{m.name||m.email}</option>)}</select></label>
-    <p className="teams-help">{t('Blueprints store shared requirements and repository references. They do not contain local paths, secrets or executable commands.')}</p>
+    <label className="teams-field">{t('Service owner')}<Select name="ownerId" aria-label={t('Service owner')} defaultValue={form.service?.ownerId||''}><option value="">{t('Unassigned')}</option>{workspace?.members.filter(m=>(m.projectIds===null||m.projectIds.includes(project?.id||''))&&(m.serviceLayers?.includes(serviceKind)??true)).map(m=><option key={m.userId} value={m.userId}>{m.name||m.email}</option>)}</Select></label>
+    <p className="teams-help">{t('Add only what this service needs. Never enter passwords or tokens.')}</p>
    </>}
    {form.kind==='device'&&<>
-    {field('Device name','name',{required:true,maxLength:80})}<label className="teams-field">{t('Platform')}<select name="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>{field('Host label','host',{maxLength:120,placeholder:t('e.g. QA workstation')})}<p className="teams-help">{t('Registers a shared booking resource. It does not connect or share control of a personal device.')}</p>
+    {field('Device name','name',{required:true,maxLength:80})}<label className="teams-field">{t('Platform')}<Select name="platform" aria-label={t('Platform')}><option value="android">Android</option><option value="ios">iOS</option></Select></label>{field('Host label','host',{maxLength:120,placeholder:t('e.g. QA workstation')})}<p className="teams-help">{t('Registers a shared booking resource. It does not connect or share control of a personal device.')}</p>
    </>}
    {form.kind==='handoff'&&<>
     {field('Handoff title','title',{required:true,maxLength:160})}{field('Commit hash','commit',{required:true,maxLength:40,placeholder:'8d2f4a1'})}{field('Build artifact URL','buildUrl',{required:true,type:'url',maxLength:2000})}{field('Build SHA-256','artifactSha256',{required:true,maxLength:64})}{field('Fixture reference','fixture',{maxLength:160})}<label className="teams-field">{t('Test steps')}<textarea name="steps" rows={4} maxLength={4000}/></label><p className="teams-help">{t('References are shared with the team. Use artifact links without tokens or query parameters. Do not include credentials or personal data.')}</p>
    </>}
-   {form.kind==='local'&&<><p className="teams-help">{project?.name} · Blueprint v{project?.blueprint.version}</p><label className="teams-field">{t('Local project folder')}<span className="teams-folder"><input ref={pathInput} name="path" required maxLength={4096} placeholder="/Users/you/Projects/project"/><button className="button" type="button" onClick={()=>void browse()}>{t(browsing?'Opening…':'Browse')}</button></span></label><p className="teams-help">{t('Saves a local binding to this team project and blueprint version. It does not start services or change your personal project settings.')}</p></>}
+   {form.kind==='local'&&<><p className="teams-help">{project?.name} · Blueprint v{project?.blueprint.version}</p><label className="teams-field">{t('Local project folder')}<span className="teams-folder"><input ref={pathInput} name="path" required maxLength={4096} placeholder="/Users/you/Projects/project"/><button className="button" type="button" onClick={()=>void browse()}>{t(browsing?'Opening…':'Browse')}</button></span></label><p className="teams-help">{t('Choose the existing project folder on this computer. Then run your project from your editor.')}</p></>}
    {form.kind==='remove-member'&&<p className="teams-help">{t('Remove access to this workspace and release their device reservations?')}<br/><strong>{form.member?.email}</strong></p>}
    </fieldset>
    {(error||browseError)&&<p className="teams-error" role="alert">{t(error||browseError)}</p>}

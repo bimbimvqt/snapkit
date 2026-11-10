@@ -90,6 +90,10 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   assert.equal(merged.projects[0].blueprint.services.find(s => s.kind === 'mobile').name, 'Mobile');
   assert.equal(merged.projects[0].blueprint.services.find(s => s.kind === 'backend').runtime, 'Node 24');
   await ok('owner', base + '/members/dev', { role: 'viewer', projectIds: [], environments: ['development'] });
+  await ok('owner', base + '/members/viewer', { role: 'viewer', projectIds: [projectId], environments: ['development'], serviceLayers: [] });
+  const restricted = await ok('viewer', base);
+  assert.deepEqual(restricted.projects[0].blueprint.services, []);
+  assert.equal(restricted.projects[0].blueprint.hasServices, true, 'setup can acknowledge configured services without exposing their details');
   const revoked = await ok('dev', base); assert.equal(revoked.projects.length, 0); assert.equal(revoked.handoffs.length, 0); assert.equal(revoked.devices.length, 0);
   assert.equal((await request('dev', base + '/devices/' + deviceId + '/reserve', { minutes: 30 })).status, 404);
   // Failed persistence never publishes a workspace in memory or on disk.

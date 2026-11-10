@@ -78,3 +78,32 @@ Object.assign(window.SnapkitMessages.translations, {
   'Teams storage is unavailable. Try again later.':'Kho dữ liệu Teams chưa khả dụng. Hãy thử lại sau.',
   'Could not connect to Teams or prepare the local project. Check your connection and project folder.':'Chưa kết nối được Teams hoặc chuẩn bị dự án local. Kiểm tra mạng và thư mục dự án.',
 });
+
+Object.assign(window.SnapkitMessages.translations,{
+ "Set up your team workspace": "Thiết lập workspace cho team",
+ "Step 1 of 4 · Create a workspace. Then add a project, configure services and invite your team.": "Bước 1/4 · Tạo workspace, thêm project, cấu hình dịch vụ và mời đồng đội.",
+ "Completed {0} of {1} steps": "Đã hoàn thành {0}/{1} bước",
+ "Workspace setup progress": "Tiến trình thiết lập workspace",
+ "Workspace ready": "Workspace đã sẵn sàng",
+ "Add the project your team will work on.": "Thêm project mà team sẽ cùng làm việc.",
+ "Outside your access scope.": "Ngoài phạm vi quyền của bạn.",
+ "Project layers are configured.": "Đã cấu hình các lớp dịch vụ.",
+ "Add a mobile app, website or backend service.": "Thêm ứng dụng mobile, website hoặc backend.",
+ "A teammate has joined this project.": "Đã có đồng đội tham gia project.",
+ "Invitation sent. Waiting for your teammate to accept.": "Đã tạo lời mời. Đang chờ đồng đội chấp nhận.",
+ "Invite a teammate and ask them to accept in Teams.": "Mời đồng đội và nhờ họ chấp nhận trong Teams.",
+ "Teammates": "Đồng đội",
+ "Current step": "Đang ở bước này",
+ "Next: {0}": "Tiếp theo: {0}",
+ "Ask your workspace Owner to complete this step.": "Nhờ chủ workspace hoàn thành bước này.",
+ "Optional · Add what your project needs": "Tuỳ chọn · Bổ sung theo nhu cầu project",
+ "Local folder connected": "Đã kết nối thư mục local",
+ "View invitations": "Xem lời mời",
+ "Step {0} of 4": "Bước {0}/4",
+ "You will own this workspace. Next, add your first project.": "Bạn sẽ là chủ workspace. Tiếp theo, thêm project đầu tiên.",
+ "Ask your teammate to sign in with this Google email and accept in Teams. No email is sent. Expires in 7 days.": "Đồng đội cần đăng nhập bằng email Google này và chấp nhận trong Teams. Không gửi email; lời mời có hiệu lực 7 ngày.",
+ "Add only what this service needs. Never enter passwords or tokens.": "Chỉ thêm thông tin cần thiết. Không nhập mật khẩu hoặc token.",
+ "Choose the existing project folder on this computer. Then run your project from your editor.": "Chọn thư mục project có sẵn trên máy này. Sau đó chạy project từ trình soạn thảo."
+});
+
+Object.assign(window.SnapkitMessages.translations, {'Complete':'Hoàn tất','Next':'Tiếp theo','Services':'Dịch vụ'});

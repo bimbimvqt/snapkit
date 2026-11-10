@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-const paths=['','en/'];
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows'];
+const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
 test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
  const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
  const titles=new Set();
@@ -21,11 +22,11 @@ test('all public search URLs render useful HTML without JavaScript and have reci
   const schemas=await page.locator('script[type="application/ld+json"]').allTextContents();
   for(const schema of schemas) expect(JSON.parse(schema)['@graph'].length).toBeGreaterThan(0);
  }
- const sitemap=await (await request.get('sitemap.xml')).text();expect([...sitemap.matchAll(/<loc>/g)].length).toBe(2);
+ const sitemap=await (await request.get('sitemap.xml')).text();expect([...sitemap.matchAll(/<loc>/g)].length).toBe(12);
  for(const route of paths) expect(sitemap).toContain(`<loc>https://snapkit.vn/${route}</loc>`);
  await context.close();
 });
-test('English landing stays English with JavaScript and its product links, previews and language switching work',async({page})=>{
+test('English landing stays English with JavaScript and its guide links, previews and language switching work',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('en/');await expect(page.locator('html')).toHaveAttribute('lang','en');
  await expect(page.locator('.hero-product')).toContainText('desktop app');
@@ -35,10 +36,14 @@ test('English landing stays English with JavaScript and its product links, previ
  await expect(page.locator('.hero-product')).toContainText('Ứng dụng desktop');
  expect(errors).toEqual([]);
 });
-test('retired documentation URLs return 404 and recovery stays on the product site',async({request})=>{
- for(const route of ['huong-dan/','en/guides/','huong-dan/flutter-multi-device-debugging/','en/guides/install-snapkit-macos-windows/']){
-  const response=await request.get(route);expect(response.status()).toBe(404);
-  expect(await response.text()).not.toMatch(/href="[^"]*(?:guides\/|huong-dan\/|blob\/main|#readme)/);
+test('guides are usable on small screens, provide related links and keyboard navigation',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ for(const lang of ['vi','en']){
+  await page.goto(`${lang==='vi'?'huong-dan':'en/guides'}/${slugs[0]}/`);
+  for(const width of [375,768,1440]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+  await page.locator('.guide-toc a').first().click();await expect(page.locator('#step-1')).toBeInViewport();
+  await expect(page.locator('.guide-related .guide-card')).toHaveCount(3);
+  await page.screenshot({path:`/tmp/snapkit-seo-guide-${lang}.png`,fullPage:true});
  }
 });
 test('static private app surfaces explicitly prevent search indexing',async({request})=>{
