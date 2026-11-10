@@ -227,5 +227,9 @@ test('Teams preview notification bell stays local and fits Vietnamese mobile',as
  await panel.getByRole('button',{name:'Đọc tất cả',exact:true}).click();await expect(bell.locator('.notification-count')).toHaveCount(0);
  await panel.getByRole('button',{name:'Chưa đọc',exact:true}).click();await expect(panel).toContainText('Bạn đã đọc hết thông báo.');
  await page.screenshot({path:testInfo.outputPath('notifications-vi-mobile.png'),animations:'disabled'});
+ await panel.getByRole('button',{name:'Tất cả',exact:true}).click();
+ await page.evaluate(()=>{localStorage.setItem('snapkit-theme','dark');window.dispatchEvent(new StorageEvent('storage',{key:'snapkit-theme',newValue:'dark'}));});
+ await expect.poll(()=>panel.evaluate(el=>{const color=getComputedStyle(el).color;return getComputedStyle(el.querySelector('strong')).color===color&&getComputedStyle(el.querySelector('button[aria-pressed=false]')).color===color;})).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('notifications-vi-mobile-dark.png'),animations:'disabled'});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(requests).toEqual([]);expect(errors).toEqual([]);
 });
