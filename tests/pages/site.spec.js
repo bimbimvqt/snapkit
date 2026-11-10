@@ -177,7 +177,7 @@ test('an open landing page discovers newly published installers without a reload
 });
 
 test('Personal and Teams explain separate data and desktop availability in both languages', async ({page}) => {
-  for (const [url,title,note] of [['./?lang=vi','Một ứng dụng. Hai không gian.','chưa có trong bộ cài beta.46'],['en/?lang=en','One app. Two spaces.','not included in the beta.46']]) {
+  for (const [url,title,note] of [['./?lang=vi','Một ứng dụng. Hai không gian.','Teams có từ phiên bản 0.2.0 (47)'],['en/?lang=en','One app. Two spaces.','Teams is available in version 0.2.0 (47)']]) {
     await page.goto(url);
     await expect(page.locator('#products-title')).toHaveText(title);
     await expect(page.locator('#products')).toContainText(note);
