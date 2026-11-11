@@ -267,3 +267,23 @@ test('Flutter workspace sample explains all 11 teammates, project layers and the
   await chooseLanguage(page,'vi');
   await expect(page.locator('.hero-screen img')).toHaveAttribute('src','assets/visual/devices-vi.webp');
 });
+
+test('task filters never leave an unrelated detail beside an empty board',async({page})=>{
+ await page.goto('demo/?product=teams&lang=en');
+ await page.getByRole('button',{name:'Tasks',exact:true}).click();
+ const cards=page.locator('.teams-task-card'),detail=page.getByRole('region',{name:'Task details'});
+ await expect(cards.first()).toBeVisible();
+ await cards.last().click();
+ const firstTitle=await cards.first().locator('strong').innerText();
+ await page.getByRole('textbox',{name:'Search tasks',exact:true}).fill(firstTitle);
+ await expect(detail.locator('h2')).toHaveText(firstTitle);
+ await page.getByRole('textbox',{name:'Search tasks',exact:true}).fill('no-such-task-unique-123');
+ await expect(page.getByRole('heading',{name:'No tasks in this view',exact:true})).toBeVisible();
+ await expect(detail).toHaveCount(0);
+ await expect(page.locator('.teams-task-layout')).toHaveCount(0);
+ await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+ await expect(cards.first()).toBeVisible();await expect(detail).toBeVisible();
+ await page.getByRole('button',{name:'My work',exact:true}).click();
+ if(await cards.count()===0)await expect(detail).toHaveCount(0);
+ else await expect(page.locator('.teams-task-card[aria-pressed=true]')).toHaveCount(1);
+});

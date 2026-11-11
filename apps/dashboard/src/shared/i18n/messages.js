@@ -340,6 +340,7 @@ window.SnapkitMessages = {
     "Find a device…": "Tìm thiết bị…",
     "Find a device": "Tìm thiết bị",
     "ALL DEVICES": "TẤT CẢ THIẾT BỊ",
+    "Try another search or clear the filters.": "Thử từ khóa khác hoặc xóa bộ lọc.",
     "Clear filters": "Xóa bộ lọc",
     "Switch to compact view": "Chuyển sang dạng gọn",
     "Switch to card view": "Chuyển sang dạng thẻ",

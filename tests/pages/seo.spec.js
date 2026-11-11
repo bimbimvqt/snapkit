@@ -51,3 +51,26 @@ test('static private app surfaces explicitly prevent search indexing',async({req
   const html=await(await request.get(route)).text();expect(html).toMatch(/name="robots" content="noindex,nofollow"/);
  }
 });
+
+test('guide library and articles keep readable navigation and real app images in both languages',async({page})=>{
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ for(const lang of ['vi','en']){
+  const root=lang==='vi'?'huong-dan/':'en/guides/';
+  await page.goto(root);
+  await expect(page.locator('.guide-start a')).toHaveCount(3);
+  await expect(page.locator('.guide-library .guide-card')).toHaveCount(slugs.length);
+  for(const width of [375,768,1440]){
+   await page.setViewportSize({width,height:1000});
+   await page.locator('.guide-card').last().scrollIntoViewIfNeeded();
+   await expect.poll(()=>page.locator('.guide-card-image img').evaluateAll(nodes=>nodes.every(img=>img.complete&&img.naturalWidth>0))).toBe(true);
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await page.screenshot({path:`/tmp/snapkit-guide-library-${lang}.png`,fullPage:true});
+  await page.goto(root+'snapkit-teams-workflow/');
+  await expect(page.locator('.guide-step-number')).toHaveCount(6);
+  await page.locator('.guide-heading .button').click();await expect(page.locator('#step-1')).toBeInViewport();
+  await page.locator('.guide-toc nav a').last().click();await expect(page.locator('#step-6')).toBeInViewport();
+  await page.screenshot({path:`/tmp/snapkit-guide-teams-${lang}.png`,fullPage:true});
+ }
+ expect(errors).toEqual([]);
+});
