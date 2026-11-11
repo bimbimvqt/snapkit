@@ -276,3 +276,7 @@ Object.assign(window.SnapkitMessages.translations, {
  "Hướng dẫn quy trình Teams":"Teams workflow guide","Mỗi công việc đều có bước tiếp theo.":"Every task has a next step.",
  "Giao task, kết nối Debug Sync, review và kiểm thử ngay trong workspace của team. Theo dõi tiến độ và nhận thông báo khi đến lượt bạn.":"Assign tasks, connect Debug Sync, review and test in your team workspace. Follow progress and get notified when it is your turn."
 });
+
+Object.assign(window.SnapkitMessages.translations,{
+ "Việc đang làm.":"Your current work.","Luôn trong tầm mắt.":"Always in sight.","Task và đồng hồ tập trung trong một widget nổi. Mở nhanh từ menu bar trên Mac hoặc system tray trên Windows.":"Your task and focus timer in a floating widget. Open it from the Mac menu bar or Windows system tray.","Tải bản desktop":"Get the desktop app","Widget Snapkit Mini trong ứng dụng với task và đồng hồ minh hoạ":"Snapkit Mini captured in the app with a sample task and focus timer"
+});

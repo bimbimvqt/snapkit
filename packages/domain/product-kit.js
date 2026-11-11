@@ -1,4 +1,5 @@
-export const kitCatalog={minimumVersion:'0.2.0-beta.57',features:[
+export const kitCatalog={minimumVersion:'0.2.0-beta.62',features:[
+ {id:'mini',name:'Snapkit Mini',vi:'Widget tập trung, task và menu bar / system tray',en:'Focus and task widget with menu bar / system tray',desktop:'full',browser:'desktop-only',data:'local-timer'},
  {id:'clipboard',name:'Clipboard Kit',vi:'Lịch sử văn bản theo phiên',en:'Session text history',desktop:'opt-in',browser:'manual',data:'session-memory'},
  {id:'rename',name:'File Kit',vi:'Đổi tên hàng loạt, xem trước và hoàn tác',en:'Batch rename with preview and undo',desktop:'full',browser:'preview',data:'local-files'},
  {id:'capture',name:'Snap Capture',vi:'Chụp, đánh dấu và che thông tin trên ảnh',en:'Screen capture, annotation and redaction',desktop:'screen-and-image',browser:'image-only',data:'local-image'},

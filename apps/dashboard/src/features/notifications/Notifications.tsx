@@ -1,5 +1,5 @@
 import {reconcileSnapshot} from '../../shared/state/reconcile.js';
-import {pushEnabled,pushSupported,setPush,testPush,desktopPush,listenPush} from './push';
+import {pushEnabled,pushSupported,setPush,testPush,desktopPush,listenPush,startupPush,deferStartupPush} from './push';
 import {createNotificationTracker} from './sound.js';
 import {soundEnabled,setSoundEnabled,unlockSound,playChime,chimeForNewItems,playSuccess,soundVolume,setSoundVolume} from './notification-sound';
 import {createRoot} from 'react-dom/client';
@@ -14,7 +14,8 @@ type Notification={id:string;type:string;title:string;at:string;workspaceId:stri
 type Feed={userId:string;items:Notification[]};
 function Notifications({personalHost}:{personalHost:HTMLElement}){
  const language=useLanguage(),id=useId(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),epoch=useRef(0),writing=useRef(false),track=useRef(createNotificationTracker());
- const hydrated=useRef(false);
+ const hydrated=useRef(false),startupAttempt=useRef('');
+ const [permissionPrompt,setPermissionPrompt]=useState(false);
  const [sound,setSound]=useState(soundEnabled);
  const [push,setPushState]=useState(false),[pushError,setPushError]=useState(''),[pushBusy,setPushBusy]=useState(false);const pushUser=useRef('');
  const [mode,setMode]=useState(document.body.dataset.productMode),[open,setOpen]=useState(false),[feed,setFeed]=useState<Feed>({userId:'',items:[]}),[loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(false),[unreadOnly,setUnreadOnly]=useState(false);
@@ -47,11 +48,20 @@ function Notifications({personalHost}:{personalHost:HTMLElement}){
   if(writing.current)return;writing.current=true;setSaving(true);epoch.current++;setLoading(false);
   try{if(preview)setFeed(previous=>({...previous,items:previous.items.map(item=>({...item,read:!ids||ids.includes(item.id)||item.read}))}));else setFeed(await api('/api/teams/notifications/read',ids?{ids}:{all:true}) as Feed);setError(false);}catch{setError(true);}finally{writing.current=false;setSaving(false);}
  }
+ useEffect(()=>{
+  setPermissionPrompt(false);
+  void window.snapkitDesktop?.miniTask?.(null).catch(()=>{});
+  if(preview||(state as {demo?:boolean}).demo||!feed.userId||startupAttempt.current===feed.userId)return;
+  const userId=feed.userId;startupAttempt.current=userId;let active=true;
+  void startupPush(userId).then(result=>{if(!active)return;setPermissionPrompt(result==='prompt');setPushState(pushEnabled(userId));}).catch(()=>{});
+  return()=>{active=false;};
+ },[preview,feed.userId]);
  useEffect(()=>listenPush(()=>pushUser.current),[feed.userId]);
  const unread=feed.items.filter(item=>!item.read).length,items=unreadOnly?feed.items.filter(item=>!item.read):feed.items;
  const host=mode==='teams'?document.getElementById('teams-notifications-slot'):personalHost;
  return <>
  {host&&createPortal(<button ref={trigger} type="button" className="icon-button notification-trigger" aria-label={unread?t('Notifications ({0} unread)',[unread]):t('Notifications')} aria-expanded={open} aria-haspopup="dialog" aria-controls={id} onClick={()=>{setOpen(!open);if(!open)void refresh();}}><Icon name="bell"/>{unread>0&&<span className="notification-count" aria-hidden="true">{unread>99?'99+':unread}</span>}</button>,host)}
+ {permissionPrompt&&<div className="notification-permission" role="region" aria-label={t('Enable notifications')}><span className="notification-symbol"><Icon name="bell"/></span><div><strong>{t('Stay in the loop')}</strong><p>{t('Allow task, build and team updates on this device.')}</p></div><div className="notification-permission-actions"><button type="button" className="button primary" disabled={pushBusy} onClick={()=>{const userId=feed.userId;setPushBusy(true);void setPush(userId,true).then(()=>{setPushState(true);setPermissionPrompt(false);deferStartupPush(userId);}).catch((e:Error)=>{setPushError(e.message);setOpen(true);setPermissionPrompt(false);deferStartupPush(userId);}).finally(()=>setPushBusy(false));}}>{t('Allow notifications')}</button><button type="button" className="button" disabled={pushBusy} onClick={()=>{deferStartupPush(feed.userId);setPermissionPrompt(false);}}>{t('Not now')}</button></div></div>}
  <div ref={panel} id={id} popover="manual" className="notification-panel" role="dialog" aria-labelledby={id+'-title'} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close(true);}}}>
   <header><h2 id={id+'-title'}>{t('Notifications')}</h2><div className="notification-header-actions"><button type="button" className="icon-button" aria-label={t('Notification sound')} title={t(sound?'Mute notification sound':'Enable notification sound')} aria-pressed={sound} onClick={()=>{setSoundEnabled(!sound);if(!sound)void unlockSound();}}><Icon name={sound?'volume-2':'volume-x'}/></button><button className="icon-button" data-close type="button" aria-label={t('Close notifications')} onClick={()=>close(true)}><Icon name="x"/></button></div></header>
   <div className="notification-tools"><div role="group" aria-label={t('Filter notifications')}><button type="button" aria-pressed={!unreadOnly} onClick={()=>setUnreadOnly(false)}>{t('All')}</button><button type="button" aria-pressed={unreadOnly} onClick={()=>setUnreadOnly(true)}>{t('Unread')}{unread>0?' · '+unread:''}</button></div><button type="button" disabled={saving||loading||!unread} onClick={()=>void read()}>{t('Mark all as read')}</button></div>

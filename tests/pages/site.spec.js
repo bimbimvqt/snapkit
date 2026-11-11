@@ -306,3 +306,5 @@ test('kit gallery keeps artwork and action rows aligned with no empty stretched 
   for(let i=0;i<3;i++){await expect(cards.nth(i)).toHaveAttribute('href',new RegExp('tool='+['capture','clipboard','qr'][i]));}
  }
 });
+
+test('floating widget preview uses real app images and identifies desktop availability in both languages',async({page})=>{for(const [route,heading] of [['','Luôn trong tầm mắt.'],['en/','Always in sight.']]){await page.goto(route);const section=page.locator('#mini-widget');await section.scrollIntoViewIfNeeded();await expect(section).toContainText(heading);await expect(section.locator('img')).toHaveJSProperty('complete',true);await expect.poll(()=>section.locator('img').evaluate(img=>img.naturalWidth)).toBeGreaterThan(0);for(const width of [375,768,1440]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}}});

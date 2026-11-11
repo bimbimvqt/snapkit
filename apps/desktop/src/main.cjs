@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -13,7 +13,7 @@ const origin = `http://127.0.0.1:${port}`;
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const devRoot = path.resolve(process.env.SNAPKIT_DEV_DATA_ROOT || path.join(repositoryRoot, '.snapkit-dev', process.env.SNAPKIT_DESKTOP_DEMO === '1' ? 'demo' : 'local'));
 let stopWatching, updateChecks;
-let agent, mainWindow, bootSplash, exiting = false;
+let agent, mainWindow, bootSplash, mini, quitting = false, exiting = false;
 app.setName(development ? 'Snapkit Dev' : 'Snapkit');
 if (development) app.setPath('userData', path.join(devRoot, 'profile'));
 if (process.env.SNAPKIT_SMOKE_TEST === '1') app.setPath('userData', path.join(process.env.SNAPKIT_DATA_ROOT || os.tmpdir(), 'snapkit-smoke-profile'));
@@ -86,7 +86,8 @@ async function start() {
   }
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
   const everyday=require('./kit/everyday.cjs').installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage});
-  require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
+  const kit=require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
+  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
     if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
@@ -98,6 +99,7 @@ async function start() {
   ipcMain.handle('snapkit:language' , (event, value) => {
     if (!fromApp(event) || !['en', 'vi'].includes(value)) throw new Error('Invalid language');
     desktopLanguage = value;
+    mini?.refresh();
     fs.mkdirSync(path.dirname(languageFile), { recursive: true });
     fs.writeFileSync(languageFile, JSON.stringify(value), { mode: 0o600 });
   });
@@ -151,21 +153,7 @@ async function start() {
       fs.mkdirSync(path.dirname(cacheVersion), { recursive: true }); fs.writeFileSync(cacheVersion, JSON.stringify(app.getVersion()));
     }
   }
-  mainWindow.on('close', event => {
-    if (exiting) return;
-    event.preventDefault();
-    (async () => {
-      try {
-        const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(2000) });
-        const state = await response.json();
-        if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.jobs?.some(job => job.status === 'running')) {
-          const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT(state.activeReleaseTask ? "A build or upload is still running" : "A device task is still running"), message: nativeT("Keep Snapkit open to finish your device task."), detail: nativeT(state.activeReleaseTask ? "Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying." : "Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
-          if (choice.response !== 1) return;
-        }
-      } catch {}
-      app.quit();
-    })();
-  });
+  mainWindow.on('close', event => { if (!exiting) { event.preventDefault(); mainWindow.hide(); } });
   const firstPaint = new Promise(resolve => mainWindow.once('ready-to-show', resolve));
   let resolveReady;
   const rendererReady = new Promise(resolve => { resolveReady = resolve; });
@@ -226,6 +214,38 @@ async function start() {
       const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
       return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
+    await mini.show();
+    const miniWindow=mini.getWindow();
+    const miniResult=await miniWindow.webContents.executeJavaScript(`(async()=>{
+      const before=await window.snapkitMini.state();
+      await window.snapkitMini.action('focus');
+      const running=await window.snapkitMini.state();
+      await window.snapkitMini.action('focus');
+      const paused=await window.snapkitMini.state();
+      await window.snapkitMini.action('compact');
+      const compact=(await window.snapkitMini.state()).compact;
+      await window.snapkitMini.action('compact');
+      await window.snapkitMini.action('pin');
+      const unpinned=!(await window.snapkitMini.state()).pinned;
+      await window.snapkitMini.action('pin');
+      let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
+      return !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
+    })()`);
+    mainWindow.close();
+    const hidden=!mainWindow.isVisible();
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('open')");
+    result.mini=miniResult && hidden && mainWindow.isVisible() && miniWindow.isAlwaysOnTop() && mini.hasTray();
+    await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniTask({id:'fixture-task',userId:'fixture-user',workspaceId:'fixture-team',projectId:'fixture-project',environment:'development',title:'Hoàn thiện màn thanh toán',project:'Demo Flutter · MOB-42',done:3,total:5})`);
+    await new Promise(resolve=>setTimeout(resolve,100));
+    result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.getElementById('title').textContent==='Hoàn thiện màn thanh toán' && !document.getElementById('task').hidden");
+    if(process.env.SNAPKIT_MINI_SCREENSHOT){
+      for(const language of ['en','vi']){
+        await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.setLanguage('${language}')`);
+        await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniFocus({remaining:1458,deadline:null})`);
+        await new Promise(resolve=>setTimeout(resolve,120));
+        fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
+      }
+    }
     result.clipboard=clipboardAPI;
     result.everyday=result.everyday && fs.readFileSync(kitFixture,'utf8')==='smoke fixture';
     result.splash = splashVerified && splashClosed && readyReported;
@@ -233,18 +253,31 @@ async function start() {
     app.quit();
   }
 }
-app.on('window-all-closed', () => app.quit());
+app.on('activate',()=>{if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.show();mainWindow.focus();}});
+app.on('window-all-closed', () => {if(!mini?.hasTray())app.quit();});
 app.on('before-quit', event => {
   if (exiting) return;
-  exiting = true;
-  stopWatching?.(); updateChecks?.stop();
-  bootSplash?.destroy();
   event.preventDefault();
+  if(quitting)return;
+  quitting=true;
   (async () => {
+      try {
+        if(process.env.SNAPKIT_SMOKE_TEST==='1'||!mainWindow||mainWindow.isDestroyed())throw Error('Skip quit check');
+        const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(2000) });
+        const state = await response.json();
+        if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) {
+          if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
+          const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT(state.activeReleaseTask ? "A build or upload is still running" : "A device task is still running"), message: nativeT("Keep Snapkit open to finish your device task."), detail: nativeT(state.activeReleaseTask ? "Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying." : "Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
+          if (choice.response !== 1) { quitting=false; return; }
+        }
+      } catch {}
+    exiting = true;
+    stopWatching?.(); updateChecks?.stop();
+    bootSplash?.destroy();
     await updater.close().catch(() => {});
     if (agent) {
-    const child = agent; agent = null;
-    await new Promise(resolve => { const timer = setTimeout(() => { child.kill(); resolve(); }, 15000); child.once('exit', () => { clearTimeout(timer); resolve(); }); child.postMessage({ type: 'shutdown' }); });
+      const child = agent; agent = null;
+      await new Promise(resolve => { const timer = setTimeout(() => { child.kill(); resolve(); }, 15000); child.once('exit', () => { clearTimeout(timer); resolve(); }); child.postMessage({ type: 'shutdown' }); });
     }
     app.quit();
   })();

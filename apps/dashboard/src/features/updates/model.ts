@@ -7,7 +7,14 @@ export interface UpdateState {
 export interface DesktopKitState { startupAvailable:boolean; openAtLogin:boolean; shortcut:boolean; awake:boolean }
 export type ClipboardSnapshot={enabled:boolean;error?:string;items:{id:string;text:string;at:number}[]};
 export type RenameOptions={prefix:string;suffix:string;find:string;replacement:string;numbering:boolean;start:number};
+export type MiniFocus={remaining:number;deadline:number|null};
+export type MiniTask={id:string;userId:string;workspaceId:string;projectId:string;environment:string;title:string;project:string;done:number;total:number};
 export interface DesktopUpdates {
+  miniOpen?:()=>Promise<boolean>;
+  miniFocus?:(value:MiniFocus)=>Promise<void>;
+  miniTask?:(value:MiniTask|null)=>Promise<void>;
+  onMiniFocus?:(callback:(value:MiniFocus)=>void)=>()=>void;
+  onMiniNavigate?:(callback:()=>void)=>()=>void;
   clipboardState?:()=>Promise<ClipboardSnapshot>;
   clipboardEnabled?:(value:boolean)=>Promise<ClipboardSnapshot>;
   clipboardClear?:()=>Promise<ClipboardSnapshot>;

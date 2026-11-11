@@ -11,7 +11,7 @@ async function workspace(page,role='admin') {
     const request=route.request(),url=new URL(request.url()),pathname=url.pathname;state.requests.push(pathname);
     const reply=data=>route.fulfill({json:data});
     if(pathname==='/v1/product/kit')return reply(kitCatalog);
-    if(pathname==='/v1/releases/latest')return reply({available:true,version:'0.2.0-beta.58'});
+    if(pathname==='/v1/releases/latest')return reply({available:true,version:'0.2.0-beta.62'});
     if(pathname==='/v1/auth/config')return reply({configured:true});
     if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
     if(pathname==='/v1/admin/overview')return state.failOverview?route.fulfill({status:503,json:{error:'Máy chủ tạm thời không phản hồi.'}}):reply({users:24,activeUsers:21,sessions:8,content:state.content,feedback:{total:12,open:7,pending:3,published:2},audit:[]});
@@ -46,7 +46,7 @@ for(const [role,visible]of Object.entries({admin:['overview','feedback','users',
         await expect(page.locator('#teams-list script')).toHaveCount(0);
         await page.screenshot({path:'/tmp/snapkit-admin-teams.png'});
       }
-      if(visible.includes('kit')){await page.locator('.admin-sidebar [data-admin-page=kit]').click();await expect(page.locator('#kit-catalog article')).toHaveCount(8);await expect(page.locator('#kit-release-status')).toContainText('Có Daily Kit mới');}
+      if(visible.includes('kit')){await page.locator('.admin-sidebar [data-admin-page=kit]').click();await expect(page.locator('#kit-catalog article')).toHaveCount(9);await expect(page.locator('#kit-release-status')).toContainText('Có Daily Kit mới');}
       if(visible.includes('content')){
         await page.locator('.admin-sidebar [data-admin-page=content]').click();await expect(page.locator('[name=headline-vi]')).toHaveValue(defaultContent().landing.vi.headline);
         if(role==='viewer'){await expect(page.locator('#content button[type=submit]')).toBeHidden();await expect(page.locator('[name=headline-vi]')).toBeDisabled();}

@@ -34,7 +34,7 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "This undo is no longer available": "Không còn phiên đổi tên để hoàn tác",
   "Wait for the current rename": "Chờ lần đổi tên hiện tại hoàn tất",
   "Choose your files again": "Hãy chọn lại tệp",
-  "Keep recent text within reach. History stays in memory and clears when Snapkit closes.": "Tìm lại văn bản vừa sao chép. Lịch sử ở trong bộ nhớ và được xoá khi đóng Snapkit.",
+  "Keep recent text within reach. History stays in memory and clears when you quit Snapkit.": "Tìm lại văn bản vừa sao chép. Lịch sử ở trong bộ nhớ và được xoá khi thoát hẳn Snapkit.",
   "Capture new copied text for this session": "Lưu văn bản mới sao chép trong phiên này",
   "Capture starts off. Avoid copying passwords or private keys while capture is on. No history is uploaded.": "Mặc định tắt. Tránh sao chép mật khẩu hay khoá riêng khi đang bật. Lịch sử không được tải lên mạng.",
   "Read clipboard once": "Đọc clipboard một lần",
@@ -224,7 +224,7 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "Keep this computer awake": "Giữ máy luôn thức",
   "Global shortcut: ⌘/Ctrl + Shift + Space": "Phím tắt toàn hệ thống: ⌘/Ctrl + Shift + Space",
   "Use ⌘/Ctrl + K inside Snapkit": "Dùng ⌘/Ctrl + K trong Snapkit",
-  "Keep Awake lasts until you switch it off or close Snapkit.": "Giữ máy thức đến khi bạn tắt tính năng hoặc đóng Snapkit.",
+  "Keep Awake lasts until you switch it off or quit Snapkit.": "Giữ máy thức đến khi bạn tắt tính năng hoặc thoát hẳn Snapkit.",
   "Startup and Keep Awake are available in Snapkit Desktop.": "Khởi động cùng máy và Giữ máy thức có trong ứng dụng desktop.",
   "What would you like to do?": "Bạn muốn làm gì?",
   "Search commands": "Tìm lệnh",
@@ -245,3 +245,5 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "Open the local Snapkit app to use this kit.": "Mở Snapkit trên máy để dùng bộ tiện ích này."
 });
 }
+
+Object.assign(window.SnapkitMessages.translations,{'Open floating widget':'Mở widget nổi','Could not open widget':'Chưa mở được widget','Pin task in widget: {0}':'Ghim task vào widget: {0}'});
