@@ -201,7 +201,9 @@ app.get('/api/releases', (_req, res) => res.json(releaseBuilds.list(settings.wor
 app.get('/api/releases/:id', (req, res) => res.json(releaseBuilds.publicJob(releaseBuilds.find(requireWorkspace(), req.params.id), true)));
 app.post('/api/releases/build', async (req, res) => {
   if (req.body.operation === 'run') throw Error('Use the Run Release action to select a physical device.');
-  res.json(await releaseBuilds.start(requireWorkspace(), req.body));
+  const workspace = requireWorkspace();
+  if (req.body.expectedWorkspace !== undefined && req.body.expectedWorkspace !== workspace) return res.status(409).json({error:'Workspace changed. Review the build selection and try again.'});
+  res.json(await releaseBuilds.start(workspace, req.body));
 });
 app.post('/api/releases/run', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Run Release is available in the local app only.' });

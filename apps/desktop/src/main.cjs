@@ -250,10 +250,26 @@ async function start() {
 
       return modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
     })()`);
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
+    for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.canBuild)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
+    const beforeBuild=await fetch(origin+'/api/state').then(r=>r.json());
+    const staleBuild=await fetch(origin+'/api/releases/build',{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':beforeBuild.token},body:JSON.stringify({expectedWorkspace:'stale-workspace',format:'apk'})});
+    result.mini=miniResult && staleBuild.status===409;
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:android').then(()=>window.snapkitMini.action('build:dev'))");
+    const starts=await miniWindow.webContents.executeJavaScript("Promise.allSettled([window.snapkitMini.action('build:start'),window.snapkitMini.action('build:start')]).then(results=>results.map(result=>result.status))");
+    result.mini=result.mini && starts.filter(status=>status==='fulfilled').length===1 && starts.filter(status=>status==='rejected').length===1;
+    const devBuild=await fetch(origin+'/api/releases').then(r=>r.json());
+    result.mini=result.mini && devBuild.jobs[0]?.plan.format==='apk' && devBuild.jobs[0]?.plan.flavor==='dev' && devBuild.jobs[0]?.plan.target==='lib/main_dev.dart' && devBuild.jobs[0]?.plan.defineFile==='config/dev.json';
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:cancel')");
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:ios').then(()=>window.snapkitMini.action('build:prod')).then(()=>window.snapkitMini.action('build:start'))");
+    await new Promise(resolve=>setTimeout(resolve,800));
+    const prodBuild=await fetch(origin+'/api/releases').then(r=>r.json());
+    result.mini=result.mini && prodBuild.jobs[0]?.plan.format==='ipa' && prodBuild.jobs[0]?.plan.flavor==='prod' && prodBuild.jobs[0]?.plan.target==='lib/main_prod.dart' && prodBuild.jobs[0]?.status==='succeeded' && !prodBuild.jobs[0]?.uploadStatus;
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     mainWindow.close();
     const hidden=!mainWindow.isVisible();
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('open')");
-    result.mini=miniResult && hidden && mainWindow.isVisible() && miniWindow.isAlwaysOnTop() && mini.hasTray();
+    result.mini=result.mini && hidden && mainWindow.isVisible() && miniWindow.isAlwaysOnTop() && mini.hasTray();
     await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniTask({id:'fixture-task',userId:'fixture-user',workspaceId:'fixture-team',projectId:'fixture-project',environment:'development',title:'Hoàn thiện màn thanh toán',project:'Demo Flutter · MOB-42',done:3,total:5})`);
     await new Promise(resolve=>setTimeout(resolve,100));
     result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.getElementById('title').textContent==='Hoàn thiện màn thanh toán' && !document.getElementById('task').hidden");
