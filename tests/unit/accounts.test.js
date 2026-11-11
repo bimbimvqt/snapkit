@@ -182,3 +182,13 @@ test('Google login returns invitees only to the allowed join page and rejects ar
   const response=await fetch(base+'/auth/google/callback?state='+google.searchParams.get('state')+'&code=test',{redirect:'manual',headers:{Cookie:start.headers.get('set-cookie').split(';')[0]}});assert.equal(response.headers.get('location'),expected);
  }
 });
+
+
+test('static website requests do not consume the cloud API rate limit',async t=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),'snapkit-static-rate-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const app=createCloud({env:{SNAPKIT_CLOUD_DATA:dir}}),server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));t.after(()=>server.close());const origin='http://127.0.0.1:'+server.address().port;
+ for(let i=0;i<125;i++)assert.equal((await fetch(origin+'/favicon.svg')).status,200);
+ for(let i=0;i<120;i++)assert.equal((await fetch(origin+'/v1/product/kit')).status,200);
+ const limited=await fetch(origin+'/v1/product/kit');assert.equal(limited.status,429);assert.equal(limited.headers.get('retry-after'),'60');
+ assert.equal((await fetch(origin+'/favicon.svg')).status,200);assert.equal((await fetch(origin+'/health')).status,200);
+});

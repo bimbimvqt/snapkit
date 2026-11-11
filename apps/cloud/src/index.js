@@ -30,6 +30,8 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle,p
     const allowedOrigins = new Set(['https://snapkit.vn', 'https://bimbimvqt.github.io', new URL(env.SNAPKIT_PUBLIC_URL || 'https://snapkit.vn').origin]);
     if (allowedOrigins.has(req.headers.origin)) { res.set('Access-Control-Allow-Origin', req.headers.origin); res.vary('Origin'); }
     if (req.method === 'OPTIONS') { res.set('Access-Control-Allow-Methods', 'GET, OPTIONS'); return res.sendStatus(204); }
+    // Static assets have their own gateway protection and must not consume API budgets.
+    if (!/^\/(v1|auth)(\/|$)/.test(req.path)) return next();
     const ip = req.ip || 'unknown'; const now = Date.now();
     const rate = limits.get(ip); const count = rate && rate.until > now ? rate : { count: 0, until: now + 60000 };
     count.count++; limits.set(ip, count);
