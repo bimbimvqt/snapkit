@@ -9,7 +9,7 @@ const timer = setTimeout(() => { child.kill(); process.exitCode = 1; }, 45000);
 child.on('error', error => { clearTimeout(timer); console.error(error.message); process.exitCode = 1; });
 child.on('exit', code => {
   clearTimeout(timer);
-  try { const result = JSON.parse(readFileSync(output)); if (code !== 0 || !result.desktop || !result.bridge || !result.ui || !result.languages || !result.splash || !result.kit || !result.everyday) throw new Error('Desktop smoke failed'); console.log('Desktop window, preload bridge and local agent passed:', result); }
+  try { const result = JSON.parse(readFileSync(output)); if (code !== 0 || !result.desktop || !result.bridge || !result.ui || !result.languages || !result.splash || !result.kit || !result.everyday || !result.clipboard) throw new Error('Desktop smoke failed'); console.log('Desktop window, preload bridge and local agent passed:', result); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
   finally { rmSync(tmp, { recursive: true, force: true }); }
 });

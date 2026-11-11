@@ -5,7 +5,7 @@ export interface UpdateState {
   received?: number; size?: number; percent?: number; reused?: number; downloadSize?: number; fullSize?: number;
 }
 export interface DesktopKitState { startupAvailable:boolean; openAtLogin:boolean; shortcut:boolean; awake:boolean }
-export type ClipboardSnapshot={enabled:boolean;items:{id:string;text:string;at:number}[]};
+export type ClipboardSnapshot={enabled:boolean;error?:string;items:{id:string;text:string;at:number}[]};
 export type RenameOptions={prefix:string;suffix:string;find:string;replacement:string;numbering:boolean;start:number};
 export interface DesktopUpdates {
   clipboardState?:()=>Promise<ClipboardSnapshot>;

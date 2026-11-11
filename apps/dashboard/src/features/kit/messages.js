@@ -40,6 +40,7 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "Read clipboard once": "Đọc clipboard một lần",
   "Search clipboard": "Tìm trong clipboard",
   "Clear history": "Xoá lịch sử",
+  "Clipboard capture paused. Turn it on to try again.": "Đã tạm dừng lưu clipboard. Bật lại để thử lần nữa.",
   "Clipboard history cleared.": "Đã xoá lịch sử clipboard.",
   "Your next copied text will appear here after capture is enabled.": "Sau khi bật, văn bản bạn sao chép tiếp theo sẽ hiện ở đây.",
   "Choose text shorter than 10000 characters": "Chọn văn bản dưới 10000 ký tự",

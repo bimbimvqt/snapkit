@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, desktopCapturer } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -196,6 +196,16 @@ async function start() {
   }
   const splashClosed = bootSplash.window.isDestroyed();
   if (process.env.SNAPKIT_SMOKE_TEST === '1') {
+    const {createClipboardHistory}=require('./kit/clipboard.cjs');
+    let clipboardItems=[new ClipboardItem({'text/plain':'initial fixture'})];
+    const fixtureClipboard={has:async type=>clipboardItems.some(item=>item.types.includes(type)),read:async()=>clipboardItems,readText:async()=>await(await clipboardItems[0].getType('text/plain')).text(),writeText:async text=>{clipboardItems=[new ClipboardItem({'text/plain':text})];}};
+    const clipboardHistory=createClipboardHistory(fixtureClipboard);
+    await clipboardHistory.setEnabled(true);clipboardItems=[new ClipboardItem({'text/plain':'Snapkit native clipboard fixture'})];await clipboardHistory.collect();
+    const clipboardItem=clipboardHistory.state().items[0];
+    const clipboardAPI=typeof clipboard.read==='function'&&typeof clipboard.has==='function'&&typeof clipboard.readText==='function'&&typeof clipboard.writeText==='function';
+    if(!clipboardAPI||clipboardItem?.text!=='Snapkit native clipboard fixture')throw Error('Electron clipboard contract failed');
+    await clipboardHistory.copy(clipboardItem.id);await clipboardHistory.clear();
+    if(clipboardHistory.state().items.length)throw Error('Clipboard clear failed');clipboardHistory.dispose();
     const kitFixture=path.join(process.env.SNAPKIT_DATA_ROOT,'kit-smoke.txt');fs.writeFileSync(kitFixture,'smoke fixture');
     const kitSelection=await everyday.files.choose([kitFixture]);const kitRename=await everyday.files.apply(kitSelection.id,{prefix:'renamed-'});
     const result = await mainWindow.webContents.executeJavaScript(`(async () => {
@@ -216,6 +226,7 @@ async function start() {
       const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
       return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
+    result.clipboard=clipboardAPI;
     result.everyday=result.everyday && fs.readFileSync(kitFixture,'utf8')==='smoke fixture';
     result.splash = splashVerified && splashClosed && readyReported;
     fs.writeFileSync(process.env.SNAPKIT_SMOKE_OUTPUT || path.join(os.tmpdir(), 'snapkit-desktop-smoke.json'), JSON.stringify(result));
