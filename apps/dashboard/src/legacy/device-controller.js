@@ -66,10 +66,14 @@ async function api(url, data, quiet = false) {
 function toast(message, error = false) {
   // Sample-device actions remain read-only without reporting an expected limitation as an error.
   if (window.SNAPKIT_PREVIEW && message === previewReadOnlyMessage) return;
-  if (error) document.dispatchEvent(new Event('snapkit:review-error'));
+  document.dispatchEvent(new Event(error ? 'snapkit:review-error' : 'snapkit:action-success'));
   const node = document.createElement('div'); node.className = `toast${error ? ' error' : ''}`;
-  node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(t(message))}</span>`;
-  $('#toast-region').append(node); icons(); setTimeout(() => node.remove(), error ? 9000 : 4500);
+  node.innerHTML = `${icon(error ? 'circle-alert' : 'circle-check')}<span>${escape(t(message))}</span><button type="button" class="toast-dismiss" aria-label="${escape(t('Dismiss'))}">${icon('x')}</button>`;
+  const region = $('#toast-region'); if (!region) return;
+  while (region.children.length >= 4) region.firstElementChild.remove();
+  node.setAttribute('role', error ? 'alert' : 'status');
+  node.querySelector('.toast-dismiss').addEventListener('click', () => node.remove());
+  region.append(node); icons(); setTimeout(() => node.remove(), error ? 9000 : 4500);
 }
 async function busy(button, task) {
   if (button?.disabled) return;
@@ -698,3 +702,5 @@ document.addEventListener('snapkit:language', () => {
 export { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace, loadState, init };
 
 document.addEventListener('snapkit:profile', () => render());
+
+document.addEventListener('snapkit:toast', event => toast(event.detail.message, event.detail.error));

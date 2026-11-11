@@ -20,3 +20,6 @@ body[data-developer-role=general] .sidebar-group[aria-labelledby=nav-delivery],b
 @media(max-width:600px){.kit-rename-options,.kit-screen-picker{grid-template-columns:1fr}.kit-clipboard-list article{flex-direction:column}.kit-capture-tools .button{font-size:12px}.kit-tool-picker button{overflow-wrap:anywhere;min-width:0}}
 
 .kit-machine>.storage-volumes{margin-top:24px}
+
+/* Separate card content, action rows and form feedback without changing card geometry. */
+.kit-card>p{margin:12px 0 20px}.kit-card>header{margin-bottom:20px}.kit-card>.button,.kit-card>.text-button{margin-top:16px}.kit-cache-action{align-self:flex-start}.kit-card .text-button{min-height:44px;padding:10px 14px}.kit-card>h3{margin-bottom:16px}.kit-card [role=alert]{margin:16px 0;padding:12px 14px;border:1px solid var(--border);border-radius:8px;line-height:1.6}.kit-card [role=status]:empty{display:none}.kit-actions input:not([type=checkbox]){min-height:44px;min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-subtle);color:var(--text);font:inherit}.kit-form-row{row-gap:20px}.kit-run-step{padding-block:16px}.kit-settings-row{row-gap:16px}.kit-check{min-height:44px}

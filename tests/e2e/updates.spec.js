@@ -19,7 +19,7 @@ test('in-app update controls show progress, separate install action and cache fe
   await page.evaluate(() => window.snapkitDesktop.testReady()); await expect(page.locator('#update-install')).toBeVisible();
   await page.locator('#update-install').click(); await expect(page.locator('#update-detail')).toContainText('Finish builds');
   await page.locator('[data-app-page="preferences"]').click();
-  await page.locator('#clear-app-cache').click(); await expect(page.locator('#cache-result')).toHaveText('Temporary app cache cleared.');
+  await page.locator('#clear-app-cache').click(); await expect(page.locator('#toast-region')).toContainText('Temporary app cache cleared.');
   await page.locator('[data-app-page="updates"]').click();
   await page.evaluate(() => window.SnapkitI18n.setLanguage('vi')); await expect(page.locator('#update-install')).toHaveText('Khởi động lại và cài đặt');
   await expect(page.locator('#update-status')).toContainText('đã sẵn sàng để cài');

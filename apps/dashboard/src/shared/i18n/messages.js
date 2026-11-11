@@ -1153,3 +1153,9 @@ Object.assign(window.SnapkitMessages.translations, {
   'Update download failed (HTTP {0}). Try again.': 'Không tải được bản cập nhật (HTTP {0}). Hãy thử lại.',
   'Unexpected update metadata redirect.': 'Địa chỉ phản hồi cập nhật không hợp lệ.'
 });
+
+Object.assign(window.SnapkitMessages.translations,{"My profile": "Hồ sơ của tôi", "Display name": "Tên hiển thị", "Job title": "Chức danh", "About you": "Giới thiệu", "Email": "Email", "Managed by your Google account.": "Được quản lý bởi tài khoản Google.", "Save profile": "Lưu hồ sơ", "Profile saved": "Đã lưu hồ sơ", "Reset changes": "Đặt lại thay đổi", "Sample profile. Changes stay in this preview.": "Hồ sơ mẫu. Thay đổi chỉ có trong bản xem thử.", "Sample profile updated for this preview.": "Đã cập nhật hồ sơ mẫu trong bản xem thử.", "Sign in to edit your profile.": "Đăng nhập để chỉnh sửa hồ sơ.", "Check your profile fields.": "Kiểm tra các thông tin hồ sơ."});
+
+Object.assign(window.SnapkitMessages.translations,{'Sound volume':'Âm lượng thông báo'});
+
+Object.assign(window.SnapkitMessages.translations,{'Text converted':'Đã chuyển đổi văn bản','Image converted':'Đã chuyển đổi ảnh','QR code generated':'Đã tạo mã QR','Download started':'Đã bắt đầu tải xuống'});

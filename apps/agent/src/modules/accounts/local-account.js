@@ -55,5 +55,6 @@ export class LocalAccount {
     try { await this.storage('write', { token: this.token }); } catch { status.sessionOnly = true; }
     return status;
   }
+  async updateProfile(input) { const result = await this.request('/v1/account/profile', input); this.user = result.user; this.checked = Date.now(); return result; }
   async logout() { if (this.token) await this.request('/v1/auth/logout', {}).catch(() => {}); this.token = ''; this.user = null; this.flow = null; this.error = ''; await this.storage('write', null).catch(() => {}); }
 }

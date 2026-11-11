@@ -6,7 +6,7 @@ import { adminRoles, permissionsFor, hasPermission, routePermission } from './do
 const secret = () => randomBytes(32).toString('base64url');
 const hash = value => createHash('sha256').update(value).digest('hex');
 const DAY = 86400000;
-const safeUser = user => ({ id: user.id, name: user.name, email: user.email, picture: user.picture, role: user.role, disabled: user.disabled, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt });
+const safeUser = user => ({ id: user.id, name: user.name, email: user.email, picture: user.picture, bio: user.bio || '', jobTitle: user.jobTitle || '', role: user.role, disabled: user.disabled, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt });
 export const defaultContent = () => ({ revision: 0, registrationOpen: true, recommendedVersion: '', announcement: { en: '', vi: '' }, landing: {
   en: { headline: 'Debug multiple devices. From your favorite editor.', description: 'Select your devices, press F5 and test your app across screens.' },
   vi: { headline: 'Debug nhiều thiết bị. Ngay từ editor của bạn.', description: 'Chọn thiết bị, bấm F5 và kiểm tra ứng dụng trên nhiều màn hình.' }
@@ -147,7 +147,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
           const id = 'google:' + claims.sub, existing = next.users[id];
           if (existing?.disabled || !existing && !next.content.registrationOpen && !admins.has(claims.email.toLowerCase())) throw Error('Account access is not available.');
           const picture = typeof claims.picture === 'string' && /^https:\/\/lh[0-9]*\.googleusercontent\.com\//.test(claims.picture) ? claims.picture : '';
-          const user = { id, email: claims.email, name: String(claims.name || claims.email).slice(0, 160), picture, adminRole: existing?.adminRole || 'user', role: admins.has(claims.email.toLowerCase()) ? 'admin' : 'user', disabled: false, createdAt: existing?.createdAt || now, lastLoginAt: now };
+          const user = { id, email: claims.email, name: existing?.profileEdited ? existing.name : String(claims.name || claims.email).slice(0, 160), profileEdited: existing?.profileEdited || false, picture, bio: existing?.bio || '', jobTitle: existing?.jobTitle || '', adminRole: existing?.adminRole || 'user', role: admins.has(claims.email.toLowerCase()) ? 'admin' : 'user', disabled: false, createdAt: existing?.createdAt || now, lastLoginAt: now };
           next.users[id] = user;
           const sessions = Object.entries(next.sessions).filter(([, s]) => s.userId === id).sort((a, b) => b[1].expires - a[1].expires);
           for (const [key] of sessions.slice(9)) delete next.sessions[key];
@@ -170,6 +170,19 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     app.get('/v1/account', async (req, res) => {
       const account = await identity(req); if (!account) return res.status(401).json({ error: 'Sign in with Google to continue.' });
       res.json({ user: account.user, permissions: permissionsFor(account.user.role), expiresAt: new Date(db.sessions[account.sessionId].expires).toISOString() });
+    });
+    app.post('/v1/account/profile', async (req, res) => {
+      const account = await identity(req); if (!account) return res.status(401).json({ error: 'Sign in with Google to continue.' });
+      if (!account.bearer && !csrf(req)) return res.status(403).json({ error: 'Invalid request origin.' });
+      const input = req.body || {}, valid = (value, max) => typeof value === 'string' && value.trim().length <= max && !/[\u0000-\u001f\u007f]/.test(value);
+      if (!valid(input.name, 160) || !input.name.trim() || !valid(input.jobTitle, 100) || !valid(typeof input.bio === 'string' ? input.bio.replace(/[\r\n]/g, '') : input.bio, 500) || typeof input.bio !== 'string' || input.bio.trim().length > 500) return res.status(400).json({ error: 'Check your profile fields.' });
+      const user = await transaction(next => {
+        const current = next.users[account.user.id];
+        if (!current || current.disabled) throw Object.assign(Error('Account access is not available.'), { status: 403 });
+        current.name = input.name.trim(); current.jobTitle = input.jobTitle.trim(); current.bio = input.bio.trim(); current.profileEdited = true;
+        audit(next, current, 'profile-updated'); return userView(current);
+      });
+      res.json({ user });
     });
     app.post('/v1/auth/logout', async (req, res) => {
       const account = await identity(req);

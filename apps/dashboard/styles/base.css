@@ -41,3 +41,5 @@ body[data-connection=offline] .local-status .dot,body[data-connection=offline] .
 .app-starting>.sidebar,.app-starting>.app-shell{visibility:hidden}
 #dashboard-startup{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);color:var(--muted);z-index:30}
 #dashboard-startup img{width:56px;height:56px}
+
+.toasts{bottom:84px;max-width:min(420px,calc(100vw - 32px));right:24px}.toast{overflow-wrap:anywhere}.toast>span{min-width:0;flex:1}.toast-dismiss{display:grid;place-items:center;min-width:36px;min-height:36px;padding:8px;margin:-6px -8px -6px 0;border-radius:6px;color:var(--muted)}.toast-dismiss:hover{background:var(--surface-hover)}.toast-dismiss svg{width:16px;height:16px}@media(max-width:600px){.toasts{right:16px;bottom:80px}}

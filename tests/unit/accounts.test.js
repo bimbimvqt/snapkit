@@ -30,6 +30,16 @@ test('Google OAuth binds browser, verifies nonce/email, enforces admin, CSRF, re
   assert.equal((await request(admin.route,{headers:{Cookie:admin.cookie}})).status,400);
   const member = await login('member@example.com');
   assert.equal((await request('/v1/admin/overview',{headers:{Cookie:member.cookie}})).status,403);
+  const profile = {name:'Edited Member',jobTitle:'Flutter Developer',bio:'Build useful tools',role:'admin',email:'evil@example.com',id:'google:admin@example.com'};
+  assert.equal((await post('/v1/account/profile',profile,null)).status,401);
+  assert.equal((await post('/v1/account/profile',profile,member.cookie,false)).status,403);
+  assert.equal((await post('/v1/account/profile',{...profile,name:' '},member.cookie)).status,400);
+  assert.equal((await post('/v1/account/profile',{...profile,bio:'x'.repeat(501)},member.cookie)).status,400);
+  const edited = await (await post('/v1/account/profile',profile,member.cookie)).json();
+  assert.equal(edited.user.name,'Edited Member');assert.equal(edited.user.role,'user');assert.equal(edited.user.email,'member@example.com');assert.equal(edited.user.jobTitle,'Flutter Developer');
+  const signedAgain = await login('member@example.com');
+  const persistedProfile = await (await request('/v1/account',{headers:{Cookie:signedAgain.cookie}})).json();
+  assert.equal(persistedProfile.user.name,'Edited Member');assert.equal(persistedProfile.user.bio,profile.bio);
   const feedback = { type:'feature', message:'Please add device grouping by project.', email:'reply@example.com', name:'Developer', rating:null };
   assert.equal((await post('/v1/feedback',feedback,null,false)).status,403);
   assert.equal((await post('/v1/feedback',{...feedback,message:'short'})).status,400);

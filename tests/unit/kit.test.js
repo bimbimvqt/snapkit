@@ -38,3 +38,7 @@ test('file hashes persist locally, install uses the ADB serial and tampered APKs
 test('machine scans do not follow build symlinks and shared kits require the bound project',async()=>{
  const f=await fixture({getTeamPlan:async()=>({path:os.tmpdir(),plan:{openEditor:true,compose:false,ports:[]}})});try{await writeFile(path.join(f.root,'private'),'outside');await symlink(f.root,path.join(f.project,'build'));const machine=(await f.request('/machine')).data;assert.equal(machine.caches.find(c=>c.name==='build').bytes,0);assert.equal((await f.request('/team-plan',{workspaceId:'w',projectId:'p'})).status,409);assert.equal((await f.request('/machine',undefined,{'x-test-remote':'1'})).status,403);}finally{await f.close();}
 });
+
+test('Antigravity launches the IDE bundle or IDE CLI rather than the other application',async()=>{
+ const f=await fixture({getEditor:()=> 'antigravity'});try{await f.request('/resume',{});assert.equal((await finished(f)).status,'complete');const launch=f.calls.find(([name])=>name==='open'||name.startsWith('antigravity'));assert.deepEqual(launch,process.platform==='darwin'?['open',['-b','com.google.antigravity-ide',f.project]]:[process.platform==='win32'?'antigravity-ide.cmd':'antigravity-ide',['--reuse-window',f.project]]);}finally{await f.close();}
+});

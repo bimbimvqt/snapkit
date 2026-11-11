@@ -1,6 +1,7 @@
+import {toast} from '../../legacy/device-controller.js';
 export function transformText(input:string,action:string){
  switch(action){case 'json':return JSON.stringify(JSON.parse(input),null,2);case 'minify':return JSON.stringify(JSON.parse(input));case 'url-encode':return encodeURIComponent(input);case 'url-decode':return decodeURIComponent(input);case 'base64-encode':{const bytes=new TextEncoder().encode(input);let binary='';for(const b of bytes)binary+=String.fromCharCode(b);return btoa(binary);}case 'base64-decode':return new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(input),c=>c.charCodeAt(0)));case 'unique':return [...new Set(input.split(/\r?\n/))].join('\n');case 'trim':return input.split(/\r?\n/).map(x=>x.trim()).join('\n');case 'uuid':return crypto.randomUUID();default:throw Error('Choose a text tool');}
 }
 export const bytes=(value:number)=>value<1024?`${value} B`:value<1024**2?`${(value/1024).toFixed(1)} KB`:value<1024**3?`${(value/1024**2).toFixed(1)} MB`:`${(value/1024**3).toFixed(1)} GB`;
-export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();toast('Download started');setTimeout(()=>URL.revokeObjectURL(url),5000);}
 export function imageDataBlob(value:string){const match=/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(value);if(!match)throw Error('Invalid image');const binary=atob(match[2]);return new Blob([Uint8Array.from(binary,c=>c.charCodeAt(0))],{type:match[1]});}

@@ -38,6 +38,8 @@ try {
   const unmountWorkspaces = mountWorkspaceSwitcher();
   const { mountReviews } = await import('./features/reviews/Reviews');
   const unmountReviews = mountReviews();
+  const { mountProfile } = await import('./features/account/Profile');
+  const unmountProfile = mountProfile();
   const { mountKit } = await import('./features/kit/Kit');
   const unmountKit = mountKit();
   document.body.dataset.uiReady = 'true';
@@ -46,7 +48,7 @@ try {
   document.dispatchEvent(new Event('snapkit:ui-ready'));
   window.snapkitDesktop?.ready?.();
   if (import.meta.hot) {
-    import.meta.hot.dispose(() => { unmountUpdates(); unmountAppearance(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); unmountTeams(); unmountNotifications(); unmountKit(); });
+    import.meta.hot.dispose(() => { unmountUpdates(); unmountAppearance(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); unmountTeams(); unmountNotifications(); unmountKit(); unmountProfile(); });
     // Legacy controllers use native listeners; full reload prevents duplicate subscriptions.
     import.meta.hot.accept(() => location.reload());
   }

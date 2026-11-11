@@ -1,3 +1,5 @@
+export let signedInUser = null;
+export function updateSignedInUser(user) { signedInUser = user; document.dispatchEvent(new CustomEvent('snapkit:account-profile', {detail:user})); }
 const accountReady = (() => {
   if (window.SNAPKIT_PREVIEW || window.SNAPKIT_CONTROLLER) return Promise.resolve();
   const cloud = 'https://snapkit.vn';
@@ -28,14 +30,16 @@ const accountReady = (() => {
   function unlock(data) {
     document.documentElement.classList.remove('account-locked'); gate.remove();
     if (!data.user) return;
+    updateSignedInUser(data.user);
     setInterval(async () => { try { const status = await api('status'); if (!status.authenticated) location.reload(); } catch {} }, 60000);
     const profile = document.createElement('div'); profile.className = 'account-profile';
-    const label = document.createElement('span'); label.textContent = data.user.name; label.title = data.user.email; profile.append(label);
+    const label = document.createElement('button'); label.className = 'button account-profile-link'; label.textContent = data.user.name; label.dataset.initial = data.user.name.slice(0,1).toUpperCase(); label.title = words('My profile', 'Hồ sơ của tôi'); label.onclick = () => document.dispatchEvent(new Event('snapkit:open-profile')); profile.append(label);
+    document.addEventListener('snapkit:account-profile', event => { data.user = event.detail; label.textContent = data.user.name; label.dataset.initial = data.user.name.slice(0,1).toUpperCase(); const avatar = document.querySelector('.avatar'); if (avatar) avatar.textContent = data.user.name.slice(0,1).toUpperCase(); });
     if (data.user.role === 'admin') { const admin = document.createElement('button'); admin.className = 'button'; admin.textContent = 'Admin'; admin.onclick = () => openBrowser(cloud + '/admin/'); profile.append(admin); }
     const out = document.createElement('button'); out.className = 'button'; const update = () => out.textContent = words('Sign out', 'Đăng xuất'); update(); document.addEventListener('snapkit:language', update);
-    out.onclick = async () => { out.disabled = true; try { await import('../notifications/push.ts').then(m=>m.setPush(data.user.id,false)).catch(()=>{}); await api('logout', {}); location.reload(); } catch (e) { out.disabled = false; alert(e.message); } }; profile.append(out);
+    out.onclick = async () => { out.disabled = true; try { await import('../notifications/push.ts').then(m=>m.setPush(data.user.id,false)).catch(()=>{}); await api('logout', {}); location.reload(); } catch (e) { out.disabled = false; document.dispatchEvent(new CustomEvent('snapkit:toast', {detail:{message:e.message,error:true}})); } }; profile.append(out);
     document.querySelector('.topbar-right')?.append(profile);
-    const avatar = document.querySelector('.avatar'); if (avatar) { avatar.textContent = data.user.name.slice(0, 1).toUpperCase(); avatar.setAttribute('aria-label', data.user.email); }
+    const avatar = document.querySelector('.avatar'); if (avatar) { avatar.textContent = data.user.name.slice(0, 1).toUpperCase(); avatar.setAttribute('aria-label', words('My profile', 'Hồ sơ của tôi')); avatar.addEventListener('click', () => document.dispatchEvent(new Event('snapkit:open-profile'))); }
     fetch('/api/account/content').then(r => r.ok ? r.json() : null).then(content => {
       if (!content) return;
       const notice = document.createElement('div'); notice.id = 'admin-announcement'; notice.className = 'notice'; notice.setAttribute('role', 'status');
