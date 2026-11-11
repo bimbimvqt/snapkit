@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow'];
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow','snapkit-everyday-kit'];
 const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
 test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
  const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();

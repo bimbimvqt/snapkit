@@ -287,3 +287,9 @@ test('task filters never leave an unrelated detail beside an empty board',async(
  if(await cards.count()===0)await expect(detail).toHaveCount(0);
  else await expect(page.locator('.teams-task-card[aria-pressed=true]')).toHaveCount(1);
 });
+
+test('everyday kit landing links open usable local tools in the static demo',async({page})=>{
+ const calls=[];page.on('request',r=>{if(/\/(api|v1)\//.test(new URL(r.url()).pathname))calls.push(r.url());});
+ await page.goto('en/');const section=page.locator('#everyday-kit');await expect(section).toContainText('Everyday tools for everyone');await expect(section.locator('[data-visual-image]')).toHaveCount(4);await section.getByRole('link',{name:'Try the everyday kit',exact:true}).click();calls.length=0;
+ await expect(page.getByRole('heading',{name:'File Kit',exact:true})).toBeVisible();await page.getByRole('button',{name:'Try sample',exact:true}).click();await expect(page.locator('.kit-rename-table')).toContainText('Trip-001-');await expect(page.getByRole('button',{name:'Apply filename changes',exact:true})).toBeDisabled();await page.getByRole('button',{name:'QR Kit',exact:true}).click();await page.getByRole('button',{name:'Generate QR code',exact:true}).click();await expect(page.getByAltText('Generated QR code')).toBeVisible();expect(calls).toEqual([]);
+});

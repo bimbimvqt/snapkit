@@ -1,3 +1,4 @@
+import {kitCatalog} from '../../../packages/domain/product-kit.js';
 import express from 'express';
 import { createAccounts } from './accounts.js';
 import { createTeams } from './teams.js';
@@ -43,6 +44,7 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle,p
   app.use('/v1/teams', teams);
   app.get('/admin', (req, res, next) => req.path === '/admin' ? res.redirect('/admin/') : next());
   app.get('/auth/complete', (_req, res) => res.sendFile(path.join(root, 'apps/website/auth/complete.html')));
+  app.get('/v1/product/kit',(_req,res)=>res.json(kitCatalog));
   app.get('/health', (_req, res) => res.json({ product: 'snapkit-cloud', version, status: 'ok', channel: 'beta' }));
   app.get('/v1/billing/config', (_req, res) => res.json({ provider: 'revenuecat', phase: 'free-beta', checkoutEnabled: false, accountEnabled: accounts.config().configured, configured,
     notice: 'All beta features are free. No card is required and no subscription starts automatically.', plans: [{ id: 'free', name: 'Free', price: null, features: ['Local device management', 'Create and start virtual devices', 'Use any editor'] }, { id: 'pro', name: 'Pro', price: null, includedInBeta: true, features: ['Multi-device Flutter debug selection', 'Saved project setups', 'Coordinated editor restart'] }] }));

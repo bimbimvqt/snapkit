@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -85,6 +85,7 @@ async function start() {
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
+  const everyday=require('./kit/everyday.cjs').installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage});
   require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
@@ -195,6 +196,8 @@ async function start() {
   }
   const splashClosed = bootSplash.window.isDestroyed();
   if (process.env.SNAPKIT_SMOKE_TEST === '1') {
+    const kitFixture=path.join(process.env.SNAPKIT_DATA_ROOT,'kit-smoke.txt');fs.writeFileSync(kitFixture,'smoke fixture');
+    const kitSelection=await everyday.files.choose([kitFixture]);const kitRename=await everyday.files.apply(kitSelection.id,{prefix:'renamed-'});
     const result = await mainWindow.webContents.executeJavaScript(`(async () => {
       const [p,h] = await Promise.all([fetch('/api/product').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
       const initial = window.SnapkitI18n.language;
@@ -203,13 +206,17 @@ async function start() {
       window.SnapkitI18n.setLanguage('en');
       const english = document.querySelector('#add-device').textContent.trim() === 'Add device';
       window.SnapkitI18n.setLanguage(initial);
+      const clipboardState=await window.snapkitDesktop.clipboardState();
+      await window.snapkitDesktop.fileUndo('${kitRename.undoId}');
+      const everyday=!clipboardState.enabled && clipboardState.items.length===0 && typeof window.snapkitDesktop.captureScreens==='function';
       const kitState=await window.snapkitDesktop.kitSettings();
       const awake=await window.snapkitDesktop.kitAwake(true);
       const asleep=await window.snapkitDesktop.kitAwake(false);
       await window.snapkitDesktop.kitFocus(null);
       const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
-      return {kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
+      return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
+    result.everyday=result.everyday && fs.readFileSync(kitFixture,'utf8')==='smoke fixture';
     result.splash = splashVerified && splashClosed && readyReported;
     fs.writeFileSync(process.env.SNAPKIT_SMOKE_OUTPUT || path.join(os.tmpdir(), 'snapkit-desktop-smoke.json'), JSON.stringify(result));
     app.quit();

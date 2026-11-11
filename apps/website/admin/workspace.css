@@ -9,3 +9,5 @@ body[data-view=dashboard]{--bg:#000000;--surface:#1a1a1a;--line:#2a2a2a;--text:#
 @media(max-width:700px){body[data-view=dashboard] button{min-height:44px}body[data-view=dashboard] #admin-menu{width:44px;min-height:44px}body[data-view=dashboard] .panel-toolbar>button,.account-role-cell .choice-trigger,.account-role-save{min-height:44px!important}body[data-view=dashboard] #error button{min-height:44px}body[data-view=dashboard] input{min-height:44px}body[data-view=dashboard] input[type=checkbox]{min-height:20px}}
 
 #permission-matrix td>.admin-icon{margin-inline:auto}
+.admin-kit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:24px 0}.admin-kit-grid article{border:1px solid var(--line,#2a2a2a);border-radius:12px;padding:20px;background:var(--surface,#1a1a1a);min-width:0;overflow-wrap:anywhere}.admin-kit-grid h3{margin:0 0 12px}.admin-kit-grid p{font-size:14px;color:var(--muted,#aaa);line-height:1.7}#kit-release-status{padding:16px;border:1px solid var(--line,#2a2a2a);border-radius:10px;margin:20px 0;font-size:14px}
+@media(max-width:700px){.admin-kit-grid{grid-template-columns:1fr}}

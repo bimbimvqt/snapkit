@@ -7,3 +7,6 @@ body[data-framework=react-native] .sdk-folder-field:has(#pref-flutter),body[data
 #developer-onboarding :is(.profile-choice,.framework-choice):focus{outline:none}
 #developer-onboarding :is(.profile-choice,.framework-choice):focus-visible{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
 @media(forced-colors:active){#developer-onboarding :is(.profile-choice,.framework-choice):focus-visible{outline:2px solid Highlight;outline-offset:-3px}}
+
+.profile-entry-actions{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;margin-top:24px}.profile-entry-actions .button{min-height:44px;white-space:normal;text-align:center;line-height:1.5}
+@media(max-width:560px){.profile-entry-actions{display:grid;grid-template-columns:minmax(0,1fr)}.profile-entry-actions .button{justify-content:center;width:100%}}

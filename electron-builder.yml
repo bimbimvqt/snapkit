@@ -9,6 +9,7 @@ files:
   - apps/dashboard/build/**
   - apps/agent/**
   - packages/ui/**
+  - packages/domain/**
   - package.json
   - snapkit-debug-sync.vsix
   - '!**/*.map'

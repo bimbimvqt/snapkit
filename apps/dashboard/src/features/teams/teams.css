@@ -24,3 +24,5 @@ body[data-product-mode=teams]>.sidebar,body[data-product-mode=teams]>.app-shell{
 body>.sidebar,.teams-sidebar{width:240px;padding:26px 16px 16px}.app-shell,.teams-shell{margin-left:240px}@media(max-width:760px){body>.sidebar,.teams-sidebar{width:64px;padding:23px 9px 0}.app-shell,.teams-shell{margin-left:64px}}
 
 @media(min-width:761px) and (max-width:1250px){body>.sidebar,.teams-sidebar{width:210px;padding-inline:12px}.app-shell,.teams-shell{margin-left:210px}.teams-brand>small{display:none}}
+
+.teams-task-dependencies{gap:12px}.teams-task-dependencies .button{max-width:100%;white-space:normal;text-align:left;overflow-wrap:anywhere}.teams-task-blocker-form>form{margin:16px 0 12px}.teams-task-detail>form>details{margin-bottom:16px}

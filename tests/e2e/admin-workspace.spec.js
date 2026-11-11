@@ -1,3 +1,4 @@
+import {kitCatalog} from '../../packages/domain/product-kit.js';
 import {test,expect} from './fixtures.js';
 import {createCloud} from '../../apps/cloud/src/index.js';
 import {defaultContent} from '../../apps/cloud/src/accounts.js';
@@ -9,6 +10,8 @@ async function workspace(page,role='admin') {
   await page.route('**/v1/**',async route=>{
     const request=route.request(),url=new URL(request.url()),pathname=url.pathname;state.requests.push(pathname);
     const reply=data=>route.fulfill({json:data});
+    if(pathname==='/v1/product/kit')return reply(kitCatalog);
+    if(pathname==='/v1/releases/latest')return reply({available:true,version:'0.2.0-beta.57'});
     if(pathname==='/v1/auth/config')return reply({configured:true});
     if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
     if(pathname==='/v1/admin/overview')return state.failOverview?route.fulfill({status:503,json:{error:'Máy chủ tạm thời không phản hồi.'}}):reply({users:24,activeUsers:21,sessions:8,content:state.content,feedback:{total:12,open:7,pending:3,published:2},audit:[]});
@@ -27,12 +30,12 @@ async function workspace(page,role='admin') {
   return {base:'http://127.0.0.1:'+server.address().port,state,close:()=>server.close()};
 }
 
-for(const [role,visible]of Object.entries({admin:['overview','feedback','users','content','roles','audit','teams'],editor:['overview','content'],moderator:['overview','feedback'],viewer:['overview','feedback','users','content','audit','teams']})) {
+for(const [role,visible]of Object.entries({admin:['overview','feedback','users','content','kit','roles','audit','teams'],editor:['overview','content','kit'],moderator:['overview','feedback'],viewer:['overview','feedback','users','content','kit','audit','teams']})) {
   test(`admin workspace shows permitted navigation and operations for ${role}`,async({page})=>{
     const app=await workspace(page,role);const errors=[];page.on('pageerror',error=>errors.push(error.message));
     try {
       await page.goto(app.base+'/admin/');await expect(page.locator('#dashboard')).toBeVisible();await expect(page.locator('#stats .stat-card strong')).toHaveCount(4);
-      for(const key of ['overview','feedback','users','content','roles','audit','teams']){
+      for(const key of ['overview','feedback','users','content','kit','roles','audit','teams']){
         const button=page.locator(`.admin-sidebar [data-admin-page=${key}]`);
         if(visible.includes(key))await expect(button).toBeVisible();else await expect(button).toBeHidden();
       }
@@ -43,6 +46,7 @@ for(const [role,visible]of Object.entries({admin:['overview','feedback','users',
         await expect(page.locator('#teams-list script')).toHaveCount(0);
         await page.screenshot({path:'/tmp/snapkit-admin-teams.png'});
       }
+      if(visible.includes('kit')){await page.locator('.admin-sidebar [data-admin-page=kit]').click();await expect(page.locator('#kit-catalog article')).toHaveCount(8);await expect(page.locator('#kit-release-status')).toContainText('Có Daily Kit mới');}
       if(visible.includes('content')){
         await page.locator('.admin-sidebar [data-admin-page=content]').click();await expect(page.locator('[name=headline-vi]')).toHaveValue(defaultContent().landing.vi.headline);
         if(role==='viewer'){await expect(page.locator('#content button[type=submit]')).toBeHidden();await expect(page.locator('[name=headline-vi]')).toBeDisabled();}

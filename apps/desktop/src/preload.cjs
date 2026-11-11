@@ -1,5 +1,13 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
+  clipboardState:()=>ipcRenderer.invoke('snapkit:clipboard-state'),
+  clipboardEnabled:value=>ipcRenderer.invoke('snapkit:clipboard-enabled',value),
+  clipboardClear:()=>ipcRenderer.invoke('snapkit:clipboard-clear'),
+  clipboardCopy:id=>ipcRenderer.invoke('snapkit:clipboard-copy',id),
+  filePick:()=>ipcRenderer.invoke('snapkit:file-pick'),
+  fileApply:(id,options)=>ipcRenderer.invoke('snapkit:file-apply',id,options),
+  fileUndo:id=>ipcRenderer.invoke('snapkit:file-undo',id),
+  captureScreens:()=>ipcRenderer.invoke('snapkit:capture-screens'),
   kitSettings: () => ipcRenderer.invoke('snapkit:kit-settings'),
   kitStartup: enabled => ipcRenderer.invoke('snapkit:kit-startup', enabled),
   kitAwake: enabled => ipcRenderer.invoke('snapkit:kit-awake', enabled),

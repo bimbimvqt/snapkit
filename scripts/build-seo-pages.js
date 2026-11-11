@@ -8,6 +8,7 @@ const escape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&l
 const route = (lang, slug = '') => `${lang === 'vi' ? 'huong-dan' : 'en/guides'}/${slug ? slug + '/' : ''}`;
 const home = lang => lang === 'vi' ? '' : 'en/';
 const screenshotAlt = (image, lang) => ({
+ kit: {vi:'Bộ tiện ích Snapkit với tên tệp minh hoạ',en:'Snapkit everyday tools with fictional filenames'},
  teams: {vi:'Bảng công việc Snapkit Teams với dữ liệu minh hoạ',en:'Snapkit Teams task board with fictional data'},
  devices: { vi: 'Danh sách Android Emulator và iOS Simulator cùng trạng thái thiết bị trong Snapkit', en: 'Android Emulator and iOS Simulator list with device status in Snapkit' },
  setup: { vi: 'Màn hình thiết lập workspace, project và công cụ phát triển trong Snapkit', en: 'Workspace, project and development tool setup in Snapkit' }
@@ -48,7 +49,7 @@ export async function buildSeoPages(out) {
   const title = isVi ? 'Bắt đầu với Snapkit.' : 'Get started with Snapkit.';
   const intro = isVi ? 'Cài đặt, kết nối thiết bị và làm việc cùng team. Chọn hướng dẫn phù hợp, làm theo từng bước ngay trong ứng dụng.' : 'Install Snapkit, connect your devices and work with your team. Pick a guide and follow each step inside the app.';
   const cards = guides.map(g => guideCard(g,lang)).join('');
-  const starts=[['install-snapkit-macos-windows',isVi?'Cài đặt ứng dụng':'Install the app',isVi?'macOS & Windows':'macOS & Windows'],['flutter-multi-device-debugging',isVi?'Kết nối dự án':'Connect a project','Flutter & React Native'],['snapkit-teams-workflow',isVi?'Thiết lập team':'Set up your team',isVi?'Phân quyền & giao việc':'Roles & assignments']];
+  const starts=[['install-snapkit-macos-windows',isVi?'Cài đặt ứng dụng':'Install the app',isVi?'macOS & Windows':'macOS & Windows'],['snapkit-everyday-kit',isVi?'Tiện ích hằng ngày':'Everyday tools','Clipboard · File · QR'],['snapkit-teams-workflow',isVi?'Thiết lập team':'Set up your team',isVi?'Phân quyền & giao việc':'Roles & assignments']];
   const journey=starts.map(([slug,label,hint],i)=>`<a href="${route(lang,slug)}"><span class="guide-start-number">0${i+1}</span><span><strong>${label}</strong><small>${hint}</small></span><span aria-hidden="true">↗</span></a>`).join('');
   await save(rootRoute, shell({lang,slug:'',title,description:intro,body:`<header class="guide-heading guide-index-heading"><p class="eyebrow">SNAPKIT / ${isVi?'HƯỚNG DẪN':'GUIDES'}</p><h1>${title}</h1><p>${intro}</p></header><nav class="guide-start" aria-label="${isVi?'Bắt đầu nhanh':'Quick start'}">${journey}</nav><section class="guide-library"><div class="guide-library-heading"><h2>${isVi?'Khám phá theo nhu cầu':'Find your next step'}</h2><span>${guides.length} ${isVi?'hướng dẫn':'guides'} · VI / EN</span></div><div class="guide-grid">${cards}</div></section>`, schema:[{'@type':'CollectionPage',name:title,url:origin+'/'+rootRoute,inLanguage:lang,description:intro}]}));
   urls.push(rootRoute);
@@ -65,7 +66,7 @@ export async function buildSeoPages(out) {
 }
 function guideCard(guide,lang,compact=false){
  const vi=lang==='vi',data=guide[lang],heading=compact?'h3':'h2';
- return `<a class="guide-card" href="${route(lang,guide.slug)}">${compact?'':`<div class="guide-card-image"><img src="assets/${guide.image}${vi?'-vi':''}.webp?v=20261111-guides" alt="${escape(screenshotAlt(guide.image,lang))}" width="1440" height="1020" loading="lazy" decoding="async"></div>`}<div class="guide-card-copy"><span class="guide-card-category">${guide.image==='teams'?'Teams':guide.slug==='install-snapkit-macos-windows'?(vi?'Cài đặt':'Setup'):(vi?'Thiết bị & debug':'Devices & debug')}<span>${data.sections.length} ${vi?'bước':'steps'}</span></span><${heading}>${escape(data.title)}</${heading}><p>${escape(data.description)}</p><span class="guide-read">${vi?'Đọc hướng dẫn':'Read guide'} <span aria-hidden="true">↗</span></span></div></a>`;
+ return `<a class="guide-card" href="${route(lang,guide.slug)}">${compact?'':`<div class="guide-card-image"><img src="assets/${guide.image}${vi?'-vi':''}.webp?v=20261111-guides" alt="${escape(screenshotAlt(guide.image,lang))}" width="1440" height="1020" loading="lazy" decoding="async"></div>`}<div class="guide-card-copy"><span class="guide-card-category">${guide.image==='teams'?'Teams':guide.image==='kit'?(vi?'Tiện ích':'Everyday kit'):guide.slug==='install-snapkit-macos-windows'?(vi?'Cài đặt':'Setup'):(vi?'Thiết bị & debug':'Devices & debug')}<span>${data.sections.length} ${vi?'bước':'steps'}</span></span><${heading}>${escape(data.title)}</${heading}><p>${escape(data.description)}</p><span class="guide-read">${vi?'Đọc hướng dẫn':'Read guide'} <span aria-hidden="true">↗</span></span></div></a>`;
 }
 function shell({lang,slug,title,description,body,schema}) {
  const vi=lang==='vi', url=route(lang,slug), base='../'.repeat(url.split('/').filter(Boolean).length);

@@ -13,6 +13,7 @@
     teams:['Snapkit Teams','Theo dõi workspace dùng chung và mức sử dụng. Quyền quản trị nền tảng độc lập với quyền trong team.','teams.read'],
     feedback:['Đánh giá & góp ý','Lắng nghe người dùng. Xử lý góp ý và duyệt những trải nghiệm được chia sẻ.','feedback.read'],
     users:['Tài khoản','Quản lý người dùng, vai trò và quyền truy cập Snapkit.','users.read'],
+    kit:['Bộ tiện ích & phát hành','Khả năng sử dụng của từng tiện ích và tình trạng bộ cài macOS, Windows.','content.read'],
     content:['Nội dung sản phẩm','Biên tập thông điệp website và thông báo bằng hai ngôn ngữ.','content.read'],
     roles:['Vai trò & phân quyền','Đúng người. Đúng phạm vi công việc.','roles.manage'],
     audit:['Nhật ký hoạt động','Theo dõi ai đã thay đổi nội dung, quyền truy cập và đánh giá.','audit.read','teams.read']
@@ -62,7 +63,7 @@
     const epoch=++loadEpoch;$('#panel-loading').hidden=false;$('#panel-error').hidden=true;
     $(`[data-admin-panel="${key}"]`).setAttribute('aria-busy','true');
     if(push){$('#page-title').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
-    try { await ({overview,teams,feedback,users,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
+    try { await ({overview,teams,feedback,users,kit:loadKit,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
     catch(error) { if(epoch===loadEpoch){if(error.status===401)fail(error);else{$('#panel-error span').textContent=error.message;$('#panel-error').hidden=false;}} }
     finally { if(epoch===loadEpoch){$('#panel-loading').hidden=true;$(`[data-admin-panel="${key}"]`).removeAttribute('aria-busy');} }
   }
@@ -100,6 +101,14 @@
     $('#pending-badge').hidden=!feedback.pending;$('#pending-badge').textContent=feedback.pending||'';
     $('#overview-role').textContent=roles[account.user.role].label;$('#overview-permission-description').textContent=roles[account.user.role].description;$('#overview-owner-note').hidden=!account.user.isOwner;
   }
+  async function loadKit(){
+    const catalog=await api('product/kit');const releaseNode=$('#kit-release-status');releaseNode.textContent='Đang kiểm tra bộ cài…';
+    const platformLabels=[['darwin','arm64','macOS Apple Silicon'],['darwin','x64','macOS Intel'],['win32','x64','Windows x64']];
+    const results=await Promise.allSettled(platformLabels.map(async([platform,arch,label])=>{const result=await api('releases/latest?platform='+platform+'&arch='+arch);return {label,result};}));
+    releaseNode.replaceChildren();for(const [index,result]of results.entries()){const row=document.createElement('p');row.textContent=result.status==='fulfilled'?result.value.label+' · '+(result.value.result.available?result.value.result.version:'Chưa có bộ cài')+(result.value.result.available&&result.value.result.version===catalog.minimumVersion?' · Có Daily Kit mới':' · Chưa xác nhận phiên bản Daily Kit mới'):platformLabels[index][2]+' · Chưa kiểm tra được';releaseNode.append(row);}
+    const node=$('#kit-catalog');node.replaceChildren();const browser={manual:'Đọc clipboard thủ công',preview:'Xem trước tên tệp','image-only':'Đánh dấu ảnh có sẵn',full:'Sử dụng được','in-app':'Hẹn giờ trong trang','up-to-25mb':'Tệp tối đa 25 MB'};for(const feature of catalog.features){const card=document.createElement('article');const title=document.createElement('h3');title.textContent=feature.name;const desc=document.createElement('p');desc.textContent=feature.vi;const platforms=document.createElement('p');platforms.textContent='Desktop: '+(feature.id==='clipboard'?'Bật theo từng phiên':feature.id==='capture'?'Cần quyền chụp màn hình':'Sử dụng được')+' · Web: '+(browser[feature.browser]||'Chưa hỗ trợ');card.append(title,desc,platforms);node.append(card);}
+  }
+  $('#kit-refresh').onclick=()=>void showPanel('kit',false);
   function updateDraftState(dirty) {contentDirty=dirty;$('#content-draft-state').dataset.dirty=String(dirty);$('#content-draft-state').textContent=dirty?'Thay đổi chưa lưu':'Đã đồng bộ';}
   function fillContent() {
     const form=$('#content');for(const language of ['en','vi']){form.elements['headline-'+language].value=content.landing[language].headline;form.elements['description-'+language].value=content.landing[language].description;form.elements['announcement-'+language].value=content.announcement[language];}form.elements.version.value=content.recommendedVersion;form.elements.registration.checked=content.registrationOpen;updateDraftState(false);applyPermissions();

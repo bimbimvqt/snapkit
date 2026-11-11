@@ -112,3 +112,11 @@ test('everyday users enter Kit without choosing a developer framework', async ({
   await page.getByRole('button',{name:'Preferences',exact:true}).click();
   await expect(page.locator('#profile-preference-root')).toContainText('Everyday tools');
 });
+
+ test('onboarding entry actions stay separated in both languages and themes at desktop and mobile widths',async({page})=>{
+ for(const theme of ['dark','light'])for(const language of ['en','vi']){
+  await page.addInitScript(value=>localStorage.setItem('snapkit-theme',value),theme);
+  await page.goto('/?lang='+language);const modal=page.locator('#developer-onboarding');await expect(modal).toBeVisible();
+  for(const width of [375,768,1440]){await page.setViewportSize({width,height:900});const buttons=modal.locator('.profile-entry-actions > button');await expect(buttons).toHaveCount(2);const a=await buttons.nth(0).boundingBox(),b=await buttons.nth(1).boundingBox();expect(Math.max(b.x-a.x-a.width,b.y-a.y-a.height)).toBeGreaterThanOrEqual(11.9);for(const box of [a,b])expect(box.height).toBeGreaterThanOrEqual(44);expect(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);}
+ }
+});

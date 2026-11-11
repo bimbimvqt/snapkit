@@ -3,3 +3,4 @@ export function transformText(input:string,action:string){
 }
 export const bytes=(value:number)=>value<1024?`${value} B`:value<1024**2?`${(value/1024).toFixed(1)} KB`:value<1024**3?`${(value/1024**2).toFixed(1)} MB`:`${(value/1024**3).toFixed(1)} GB`;
 export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+export function imageDataBlob(value:string){const match=/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(value);if(!match)throw Error('Invalid image');const binary=atob(match[2]);return new Blob([Uint8Array.from(binary,c=>c.charCodeAt(0))],{type:match[1]});}
