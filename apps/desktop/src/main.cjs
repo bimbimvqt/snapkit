@@ -89,7 +89,9 @@ async function start() {
   const kit=require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
   const miniClipboardFixture={enabled:false,items:[],copied:''};
   const miniHistory=process.env.SNAPKIT_SMOKE_TEST==='1'?{state:()=>({...miniClipboardFixture}),copy:async id=>{const item=miniClipboardFixture.items.find(item=>item.id===id);if(!item)throw Error('Invalid clipboard item');miniClipboardFixture.copied=item.text;return true;}}:everyday.history;
-  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin,history:miniHistory,kit});
+  const miniBuildNotifications=[],miniDownloads=[];
+  const miniNative=process.env.SNAPKIT_SMOKE_TEST==='1'?{Notification:class {static isSupported(){return true;}constructor(options){this.options=options;}on(){}show(){miniBuildNotifications.push(this.options);}},dialog:{showSaveDialog:async()=>({filePath:path.join(app.getPath('userData'),'mini-artifact.ipa'),canceled:false})},shell:{showItemInFolder:file=>miniDownloads.push(file)}}:{Notification,dialog,shell};
+  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin,history:miniHistory,kit,...miniNative});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
     if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
@@ -266,6 +268,11 @@ async function start() {
     const prodBuild=await fetch(origin+'/api/releases').then(r=>r.json());
     result.mini=result.mini && prodBuild.jobs[0]?.plan.format==='ipa' && prodBuild.jobs[0]?.plan.flavor==='prod' && prodBuild.jobs[0]?.plan.target==='lib/main_prod.dart' && prodBuild.jobs[0]?.status==='succeeded' && !prodBuild.jobs[0]?.uploadStatus;
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
+    miniWindow.hide();await mini.checkBuilds();await mini.checkBuilds();
+    for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.artifacts.length>0)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>window.snapkitMini.action('build:download:'+s.quickBuild.artifacts[0].jobId+':'+s.quickBuild.artifacts[0].id))");
+    result.mini=result.mini && miniBuildNotifications.filter(n=>n.title==='Build complete'||n.title==='Build hoàn tất').length===1 && miniBuildNotifications.every(n=>n.silent===false) && miniDownloads.length===1 && fs.readFileSync(miniDownloads[0],'utf8').includes('not installable');
+    miniWindow.show();
     mainWindow.close();
     const hidden=!mainWindow.isVisible();
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('open')");
@@ -286,6 +293,7 @@ async function start() {
         await miniWindow.webContents.executeJavaScript(`window.snapkitMini.action('mode:${mode}')`);
         await new Promise(resolve=>setTimeout(resolve,150));
         const layout=await miniWindow.webContents.executeJavaScript(`(async()=>{let metrics;for(let attempt=0;attempt<40;attempt++){const panel=document.querySelector('main:not([hidden])');metrics={scroll:panel.scrollHeight,client:panel.clientHeight,bottom:panel.getBoundingClientRect().bottom,height:innerHeight};if(metrics.scroll<=metrics.client+1 && Math.abs(metrics.height-metrics.bottom)<=3)return {ok:true,...metrics};await new Promise(resolve=>setTimeout(resolve,50));}return {ok:false,...metrics};})()`);
+        if(mode==='debug')result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.querySelector('#build-artifacts button').textContent.startsWith("+JSON.stringify(language==='vi'?'Tải ':'Save ')+")");
         if(!layout.ok)console.error('Mini layout failed',language,mode,layout);
         result.mini=result.mini && layout.ok;
       }

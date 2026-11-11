@@ -1,6 +1,7 @@
 'use strict';
 const {createHash}=require('node:crypto');
 const path=require('node:path');
+const {artifactsFor}=require('./artifacts.cjs');
 const key=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0,24);
 const profileId=p=>key([p.flavor||'',p.target||'lib/main.dart',p.defineFile||'']);
 function profileFor(catalog,platform,environment,saved){
@@ -20,6 +21,6 @@ function buildView(state,catalog,releases,selection,mappings,starting=false){
  const latest=(releases?.jobs||[])[0],active=(releases?.jobs||[]).find(job=>job.id===releases?.active?.id),busy=starting||!!releases?.busy;
  const matches=latest&&profile&&latest.plan?.format===(platform==='ios'?'ipa':'apk')&&(latest.plan?.flavor||'')===(profile.flavor||'')&&(latest.plan?.target||'lib/main.dart')===(profile.target||'lib/main.dart')&&(latest.plan?.defineFile||'')===(profile.defineFile||'');
  const result=active||(matches?latest:null),reason=!state?'loading':state.authRequired?'signin':!workspace?'workspace':!supported?'framework':!catalog?'catalog':!releases?'loading':!available?'platform':!profile?'profile':busy?'busy':'';
- return {project:String(state?.settings?.spaceName||(workspace?path.basename(workspace):'')).slice(0,80),platform,environment,android,ios,profile:profile?String(profile.name||profile.flavor||'Default').slice(0,80):'',profileId:profile?profileId(profile):'',profiles:profiles.slice(0,40).map(p=>({id:profileId(p),name:String(p.name||p.flavor||'Default').slice(0,80)})),canBuild:!reason,reason,busy,activeFormat:active&&['apk','aab','ipa'].includes(active.plan?.format)?active.plan.format.toUpperCase():'',activeFlavor:active?String(active.plan?.flavor||'').slice(0,40):'',canCancel:!!active&&!!workspace&&releases.active?.workspace===workspace&&['preparing','building','collecting'].includes(active.status),status:starting?'starting':result?(['preparing','building','collecting','succeeded','failed','cancelled','interrupted'].includes(result.status)?result.status:'idle'):'idle'};
+ return {artifacts:!state?.authRequired&&workspace&&matches?artifactsFor(latest):[],project:String(state?.settings?.spaceName||(workspace?path.basename(workspace):'')).slice(0,80),platform,environment,android,ios,profile:profile?String(profile.name||profile.flavor||'Default').slice(0,80):'',profileId:profile?profileId(profile):'',profiles:profiles.slice(0,40).map(p=>({id:profileId(p),name:String(p.name||p.flavor||'Default').slice(0,80)})),canBuild:!reason,reason,busy,activeFormat:active&&['apk','aab','ipa'].includes(active.plan?.format)?active.plan.format.toUpperCase():'',activeFlavor:active?String(active.plan?.flavor||'').slice(0,40):'',canCancel:!!active&&!!workspace&&releases.active?.workspace===workspace&&['preparing','building','collecting'].includes(active.status),status:starting?'starting':result?(['preparing','building','collecting','succeeded','failed','cancelled','interrupted'].includes(result.status)?result.status:'idle'):'idle'};
 }
 module.exports={key,profileId,profileFor,buildView};

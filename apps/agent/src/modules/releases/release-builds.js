@@ -33,6 +33,7 @@ export class ReleaseBuilds {
     this.writing = task; return task;
   }
   publicJob(job, includeLog = false) { const { log, ...safe } = job; return includeLog ? { ...safe, log: redactBuildLog(log || '') } : safe; }
+  activity() { return {jobs:this.jobs.slice(-100).map(job=>({id:job.id,status:job.status,plan:{format:job.plan?.format,operation:job.plan?.operation}}))}; }
   list(workspace) {
     const project = workspace ? this.project(workspace) : '';
     return { jobs: this.jobs.filter(job => job.project === project).map(job => this.publicJob(job)).reverse(), active: this.active ? { id: this.active.job.id, workspace: this.active.job.workspace, operation: this.active.operation } : null, busy: !!this.active || this.starting, uploadConfigured: !!this.identities[project], configuredTeamIds: Object.keys(this.apple.teams), demo: this.demo };

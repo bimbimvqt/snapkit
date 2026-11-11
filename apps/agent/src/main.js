@@ -198,6 +198,7 @@ app.post('/api/apple/selection', async (req, res) => res.json(await releaseBuild
 app.use('/api/releases', (req, res, next) => { if (req.method !== 'GET' && settings.framework === 'react-native') return res.status(409).json({ error: 'React Native build and release is coming soon. Use your project CLI or Xcode.' }); next(); });
 app.get('/api/releases/catalog', async (_req, res) => res.json(settings.framework === 'react-native' ? { workspace: settings.workspace, android: false, ios: false, flavors: [], profiles: [], framework: 'react-native' } : await releaseBuilds.catalog(settings.workspace, settings)));
 app.get('/api/releases', (_req, res) => res.json(releaseBuilds.list(settings.workspace)));
+app.get('/api/releases/activity', (req, res) => { if(req.remoteToken)return res.status(403).json({error:'Build activity is local only.'});res.json(releaseBuilds.activity()); });
 app.get('/api/releases/:id', (req, res) => res.json(releaseBuilds.publicJob(releaseBuilds.find(requireWorkspace(), req.params.id), true)));
 app.post('/api/releases/build', async (req, res) => {
   if (req.body.operation === 'run') throw Error('Use the Run Release action to select a physical device.');

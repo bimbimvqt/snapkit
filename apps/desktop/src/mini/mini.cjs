@@ -4,7 +4,9 @@ const fs=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {debugSummary}=require('./data.cjs');
 const {key,profileFor,buildView}=require('./build.cjs');
-function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow,language,setDeadline,nativeTheme,origin,history,kit}){
+const {completionTracker,saveArtifact}=require('./artifacts.cjs');
+function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow,language,setDeadline,nativeTheme,origin,history,kit,Notification,dialog,shell}){
+ const completions=completionTracker(),notifications=new Set();let monitoring=false;
  let refreshTimer=null,refreshing=false,debugRefreshing=false,lastBounds=null,nextTask=0,nextDebug=0;
  let window=null,tray=null,compact=false,pinned=true,task=null,focus={remaining:1500,deadline:null};
  let mode='focus',debug=null;const contentHeights={};
@@ -20,6 +22,24 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
  const publish=()=>{if(window&&!window.isDestroyed())window.webContents.send('snapkit:mini-state',snapshot());};
  const valid=e=>{if(e.sender!==window?.webContents||e.senderFrame!==window.webContents.mainFrame||e.senderFrame.url!==url)throw Error('Invalid widget caller');};
  async function get(route){const response=await fetch(origin+route,{signal:AbortSignal.timeout(5000)});if(!response.ok)throw Object.assign(Error('Unavailable'),{status:response.status});return response.json();}
+ function notifyBuild(job){
+  if(!Notification.isSupported())return;
+  const success=job.status==='succeeded',format=String(job.plan?.format||'').toUpperCase();
+  const notification=new Notification({title:vi()?(success?'Build hoàn tất':'Build thất bại'):(success?'Build complete':'Build failed'),body:vi()?(success?format+' đã sẵn sàng. Mở Snapkit để tải.':'Mở Snapkit để xem chi tiết.'):(success?format+' is ready. Open Snapkit to save it.':'Open Snapkit to review details.'),silent:false});
+  notifications.add(notification);notification.on('close',()=>notifications.delete(notification));notification.on('click',()=>{showMain();getWindow()?.webContents.send('snapkit:mini-navigate',{page:'releases'});});notification.show();
+ }
+ async function monitorBuilds(){if(monitoring)return;monitoring=true;try{const jobs=await get('/api/releases/activity');for(const job of completions.observe(jobs.jobs))notifyBuild(job);}catch{}finally{monitoring=false;}}
+ const monitorTimer=setInterval(()=>void monitorBuilds(),3000);void monitorBuilds();
+ async function downloadArtifact(jobId,artifactId){
+  const expected=buildState?.settings?.workspace;await refreshDebug();
+  const item=buildSnapshot().artifacts.find(item=>item.jobId===jobId&&item.id===artifactId);
+  if(!item||!expected||buildState?.settings?.workspace!==expected)throw Error('Artifact unavailable');
+  const choice=await dialog.showSaveDialog(window||getWindow(),{title:vi()?'Lưu bản build':'Save build',defaultPath:path.join(app.getPath('downloads'),item.name),filters:[{name:item.name.split('.').pop().toUpperCase(),extensions:[item.name.split('.').pop()]}]});
+  if(choice.canceled||!choice.filePath)return;
+  const state=await get('/api/state');if(state.authRequired||state.settings?.workspace!==expected)throw Error('Workspace changed');
+  const response=await fetch(origin+'/api/releases/'+encodeURIComponent(jobId)+'/artifacts/'+encodeURIComponent(artifactId),{signal:AbortSignal.timeout(600000)});
+  await saveArtifact(response,choice.filePath);shell.showItemInFolder(choice.filePath);
+ }
  async function refreshDebug(){if(debugRefreshing)return;debugRefreshing=true;try{
   const [state,result]=await Promise.allSettled([get('/api/state'),get('/api/releases')]);if(state.status==='rejected')throw state.reason;buildState=state.value;releases=result.status==='fulfilled'?result.value:null;
   const workspace=buildState.settings?.workspace||'';
@@ -31,7 +51,7 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
  async function startBuild(){
   if(starting)throw Error('Build busy');const expected=buildState?.settings?.workspace;const chosen={...selection};starting=true;publish();
   try{const state=await get('/api/state');if(!expected||state.settings?.workspace!==expected||state.authRequired)throw Error('Workspace changed');const fresh=await get('/api/releases/catalog'),jobs=await get('/api/releases');if(fresh.workspace!==expected)throw Error('Workspace changed');const view=buildView(state,fresh,jobs,chosen,mappings);if(!view.canBuild)throw Error('Build unavailable');const profile=profileFor(fresh,chosen.platform,chosen.environment,mappings[key(expected)]?.[chosen.platform+':'+chosen.environment]);
-   await post('/api/releases/build',{expectedWorkspace:expected,format:chosen.platform==='ios'?'ipa':'apk',purpose:'ipa',flavor:profile.flavor||'',target:profile.target||'lib/main.dart',defineFile:profile.defineFile||'',buildName:fresh.buildName||'',buildNumber:fresh.buildNumber||''},state);
+   const job=await post('/api/releases/build',{expectedWorkspace:expected,format:chosen.platform==='ios'?'ipa':'apk',purpose:'ipa',flavor:profile.flavor||'',target:profile.target||'lib/main.dart',defineFile:profile.defineFile||'',buildName:fresh.buildName||'',buildNumber:fresh.buildNumber||''},state);completions.track(job);void monitorBuilds();
   }finally{starting=false;nextCatalog=0;await refreshDebug();}
  }
  async function refreshTask(){if(!task||refreshing||!window?.isVisible())return;refreshing=true;const selected=task;try{const value=await get('/api/teams/'+encodeURIComponent(selected.workspaceId));if(task!==selected)return;const current=value.tasks?.find(item=>item.id===selected.id);if(value.membership?.userId!==selected.userId||!current){task=null;resize();publish();return;}task={...selected,title:current.title,done:current.criteria.filter(c=>c.done).length,total:current.criteria.length};publish();}catch(error){if(task===selected&&[401,403,404].includes(error.status)){task=null;resize();publish();}}finally{refreshing=false;}}
@@ -62,6 +82,7 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
   else if(['mode:focus','mode:debug','mode:utility'].includes(action)){mode=action.slice(5);savePreferences();resize();if(mode==='debug'){nextDebug=Date.now()+3000;void refreshDebug();}}
   else if(['build:android','build:ios','build:dev','build:prod'].includes(action)){if(starting)throw Error('Build busy');const value=action.slice(6);if(['android','ios'].includes(value))selection.platform=value;else selection.environment=value;}
   else if(typeof action==='string'&&/^build:profile:[a-f0-9]{24}$/.test(action)){if(starting)throw Error('Build busy');const view=buildSnapshot(),id=action.slice(14);if(!buildState?.settings?.workspace||!view.profiles.some(p=>p.id===id))throw Error('Invalid profile');const project=key(buildState.settings.workspace);mappings[project]={...mappings[project],[selection.platform+':'+selection.environment]:id};savePreferences();}
+  else if(typeof action==='string'&&/^build:download:[a-f0-9-]{36}:[a-f0-9-]{36}$/.test(action)){const [, ,jobId,artifactId]=action.split(':');await downloadArtifact(jobId,artifactId);}
   else if(action==='build:start'){await startBuild();}
   else if(action==='build:cancel'){if(!buildSnapshot().canCancel)throw Error('No active build');const expected=buildState.settings.workspace,state=await get('/api/state'),jobs=await get('/api/releases');if(state.settings?.workspace!==expected||jobs.active?.workspace!==expected)throw Error('Workspace changed');await post('/api/releases/'+encodeURIComponent(jobs.active.id)+'/cancel',{},state);await refreshDebug();}
   else if(action==='focus'){const running=focus.deadline&&focus.deadline>Date.now();const remaining=running?Math.max(0,Math.ceil((focus.deadline-Date.now())/1000)):focus.deadline?1500:focus.remaining||1500;focus={remaining,deadline:running?null:Date.now()+remaining*1000};setDeadline(focus.deadline);getWindow()?.webContents.send('snapkit:mini-focus',focus);}
@@ -74,7 +95,7 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
   publish();return snapshot();
  });
  nativeTheme.on('updated',publish);
- app.once('will-quit',()=>{clearInterval(refreshTimer);nativeTheme.removeListener('updated',publish);window?.destroy();tray?.destroy();});
- return {show,refresh,getWindow:()=>window,hasTray:()=>!!tray&&!tray.isDestroyed()};
+ app.once('will-quit',()=>{clearInterval(refreshTimer);clearInterval(monitorTimer);nativeTheme.removeListener('updated',publish);window?.destroy();tray?.destroy();});
+ return {show,refresh,checkBuilds:monitorBuilds,getWindow:()=>window,hasTray:()=>!!tray&&!tray.isDestroyed()};
 }
 module.exports={installMini};

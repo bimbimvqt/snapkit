@@ -138,3 +138,5 @@ test('Run Release cancellation and failed device launch never report success or 
   const failed=await runner.start(workspace,{...input,operation:'run'},phone); await runner.active.done;
   assert.equal(runner.find(workspace,failed.id).status,'failed'); assert.deepEqual(runner.find(workspace,failed.id).artifacts,[]);
 });
+
+test('desktop build activity includes all projects without workspace paths, profile inputs or logs',()=>{const runner=new ReleaseBuilds({root:'/unused'});runner.jobs=[{id:'build',status:'building',workspace:'/private/project',log:'secret',plan:{format:'apk',flavor:'private',defineFile:'secret.json'}},{id:'other',status:'succeeded',workspace:'/other/project',plan:{format:'ipa'}}];assert.deepEqual(runner.activity(),{jobs:[{id:'build',status:'building',plan:{format:'apk',operation:undefined}},{id:'other',status:'succeeded',plan:{format:'ipa',operation:undefined}}]});});
