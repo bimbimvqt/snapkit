@@ -37,9 +37,15 @@ test('Google OAuth binds browser, verifies nonce/email, enforces admin, CSRF, re
   assert.equal((await post('/v1/account/profile',{...profile,bio:'x'.repeat(501)},member.cookie)).status,400);
   const edited = await (await post('/v1/account/profile',profile,member.cookie)).json();
   assert.equal(edited.user.name,'Edited Member');assert.equal(edited.user.role,'user');assert.equal(edited.user.email,'member@example.com');assert.equal(edited.user.jobTitle,'Flutter Developer');
+  const avatar={type:'preset',style:'lorelei',seed:'fixture-avatar'};
+  const withAvatar=await (await post('/v1/account/profile',{...profile,avatar},member.cookie)).json();assert.deepEqual(withAvatar.user.avatar,avatar);
+  for(const invalid of [{type:'preset',style:'unknown',seed:'x'},{type:'preset',style:'lorelei',seed:'<script>'},{type:'upload',data:'data:image/svg+xml;base64,PHN2Zz4='},{type:'upload',data:'data:image/png;base64,ZmFrZQ=='},{type:'upload',data:'x'.repeat(96001)}])assert.equal((await post('/v1/account/profile',{...profile,avatar:invalid},member.cookie)).status,400);
   const signedAgain = await login('member@example.com');
   const persistedProfile = await (await request('/v1/account',{headers:{Cookie:signedAgain.cookie}})).json();
-  assert.equal(persistedProfile.user.name,'Edited Member');assert.equal(persistedProfile.user.bio,profile.bio);
+  assert.deepEqual(persistedProfile.user.avatar,avatar);assert.equal(persistedProfile.user.name,'Edited Member');assert.equal(persistedProfile.user.bio,profile.bio);
+  const image={type:'upload',data:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII='};
+  const uploaded=await (await post('/v1/account/profile',{...profile,avatar:image},member.cookie)).json();assert.deepEqual(uploaded.user.avatar,image);
+  assert.equal((await post('/v1/account/profile',{...profile,avatar:null},member.cookie)).status,200);
   const feedback = { type:'feature', message:'Please add device grouping by project.', email:'reply@example.com', name:'Developer', rating:null };
   assert.equal((await post('/v1/feedback',feedback,null,false)).status,403);
   assert.equal((await post('/v1/feedback',{...feedback,message:'short'})).status,400);
