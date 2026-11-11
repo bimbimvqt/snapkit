@@ -31,6 +31,10 @@ const previewReadOnlyMessage = "Preview only. Open the local Dashboard at http:/
 async function api(url, data, quiet = false) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error(previewReadOnlyMessage);
+    if (url === '/api/kit') return structuredClone(window.SNAPKIT_PREVIEW.kit);
+    if (url === '/api/kit/ready') return {checkedAt:Date.now(),checks:[{id:'flutter',title:'Flutter',status:'ready',detail:'Sample tool check'}],ports:[],docker:null};
+    if (url === '/api/kit/machine') return {checkedAt:Date.now(),platform:'darwin',memory:{total:17179869184,used:8589934592},disk:{free:214748364800,total:512000000000},uptime:18000,processes:[{pid:123,name:'Android Emulator',memory:1400000000,cpu:6}],caches:[{name:'build',bytes:256000000,partial:false}]};
+    if (url === '/api/kit/run') return {job:null};
     if (url === '/api/teams/notifications') {
       const workspace=window.SNAPKIT_PREVIEW.teams;
       return {userId:workspace.membership.userId,items:workspace.audit.filter(event=>event.action==='blueprint.updated').map(event=>({id:'event:'+event.id,type:'activity',title:'Project configuration updated',at:event.at,workspaceId:workspace.id,workspaceName:workspace.name,projectId:event.projectId,page:'projects',read:false}))};

@@ -1,9 +1,11 @@
 import './shared/i18n/messages.js';
+import {registerKitMessages} from './features/kit/messages.js';
 import './features/appearance/theme';
 import { mountAppearance } from './features/appearance/Appearance';
 import '../../../packages/ui/i18n.js';
 import './shared/controls/dropdowns.js';
 import { installIcons } from './shared/ui/icons';
+registerKitMessages();
 installIcons();
 // Legacy controllers are explicit ES modules. They never own React feature children.
 // Keep startup ordered until each remaining screen moves behind its own React boundary.
@@ -36,13 +38,15 @@ try {
   const unmountWorkspaces = mountWorkspaceSwitcher();
   const { mountReviews } = await import('./features/reviews/Reviews');
   const unmountReviews = mountReviews();
+  const { mountKit } = await import('./features/kit/Kit');
+  const unmountKit = mountKit();
   document.body.dataset.uiReady = 'true';
   document.body.classList.remove('app-starting');
   document.getElementById('dashboard-startup')?.remove();
   document.dispatchEvent(new Event('snapkit:ui-ready'));
   window.snapkitDesktop?.ready?.();
   if (import.meta.hot) {
-    import.meta.hot.dispose(() => { unmountUpdates(); unmountAppearance(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); unmountTeams(); unmountNotifications(); });
+    import.meta.hot.dispose(() => { unmountUpdates(); unmountAppearance(); unmountDeveloperProfile(); unmountWorkspaces(); unmountReviews(); unmountTeams(); unmountNotifications(); unmountKit(); });
     // Legacy controllers use native listeners; full reload prevents duplicate subscriptions.
     import.meta.hot.accept(() => location.reload());
   }

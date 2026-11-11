@@ -1,5 +1,15 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
+  kitSettings: () => ipcRenderer.invoke('snapkit:kit-settings'),
+  kitStartup: enabled => ipcRenderer.invoke('snapkit:kit-startup', enabled),
+  kitAwake: enabled => ipcRenderer.invoke('snapkit:kit-awake', enabled),
+  kitPickFiles: () => ipcRenderer.invoke('snapkit:kit-pick'),
+  kitDropFiles: files => ipcRenderer.invoke('snapkit:kit-drop', Array.from(files).map(file => webUtils.getPathForFile(file))),
+  kitReveal: id => ipcRenderer.invoke('snapkit:kit-reveal', id),
+  kitFolder: name => ipcRenderer.invoke('snapkit:kit-folder', name),
+  kitFocus: deadline => ipcRenderer.invoke('snapkit:kit-focus', deadline),
+  kitNotify: () => ipcRenderer.invoke('snapkit:kit-notify'),
+  onKitCommand: callback => { const handler = () => callback(); ipcRenderer.on('snapkit:kit-command', handler); return () => ipcRenderer.removeListener('snapkit:kit-command', handler); },
   notifyTeam: data => ipcRenderer.invoke('snapkit:team-notify', data),
   onTeamNotification: callback => { const handler = (_event,target) => callback(target); ipcRenderer.on('snapkit:team-notification',handler); return () => ipcRenderer.removeListener('snapkit:team-notification',handler); },
   openXcode: () => ipcRenderer.invoke('snapkit:open-xcode'),

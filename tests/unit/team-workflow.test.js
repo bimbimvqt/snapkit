@@ -28,3 +28,20 @@ test('real Web Push encryption produces an encrypted body using persisted VAPID 
 test('push delivery removes provider-expired subscriptions',async t=>{const {request:r,base,payload,sent,dir}=await setup(t,async()=>{throw Object.assign(Error('gone'),{statusCode:410});});await r('mobile','/push/subscribe',{subscription});await r('pm',base+'/tasks',payload);for(let i=0;i<40;i++){const db=JSON.parse(await readFile(path.join(dir,'teams.json'),'utf8'));if(sent.length&&!db.pushSubscriptions.length&&!db.pushOutbox.length)break;await new Promise(resolve=>setTimeout(resolve,20));}const db=JSON.parse(await readFile(path.join(dir,'teams.json'),'utf8'));assert.equal(sent.length,1);assert.equal(db.pushSubscriptions.length,0);assert.equal(db.pushOutbox.length,0);});
 
 test('the eleven-member Flutter showcase assigns reviewers and testers within their actual scopes',async()=>{const {teamPreview}=await import('../../apps/agent/src/fixtures/team-preview.js'),{taskVisible}=await import('../../apps/cloud/src/domain/team-tasks.js');const w=teamPreview();assert.equal(w.members.length,11);for(const task of w.tasks)for(const field of ['assigneeId','reviewerId','testerId','approverId']){const member=w.members.find(m=>m.userId===task[field]);assert.ok(member&&taskVisible(member,task),task.title+' '+field);}});
+
+
+test('shared start kits enforce manager permissions, development scope and optimistic versions',async t=>{
+ const {request:r,base,project}=await setup(t),route=base+'/projects/'+project.id+'/start-kit';
+ const plan={version:0,openEditor:true,compose:false,ports:[3000,8080],deviceIds:['private-device'],path:'/private/project',command:'unsafe'};
+ await r('mobile',route,plan,403);
+ await r('viewer',route,plan,403);
+ let w=await r('lead',route,plan);
+ const saved=w.projects.find(p=>p.id===project.id).startKit;
+ assert.equal(saved.version,1);assert.deepEqual(saved.ports,[3000,8080]);
+ for(const field of ['deviceIds','path','command'])assert.equal(saved[field],undefined);
+ await r('lead',route,plan,409);
+ await r('lead',route,{...plan,version:1,ports:[80]},400);
+ await r('owner',base+'/members/lead',{role:'lead',projectIds:[project.id],environments:['staging'],serviceLayers:['mobile']});
+ await r('lead',route,{...plan,version:1},403);
+ w=await r('mobile',base);assert.equal(w.projects.find(p=>p.id===project.id).startKit.version,1);
+});

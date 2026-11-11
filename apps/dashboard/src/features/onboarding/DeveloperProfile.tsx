@@ -9,7 +9,7 @@ import flutterLogo from './assets/flutter.svg';
 import reactNativeLogo from './assets/react-native.svg';
 import './onboarding.css';
 
-type Profile = { role: 'frontend' | 'backend'; framework: 'flutter' | 'react-native' | null };
+type Profile = { role: 'frontend' | 'backend' | 'general'; framework: 'flutter' | 'react-native' | null };
 function DeveloperProfile() {
   useLanguage();
   const [workspace, setWorkspace] = useState({...state.settings});
@@ -25,7 +25,8 @@ function DeveloperProfile() {
     document.body.dataset.developerRole = value.role;
     document.body.dataset.framework = value.framework || '';
     document.dispatchEvent(new CustomEvent('snapkit:profile', { detail: value }));
-    if (value.role === 'backend') showProductPage('backend');
+    if (value.role === 'backend' && document.getElementById('panel-kit')?.classList.contains('hidden')) showProductPage('backend');
+    if (value.role === 'general') showProductPage('kit');
   };
   useEffect(() => {
     const load = async () => {
@@ -45,7 +46,7 @@ function DeveloperProfile() {
     if (open && !dialog.current?.open) dialog.current?.showModal();
     if (!open && dialog.current?.open) dialog.current.close();
   }, [open]);
-  const edit = () => { setDraft(profile || { role: 'frontend', framework: null }); setError(''); setOpen(true); };
+  const edit = () => { setDraft((profile?.role === 'general' ? null : profile) || { role: 'frontend', framework: null }); setError(''); setOpen(true); };
   async function save() {
     setBusy(true); setError('');
     try {
@@ -57,12 +58,13 @@ function DeveloperProfile() {
     finally { setBusy(false); }
   }
   return <>
-    {createPortal(<section className="profile-preference tool-card"><div><span className="product-kicker">{t('DEVELOPER PROFILE')}</span><h2>{workspace.spaceId ? workspace.spaceName : profile?.role === 'backend' ? 'Backend' : profile?.framework === 'react-native' ? 'Frontend · React Native' : profile ? 'Frontend · Flutter' : t('Choose your workspace')}</h2><p>{t(workspace.spaceId ? 'Each workspace keeps its own stack, project and device selection.' : 'Personalize Snapkit for your stack. Change this anytime.')}</p></div><button className="button" onClick={() => workspace.spaceId ? document.dispatchEvent(new Event('snapkit:workspaces')) : edit()}><Icon name="sliders-horizontal" />{t(workspace.spaceId ? 'Switch workspace' : 'Change profile')}</button></section>, document.getElementById('profile-preference-root')!)}
+    {createPortal(<section className="profile-preference tool-card"><div><span className="product-kicker">{t('DEVELOPER PROFILE')}</span><h2>{workspace.spaceId ? workspace.spaceName : profile?.role === 'general' ? t('Everyday tools') : profile?.role === 'backend' ? 'Backend' : profile?.framework === 'react-native' ? 'Frontend · React Native' : profile ? 'Frontend · Flutter' : t('Choose your workspace')}</h2><p>{t(workspace.spaceId ? 'Each workspace keeps its own stack, project and device selection.' : 'Personalize Snapkit for your stack. Change this anytime.')}</p></div><button className="button" onClick={() => workspace.spaceId ? document.dispatchEvent(new Event('snapkit:workspaces')) : edit()}><Icon name="sliders-horizontal" />{t(workspace.spaceId ? 'Switch workspace' : 'Change profile')}</button></section>, document.getElementById('profile-preference-root')!)}
     {createPortal(<section className="backend-welcome"><span className="profile-terminal"><Icon name="terminal" /> snapkit / backend</span><span className="profile-soon">{t('Coming soon')}</span><h1>{t('Your backend workspace is on its way.')}</h1><p>{t('A home for your services, APIs and local environments. Backend tools are not available yet.')}</p><div className="backend-features">{[['code-xml', 'API workspace'], ['layers', 'Local services'], ['terminal', 'Service logs']].map(([icon, title]) => <article key={title}><Icon name={icon} /><h2>{t(title)}</h2><span>{t('Coming soon')}</span></article>)}</div><button className="button primary" onClick={() => state.settings.spaceId ? document.dispatchEvent(new Event('snapkit:workspaces')) : edit()}>{t(workspace.spaceId ? 'Switch workspace' : 'Explore Frontend tools')}<Icon name="arrow-right" /></button><p className="profile-footnote">{t('Your choice is saved on this computer.')}</p></section>, document.getElementById('backend-root')!)}
     <dialog ref={dialog} id="developer-onboarding" aria-labelledby="profile-title" aria-describedby="profile-description" onCancel={event => { if (!profile || busy) event.preventDefault(); else setOpen(false); }}>
       <div className="profile-dialog-top"><span className="profile-terminal"><Icon name="terminal" /> snapkit / setup</span><span className="profile-step">{t('MAKE IT YOURS')}</span>{profile && <button className="icon-button" aria-label={t('Close')} disabled={busy} onClick={() => setOpen(false)}><Icon name="x" /></button>}</div>
       <h1 id="profile-title">{t('What do you build?')}</h1><p id="profile-description">{t('Pick your role. We’ll prepare the right tools for your workflow.')}</p>
       <button type="button" className="button" onClick={() => { setOpen(false); document.dispatchEvent(new CustomEvent('snapkit:select-product', {detail:'teams'})); }}>{t('Open Snapkit Teams')}<Icon name="group"/></button>
+      <button className="button" type="button" disabled={busy} onClick={()=>{setBusy(true);setError('');void api('/api/preferences',{developerProfile:{role:'general',framework:null}}).then(result=>{apply(result.preferences.developerProfile);setOpen(false);showProductPage('kit');}).catch(e=>setError(e.message)).finally(()=>setBusy(false));}}><Icon name="puzzle"/>{t('Use everyday tools')}</button>
       <fieldset disabled={busy}><legend>{t('01 / YOUR ROLE')}</legend><div className="profile-options">{(['frontend', 'backend'] as const).map(role => <button key={role} type="button" className={`profile-choice ${draft.role === role ? 'selected' : ''}`} aria-pressed={draft.role === role} onClick={() => setDraft({ ...draft, role })}><span className="profile-choice-top"><Icon name={role === 'frontend' ? 'panels-top-left' : 'layers'} /><span className="profile-selection">{draft.role === role && <Icon name="check" />}</span></span><strong>{role === 'frontend' ? 'Frontend' : 'Backend'}</strong><span>{t(role === 'frontend' ? 'Build experiences. Ship to devices.' : 'Services, APIs and infrastructure.')}</span>{role === 'backend' && <small className="profile-soon">{t('Coming soon')}</small>}</button>)}</div></fieldset>
       {draft.role === 'frontend' ? <fieldset disabled={busy}><legend>{t('02 / YOUR FRAMEWORK')}</legend><div className="framework-options">{(['flutter', 'react-native'] as const).map(framework => <button type="button" key={framework} className={`framework-choice ${draft.framework === framework ? 'selected' : ''}`} aria-pressed={draft.framework === framework} onClick={() => setDraft({ ...draft, framework })}><span className="framework-logo" aria-hidden="true"><img src={framework === 'flutter' ? flutterLogo : reactNativeLogo} alt="" width="28" height="28" /></span><span><strong>{framework === 'flutter' ? 'Flutter' : 'React Native'}</strong><small>{framework === 'flutter' ? 'Dart' : 'JavaScript / TypeScript'}</small></span><span className="profile-selection">{draft.framework === framework && <Icon name="check" />}</span></button>)}</div><div className="profile-context"><Icon name="info" /><p>{t(draft.framework === 'react-native' ? 'Devices, logs, captures and IDE debug for native React Native projects. Expo Go and build & release are not supported yet.' : draft.framework === 'flutter' ? 'Devices, IDE debug, logs, captures and build & release. Ready for your Flutter workflow.' : 'Choose the stack you use most. Your project’s framework is detected when you connect it.')}</p></div></fieldset> : <div className="profile-context backend-context"><Icon name="clock-3" /><p>{t('Backend tools are coming soon. Save your profile to see what’s planned, or choose Frontend to start using device tools.')}</p></div>}
       <p className="field-error" role="alert">{error ? t(error) : ''}</p><div className="profile-dialog-footer"><span><Icon name="hard-drive" />{t('Saved locally. Change anytime.')}</span><button type="button" className="button primary" disabled={busy || (draft.role === 'frontend' && !draft.framework)} onClick={() => void save()}>{t(busy ? 'Saving…' : draft.role === 'backend' ? 'Save Backend profile' : 'Open my workspace')}<Icon name="arrow-right" /></button></div>

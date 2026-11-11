@@ -25,6 +25,7 @@ export function teamRoutes({ account, store, demo,getDevices,getSessions,stopSes
     try { const saved = JSON.parse(await readFile(file, 'utf8')); if (saved.version !== 1 || !Array.isArray(saved.sessions)) throw Error('Invalid local Teams data'); return saved; }
     catch (error) { if (error.code === 'ENOENT') return { version: 1, sessions: [] }; throw error; }
   }
+  router.startKit=async input=>{const {key,project}=await context({...input,environment:'development'});const binding=(await read()).sessions.find(s=>s.key===key);if(!binding)throw Error('Connect the team project to a local folder first');if(!project.startKit)throw Error('Your team has not saved a shared start kit');return {path:binding.path,plan:project.startKit};};
   router.get('/local-session', async (req, res) => {
     const { key } = await context(req.query);
     res.json({ session: (await read()).sessions.find(s => s.key === key) || null });

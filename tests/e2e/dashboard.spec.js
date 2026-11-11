@@ -400,7 +400,8 @@ test('sidebar groups separate workspace, setup, account and support while retain
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('.sidebar-note')).toHaveCount(0);
-  await expect(page.locator('.sidebar-group')).toHaveCount(6);
+  await expect(page.locator('.sidebar-group')).toHaveCount(7);
+  await expect(page.locator('.sidebar [data-app-page="kit"]')).toBeVisible();
   await expect(page.locator('#nav-setup')).toHaveText('SETUP');
   await page.locator('.sidebar [data-app-page="preferences"]').click();
   await expect(page.locator('#panel-preferences')).toBeVisible();

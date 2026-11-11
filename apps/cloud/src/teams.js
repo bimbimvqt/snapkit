@@ -1,4 +1,5 @@
 import express from 'express';
+import {sharedStartKit} from '../../../packages/domain/start-kit.js';
 import {createTeamPush} from './infrastructure/team-push.js';
 import {installPushRoutes} from './push-routes.js';
 import {installTaskRoutes} from './task-routes.js';
@@ -258,6 +259,12 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     if(input.icon!==undefined&&!validProjectIcon(input.icon))fail(400,'Choose a project icon or upload a PNG or WebP image.');
     const project = { id: randomUUID(), name, icon:input.icon||'folder-code', description: note(input.description, 500), createdBy: user.id, createdAt: now(), blueprint: { version: 1, services: [], updatedAt: now(), updatedBy: user.id }, history: [] };
     workspace.projects.push(project); audit(workspace, user, 'project.created', project.id);
+  });
+  mutate('/projects/:projectId/start-kit','projects.edit',(workspace,member,user,input,params)=>{
+    const project=projectOf(workspace,params.projectId,member);permit(member,'projects.edit',project.id,'development');
+    if(input.version!==(project.startKit?.version||0))fail(409,'The start kit changed. Refresh before saving.');
+    let plan;try{plan=sharedStartKit(input);}catch{fail(400,'Invalid shared start kit');}
+    project.startKit={...plan,version:(project.startKit?.version||0)+1,updatedAt:now(),updatedBy:user.id};audit(workspace,user,'start-kit.updated',project.id,'development');
   });
   mutate('/projects/:projectId/identity','projects.edit',(workspace,member,user,input,params)=>{
     const project=projectOf(workspace,params.projectId,member);permit(member,'projects.edit',project.id);

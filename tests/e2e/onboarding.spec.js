@@ -99,3 +99,16 @@ test('onboarding React Native connects a detected native workspace and blocks Fl
     await page.request.post('/api/workspace', { headers: { 'X-Snapkit-Token': state.token }, data: { path: state.settings.workspace, framework: 'flutter' } });
   }
 });
+
+
+test('everyday users enter Kit without choosing a developer framework', async ({page}) => {
+  await page.goto('/');
+  const modal=page.getByRole('dialog',{name:'What do you build?'});
+  await modal.getByRole('button',{name:'Use everyday tools',exact:true}).click();
+  await expect(modal).not.toBeVisible();
+  await expect(page.locator('#kit-root h1')).toHaveText('Your day. Your kit.');
+  await page.reload();
+  await expect(modal).not.toBeVisible();
+  await page.getByRole('button',{name:'Preferences',exact:true}).click();
+  await expect(page.locator('#profile-preference-root')).toContainText('Everyday tools');
+});

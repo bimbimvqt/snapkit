@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -85,6 +85,7 @@ async function start() {
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
+  require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
     if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
@@ -131,7 +132,7 @@ async function start() {
       const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(3000) });
       if (!response.ok) throw Error(nativeT('Could not check active tasks. Try again.'));
       const state = await response.json();
-      if (state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) throw Error(nativeT('Finish builds, uploads, recordings and debugging before installing the update.'));
+      if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) throw Error(nativeT('Finish builds, uploads, recordings and debugging before installing the update.'));
     });
     setImmediate(() => app.quit()); return updater.snapshot();
   });
@@ -156,7 +157,7 @@ async function start() {
       try {
         const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(2000) });
         const state = await response.json();
-        if (state.activeReleaseTask || state.activeRecordings || state.jobs?.some(job => job.status === 'running')) {
+        if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.jobs?.some(job => job.status === 'running')) {
           const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT(state.activeReleaseTask ? "A build or upload is still running" : "A device task is still running"), message: nativeT("Keep Snapkit open to finish your device task."), detail: nativeT(state.activeReleaseTask ? "Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying." : "Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
           if (choice.response !== 1) return;
         }
@@ -202,7 +203,12 @@ async function start() {
       window.SnapkitI18n.setLanguage('en');
       const english = document.querySelector('#add-device').textContent.trim() === 'Add device';
       window.SnapkitI18n.setLanguage(initial);
-      return {desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
+      const kitState=await window.snapkitDesktop.kitSettings();
+      const awake=await window.snapkitDesktop.kitAwake(true);
+      const asleep=await window.snapkitDesktop.kitAwake(false);
+      await window.snapkitDesktop.kitFocus(null);
+      const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
+      return {kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
     result.splash = splashVerified && splashClosed && readyReported;
     fs.writeFileSync(process.env.SNAPKIT_SMOKE_OUTPUT || path.join(os.tmpdir(), 'snapkit-desktop-smoke.json'), JSON.stringify(result));

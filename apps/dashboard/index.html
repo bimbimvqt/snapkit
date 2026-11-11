@@ -13,6 +13,7 @@
     <a class="brand" href="/" aria-label="Snapkit home"><span class="brand-mark"><i data-lucide="scan-line"></i></span>Snapkit</a>
     <button class="workspace-switch" id="workspace-switch"><span class="workspace-icon"><i data-lucide="folder-code"></i></span><span><strong id="workspace-name">Select workspace</strong><small>Flutter workspace</small></span><i data-lucide="chevrons-up-down"></i></button>
     <nav class="sidebar-navigation" aria-label="Main navigation">
+      <section class="sidebar-group" aria-labelledby="nav-kit"><h2 class="nav-label" id="nav-kit">DAILY KIT</h2><button class="nav-item" data-app-page="kit" title="Snapkit Kit"><i data-lucide="sparkles"></i>Snapkit Kit</button></section>
       <section class="sidebar-group" aria-labelledby="nav-workspace"><h2 class="nav-label" id="nav-workspace">WORKSPACE</h2>
         <button class="nav-item active" data-page="devices" data-app-page="devices" title="Devices"><i data-lucide="panels-top-left"></i>Devices<span id="nav-device-count">0</span></button>
       </section>
@@ -41,6 +42,7 @@
     <aside id="update-banner" class="update-banner hidden" aria-label="App update"></aside>
     <div id="review-invite-root"></div>
     <main>
+      <div id="panel-kit" class="app-panel hidden"><div id="kit-root"></div></div>
       <div id="panel-devices" class="app-panel">
       <div id="demo-notice" class="notice hidden"><i data-lucide="flask-conical"></i><span>Demo environment · Sample devices and simulated actions. No commands run on your machine.</span></div>
       <section class="page-heading"><div><h1 id="page-title">Your devices<span>.</span></h1><p id="page-description">Start devices and choose where to debug.</p></div><div class="heading-actions"><button class="button" id="run-profiles-open" aria-controls="run-profiles">Run Profiles</button><button class="button primary" id="add-device"><i data-lucide="plus"></i>Add device</button><button class="button" id="refresh-button"><i data-lucide="refresh-cw"></i>Refresh devices</button></div></section>

@@ -20,6 +20,7 @@ await cp(path.join(root, 'packages/ui/favicon.svg'), path.join(out, 'favicon.svg
 await cp(path.join(root, 'apps/dashboard/build'), path.join(out, 'demo'), { recursive: true });
 await cp(path.join(root, 'packages/ui'), path.join(out, 'demo'), { recursive: true });
 const snapshot = {
+  kit: {context:{name:'Flutter Commerce',framework:'flutter',branch:'feature/checkout',changed:2,connected:true,composeAvailable:true},recipe:{openEditor:true,compose:false,ports:[3000,8080],deviceIds:['demo-ios-1','demo-android-1']},files:[],lastStartedAt:null,demo:true},
   teams: teamPreview(),
   state: { demo: true, devices: demoDevices, warnings: [], jobs: [], settings: { workspace: '/Projects/flutter_app', targetIds: [] },
     storage: { iosDevices: '/Users/developer/Library/Developer/CoreSimulator/Devices', iosOnSSD: false, avd: '/SSD/SnapkitData/Android/avd', downloads: '/SSD/SnapkitData/downloads/iOS', iosReady: true }, host: 'Preview', platform: 'darwin', scannedAt: '2026-01-01T00:00:00.000Z' },

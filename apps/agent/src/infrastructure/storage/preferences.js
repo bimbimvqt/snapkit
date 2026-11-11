@@ -23,7 +23,7 @@ export async function savePreferences(input) {
   }
   if (input.developerProfile !== undefined) {
     const profile = input.developerProfile;
-    if (!profile || !['frontend', 'backend'].includes(profile.role) || (profile.role === 'frontend' && !['flutter', 'react-native'].includes(profile.framework))) throw new Error('Choose a developer role and framework');
+    if (!profile || !['frontend', 'backend', 'general'].includes(profile.role) || (profile.role === 'frontend' && !['flutter', 'react-native'].includes(profile.framework))) throw new Error('Choose a developer role and framework');
     next.developerProfile = { role: profile.role, framework: profile.role === 'frontend' ? profile.framework : null };
   }
   if (input.editor !== undefined) {

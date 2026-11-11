@@ -1,4 +1,5 @@
 import express from 'express';
+import {kitRoutes} from './modules/kit/kit.js';
 import { WorkspaceSpaces } from './modules/workspace/spaces.js';
 import { teamRoutes } from './modules/workspace/team-routes.js';
 import { ReleaseBuilds } from './modules/releases/release-builds.js';
@@ -150,10 +151,12 @@ app.use('/api', async (req, res, next) => {
   if (demo || req.path === '/health') return next();
   const status = await account.status(req.method === 'POST');
   if (status.authenticated) return next();
-  if (req.path === '/state') return res.json({ authRequired: true, activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, devices: [], jobs: [], debugSessions: [], warnings: [], settings: { targetIds: [], ideEnabled: false }, token: req.remoteToken ? undefined : token, platform: process.platform, host: os.hostname(), demo: false });
+  if (req.path === '/state') return res.json({ authRequired: true, activeKitTask:kitRouter.busy(), activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, devices: [], jobs: [], debugSessions: [], warnings: [], settings: { targetIds: [], ideEnabled: false }, token: req.remoteToken ? undefined : token, platform: process.platform, host: os.hostname(), demo: false });
   if (req.path === '/ide/plan') return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
+const kitRouter=kitRoutes({store,demo,getTeamPlan:input=>teamRouter.startKit(input),getSettings:()=>settings,getDevices:()=>snapshot.devices,getEditor:()=>getPreferences().editor,diagnostics:()=>diagnostics({framework:settings.framework}),active:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0,boot:async d=>{if(locks.has(d.id))throw Error('Device operation in progress');locks.add(d.id);try{if(demo){d.state='online';emit('devices',snapshot);}else{await bootDevice(d);void scan().catch(()=>{});}}finally{locks.delete(d.id);}}});
+app.use('/api/kit',kitRouter);
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
 const teamRouter=teamRoutes({account,store,demo,getDevices:()=>snapshot.devices,getSessions:()=>ideSessions.list(),stopSessions:ids=>ideSessions.requestStop(ids)});
 app.use('/api/teams',teamRouter);
@@ -238,7 +241,7 @@ app.get('/api/tools/captures/:id/file', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Capture not found.' });
   res.download(deviceTools.file(item), `Snapkit-${item.createdAt.replace(/[:.]/g, '-')}.${item.kind === 'image' ? 'png' : 'mp4'}`, { dotfiles: 'allow' });
 });
-app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeKitTask:kitRouter.busy(), activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (req, res) => {
@@ -298,6 +301,7 @@ app.get('/api/workspace/doctor', async (_req, res) => {
 });
 app.get('/api/run-profiles', (_req, res) => res.json({profiles: runProfiles.list(settings)}));
 app.post('/api/run-profiles/:action', async (req, res) => {
+  if (kitRouter.busy()) return res.status(409).json({error:'Wait for your start kit to finish before changing projects'});
   if (savingIDE) return res.status(409).json({error: 'Another IDE configuration update is running'});
   if (settings.framework === 'backend') return res.status(409).json({error: 'Backend tools are coming soon'});
   if (!['save', 'activate', 'delete'].includes(req.params.action)) return res.status(404).json({error: 'Unknown profile action'});
@@ -325,6 +329,7 @@ app.post('/api/run-profiles/:action', async (req, res) => {
 });
 app.get('/api/workspaces', (_req, res) => res.json(spaces.list(settings)));
 async function changeSpace(req, res, create) {
+  if (kitRouter.busy()) return res.status(409).json({error:'Wait for your start kit to finish before changing projects'});
   if (savingIDE) return res.status(409).json({error: 'Another IDE configuration update is running'});
   if (releaseBuilds.active || releaseBuilds.starting || deviceTools.recordings.size || ideSessions.list().length) return res.status(409).json({error: 'Stop active debug sessions, builds and recordings before switching workspaces'});
   savingIDE = true;
@@ -343,6 +348,7 @@ async function changeSpace(req, res, create) {
 app.post('/api/workspaces/create', (req, res) => changeSpace(req, res, true));
 app.post('/api/workspaces/activate', (req, res) => changeSpace(req, res, false));
 app.post('/api/workspace', async (req, res) => {
+  if (kitRouter.busy()) return res.status(409).json({error:'Wait for your start kit to finish before changing projects'});
   if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
   savingIDE = true;
   try {
@@ -360,6 +366,7 @@ app.post('/api/workspace', async (req, res) => {
 });
 app.post('/api/targets', async (req, res) => {
   if (settings.framework === 'backend') return res.status(409).json({error: 'Backend tools are coming soon'});
+  if (kitRouter.busy()) return res.status(409).json({error:'Wait for your start kit to finish before changing projects'});
   if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
   savingIDE = true;
   try {
@@ -373,6 +380,7 @@ app.post('/api/targets', async (req, res) => {
   } finally { savingIDE = false; }
 });
 app.post('/api/ide/mode', async (req, res) => {
+  if (kitRouter.busy()) return res.status(409).json({error:'Wait for your start kit to finish before changing projects'});
   if (savingIDE) return res.status(409).json({ error: 'Another IDE configuration update is running' });
   if (typeof req.body.enabled !== 'boolean') throw new Error('enabled must be a boolean');
   savingIDE = true;
