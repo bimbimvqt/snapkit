@@ -31,7 +31,7 @@ test('English landing stays English with JavaScript and its guide links, preview
  await page.goto('en/');await expect(page.locator('html')).toHaveAttribute('lang','en');
  await expect(page.locator('.hero-product')).toContainText('desktop app');
  await expect(page.locator('#teams a.button').first()).toHaveAttribute('href','demo/?product=teams');
- await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261106-images46');
+ await page.locator('[data-preview=setup]').click();await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/setup.webp?v=20261111-visual');
  await page.locator('[data-language-select]').click();await page.locator('[data-language=vi]').click();
  await expect(page.locator('.hero-product')).toContainText('Ứng dụng desktop');
  expect(errors).toEqual([]);

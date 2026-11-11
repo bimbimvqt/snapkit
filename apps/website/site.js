@@ -107,7 +107,7 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=${key === 'teams' ? '20261110-workflow53' : '20261106-images46'}`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261111-visual`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();
@@ -264,3 +264,14 @@ document.addEventListener('snapkit:language', renderReviews);
 function refreshReviews() { if (!document.hidden && Date.now() - lastReviewsCheck > 60000) void loadReviews(); }
 window.addEventListener('focus', refreshReviews); document.addEventListener('visibilitychange', refreshReviews); setInterval(refreshReviews,300000);
 void loadReviews();
+
+// Use app captures in the selected language, including direct /en/ visits.
+function updateVisualImages() {
+  const suffix = window.SnapkitI18n.language === 'vi' ? '-vi' : '';
+  for (const image of document.querySelectorAll('[data-visual-image]')) {
+    const source = `assets/visual/${image.dataset.visualImage}${suffix}.webp`;
+    if (image.getAttribute('src') !== source) image.src = source;
+  }
+}
+document.addEventListener('snapkit:language', updateVisualImages);
+updateVisualImages();
