@@ -1,6 +1,7 @@
 window.SnapkitMessages = {
   "source": "vi",
   "translations": {
+"Đánh dấu ảnh. Che thông tin riêng tư.": "Annotate images. Cover private details.","Văn bản vừa sao chép, luôn trong tầm tay.": "Your recent copies, always within reach.","Một link. Một mã QR.": "One link. One QR code.","Tạo, quét, chia sẻ. Ngay trên máy.": "Create, scan, share. On your computer.","Khám phá Snap Capture": "Explore Snap Capture","Khám phá Clipboard Kit": "Explore Clipboard Kit","Khám phá QR Kit": "Explore QR Kit",
 "Bộ tiện ích": "Everyday kit",
 "Việc nhỏ. Xong trong một chạm.": "Small tasks. One place.",
 "Clipboard, ảnh, QR và tệp. Bộ tiện ích cho mọi người dùng Mac và Windows.": "Clipboard, images, QR codes and files. Everyday tools for everyone on Mac and Windows.",

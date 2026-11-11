@@ -297,3 +297,12 @@ test('everyday kit landing links open usable local tools in the static demo',asy
  test('public Teams previews preserve saved product choice and utility deep links always open Personal',async({page})=>{
  await page.goto('./');await page.evaluate(()=>localStorage.setItem('snapkit-product-mode','personal'));await page.goto('demo/?product=teams&lang=en');await expect(page.locator('body')).toHaveAttribute('data-product-mode','teams');expect(await page.evaluate(()=>localStorage.getItem('snapkit-product-mode'))).toBe('personal');await page.evaluate(()=>localStorage.setItem('snapkit-product-mode','teams'));await page.goto('demo/?page=kit&tool=rename&lang=en');await expect(page.getByRole('heading',{name:'File Kit',exact:true})).toBeVisible();await expect(page.locator('body')).toHaveAttribute('data-product-mode','personal');expect(await page.evaluate(()=>localStorage.getItem('snapkit-product-mode'))).toBe('teams');
 });
+
+test('kit gallery keeps artwork and action rows aligned with no empty stretched cards',async({page})=>{
+ for(const route of ['./','en/']){
+  await page.goto(route);const cards=page.locator('.everyday-cards .kit-tile');await expect(cards).toHaveCount(3);
+  await cards.first().scrollIntoViewIfNeeded();await cards.locator('img').evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+  for(const width of [1440,768,375]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);if(width===1440){const art=await cards.locator('.kit-tile-art').evaluateAll(nodes=>nodes.map(node=>({top:node.getBoundingClientRect().top,height:node.getBoundingClientRect().height})));expect(Math.max(...art.map(n=>n.top))-Math.min(...art.map(n=>n.top))).toBeLessThan(2);expect(Math.max(...art.map(n=>n.height))-Math.min(...art.map(n=>n.height))).toBeLessThan(2);const heights=await cards.evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().height));expect(Math.max(...heights)).toBeLessThan(500);}}
+  for(let i=0;i<3;i++){await expect(cards.nth(i)).toHaveAttribute('href',new RegExp('tool='+['capture','clipboard','qr'][i]));}
+ }
+});
