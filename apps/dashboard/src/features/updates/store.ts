@@ -1,7 +1,8 @@
 import type { UpdateState } from './model';
 let snapshot: UpdateState = { status: window.snapkitDesktop ? 'idle' : 'web' };
 const listeners = new Set<() => void>();
-let polling = false, action = false;
+let polling = false, action = false, generation = 0;
+let actionError: { status: UpdateState['status']; version?: string; message: string } | undefined;
 export const updateStore = {
   getSnapshot: () => snapshot,
   subscribe: (notify: () => void) => { listeners.add(notify); return () => { listeners.delete(notify); }; },
@@ -10,14 +11,24 @@ export const updateStore = {
     const get = window.snapkitDesktop?.updateState;
     if (!get || polling || action) return;
     polling = true;
-    try { updateStore.set(await get()); } catch { /* A temporary IPC failure retains known update state. */ }
+    const currentGeneration = generation;
+    try {
+      const next = await get();
+      if (currentGeneration !== generation) return;
+      if (actionError && next.status === actionError.status && next.version === actionError.version && !next.error) updateStore.set({ ...next, error: actionError.message });
+      else { actionError = undefined; updateStore.set(next); }
+    } catch { /* A temporary IPC failure retains known update state. */ }
     finally { polling = false; }
   },
   async perform(run: (() => Promise<UpdateState>) | undefined) {
     if (!run || action) return;
-    action = true;
+    action = true; generation++; actionError = undefined;
     try { updateStore.set(await run()); }
-    catch (error) { updateStore.set({ ...snapshot, error: error instanceof Error ? error.message : String(error) }); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      actionError = { status: snapshot.status, version: snapshot.version, message };
+      updateStore.set({ ...snapshot, error: message });
+    }
     finally { action = false; }
   }
 };

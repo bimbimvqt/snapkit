@@ -29,7 +29,7 @@ test('restart/install paints a blocking loading screen, recovers on cancel/error
   await page.addInitScript(() => {
     let state = { status: 'ready', current: '0.2.0-beta.24', version: '0.2.0-beta.25' }, finish;
     window.snapkitDesktop = {
-      setLanguage: async () => {}, ready: () => {}, updateState: async () => state,
+      setLanguage: async () => {}, ready: () => {}, updateState: async () => { window.updatePolls = (window.updatePolls || 0) + 1; return state; },
       installUpdate: () => {
         window.loadingPaintedAtInstall = document.querySelector('#update-loading').open;
         window.installCalls = (window.installCalls || 0) + 1;
@@ -65,6 +65,9 @@ test('restart/install paints a blocking loading screen, recovers on cancel/error
   await expect.poll(() => page.evaluate(() => window.installCalls)).toBe(2);
   await page.evaluate(() => window.snapkitDesktop.finishInstall('error'));
   await expect(loading).toBeHidden(); await expect(page.locator('#update-detail')).not.toBeEmpty();
+  const polls = await page.evaluate(() => window.updatePolls);
+  await expect.poll(() => page.evaluate(() => window.updatePolls)).toBeGreaterThan(polls + 1);
+  await expect(page.locator('#update-detail')).not.toBeEmpty();
   await page.locator('#update-install').click();
   await expect.poll(() => page.evaluate(() => window.installCalls)).toBe(3);
   await page.evaluate(() => window.snapkitDesktop.finishInstall('success'));
