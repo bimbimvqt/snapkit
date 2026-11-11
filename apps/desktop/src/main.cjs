@@ -263,6 +263,15 @@ async function start() {
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:utility').then(()=>window.snapkitMini.action('copy'))");
     result.mini=result.mini && miniClipboardFixture.copied==='https://snapkit.vn';
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
+    for(const language of ['en','vi']){
+      await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.setLanguage('${language}')`);
+      for(const mode of ['focus','utility','debug']){
+        await miniWindow.webContents.executeJavaScript(`window.snapkitMini.action('mode:${mode}')`);
+        await new Promise(resolve=>setTimeout(resolve,150));
+        result.mini=result.mini && await miniWindow.webContents.executeJavaScript(`(()=>{const panel=document.querySelector('main:not([hidden])');return panel.scrollHeight<=panel.clientHeight+1 && Math.abs(innerHeight-panel.getBoundingClientRect().bottom)<=3;})()`);
+      }
+    }
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
     if(process.env.SNAPKIT_MINI_SCREENSHOT){
       for(const language of ['en','vi']){
         await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.setLanguage('${language}')`);

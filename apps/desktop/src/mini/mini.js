@@ -1,5 +1,6 @@
 'use strict';
-const $=id=>document.getElementById(id);let state=null,busy=false,feedbackTimer=null;
+const $=id=>document.getElementById(id);let state=null,busy=false,feedbackTimer=null,fitFrame=null;
+function fit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(()=>{if(!state||state.compact)return;const panel=$(state.mode+'-panel');window.snapkitMini.fit({mode:state.mode,height:Math.ceil(panel.offsetTop+panel.scrollHeight+1)});});}
 function clock(){if(!state)return;const seconds=state.focus.deadline?Math.max(0,Math.ceil((state.focus.deadline-Date.now())/1000)):state.focus.remaining;const time=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('timer').textContent=time;if(state.mode==='focus')$('mini-time').textContent=time;const vi=state.language==='vi',running=state.focus.deadline&&seconds>0;$('focus').textContent=running?(vi?'Tạm dừng':'Pause'):(vi?'Bắt đầu':'Start');$('status').textContent=running?(vi?'Đang tập trung':'Focusing'):seconds===0?(vi?'Đã hoàn thành':'Completed'):(vi?'Sẵn sàng tập trung':'Ready to focus');}
 function render(value){
  state=value;const vi=state.language==='vi',task=state.task,mode=state.mode||'focus';
@@ -17,10 +18,12 @@ function render(value){
   const rows=[];for(const device of d?.devices||[]){const row=document.createElement('div');row.className='device';const name=document.createElement('span');name.textContent=device.name;const status=document.createElement('small');status.textContent=device.debugging?'Debug Sync':device.platform+' · Online';row.append(name,status);rows.push(row);}$('debug-devices').replaceChildren(...rows);
   $('build-title').textContent=d?.build?d.build.format:(vi?'Build & phát hành':'Build & release');$('build-status').textContent=!d?(vi?'Đang cập nhật…':'Updating…'):d.releaseUnavailable?(vi?'Chưa lấy được trạng thái build.':'Build status unavailable.'):d.build?(d.build.upload?(vi?'Đang upload':'Uploading'):({preparing:vi?'Đang chuẩn bị':'Preparing',building:vi?'Đang build ứng dụng':'Building app',collecting:vi?'Đang thu thập kết quả':'Collecting artifacts'})[d.build.status]||(vi?'Đang xử lý':'Running')):(vi?'Chưa có build đang chạy.':'No build is running.');$('logs').textContent=vi?'Log thiết bị':'Device logs';$('devices').textContent=vi?'Thiết bị ↗':'Devices ↗';$('releases').textContent=vi?'Mở Build & release ↗':'Open Build & release ↗';$('mini-title').textContent='Debug & build';$('mini-time').textContent=d&&!d.unavailable?d.sessions+(vi?' phiên':' sessions'):'—';
  }else $('mini-title').textContent=task?.title||'Focus Kit';
- clock();
+ clock();fit();
 }
 async function action(name){if(busy)return;busy=true;try{$('error').hidden=true;const next=await window.snapkitMini.action(name);if(next)render(next);if(name==='copy'){$('feedback').textContent=state?.language==='vi'?'Đã sao chép':'Copied';$('feedback').hidden=false;clearTimeout(feedbackTimer);feedbackTimer=setTimeout(()=>$('feedback').hidden=true,1800);}}catch{$('error').textContent=state?.language==='vi'?'Chưa thực hiện được. Thử lại nhé.':'Could not complete. Try again.';$('error').hidden=false;}finally{busy=false;if(state)render(state);}}
 for(const id of ['pin','compact','close','focus','open','clear','awake','copy','clipboard','capture','qr','logs','devices','releases'])$(id).addEventListener('click',()=>void action(id));$('expand').addEventListener('click',()=>void action('compact'));
 for(const button of document.querySelectorAll('[data-mode]'))button.addEventListener('click',()=>void action('mode:'+button.dataset.mode));
 $('modes').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const buttons=[...document.querySelectorAll('[data-mode]')],index=buttons.indexOf(document.activeElement);const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].focus();void action('mode:'+buttons[next].dataset.mode);});
 window.snapkitMini.onState(render);window.snapkitMini.state().then(render).catch(()=>{$('error').textContent='Snapkit Mini unavailable';$('error').hidden=false;});setInterval(clock,1000);
+
+const sizeObserver=new ResizeObserver(fit);for(const panel of document.querySelectorAll('main,header,nav'))sizeObserver.observe(panel);document.fonts.ready.then(fit);
