@@ -280,3 +280,9 @@ Object.assign(window.SnapkitMessages.translations, {
 Object.assign(window.SnapkitMessages.translations,{
  "Việc đang làm.":"Your current work.","Luôn trong tầm mắt.":"Always in sight.","Task và đồng hồ tập trung trong một widget nổi. Mở nhanh từ menu bar trên Mac hoặc system tray trên Windows.":"Your task and focus timer in a floating widget. Open it from the Mac menu bar or Windows system tray.","Tải bản desktop":"Get the desktop app","Widget Snapkit Mini trong ứng dụng với task và đồng hồ minh hoạ":"Snapkit Mini captured in the app with a sample task and focus timer"
 });
+
+Object.assign(window.SnapkitMessages.translations,{
+ "Trăm tệp.":"A hundred files.","Một lần đổi tên.":"One rename.","Thử File Kit":"Try File Kit","Xem trước":"Preview","Áp dụng":"Apply","Hoàn tác":"Undo",
+ "Ba chế độ. Một widget nhỏ. Tập trung, theo dõi debug và dùng tiện ích ngay trong tầm tay.":"Three modes. One small widget. Focus, follow debugging and reach your everyday tools.","Tập trung":"Focus","Tiện ích":"Utilities","Chọn ảnh widget":"Widget preview","Menu bar trên Mac. System tray trên Windows.":"Mac menu bar. Windows system tray.",
+ "Đến lượt bạn. Báo ngay.":"Your turn. Stay notified.","Nhắc cấp quyền lần đầu. Âm báo tuỳ chọn.":"A first-launch permission prompt. Optional notification sound.","Bảng thông báo Snapkit với dữ liệu minh hoạ":"Snapkit notification panel with sample data","Các chế độ Snapkit Mini trong ứng dụng với dữ liệu minh hoạ":"Snapkit Mini modes captured in the app with sample data"
+});

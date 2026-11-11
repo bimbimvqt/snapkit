@@ -275,3 +275,13 @@ function updateVisualImages() {
 }
 document.addEventListener('snapkit:language', updateVisualImages);
 updateVisualImages();
+
+for(const button of document.querySelectorAll('[data-mini-view]'))button.addEventListener('click',()=>{
+ const view=button.dataset.miniView;
+ if(!['focus','utility','debug'].includes(view))return;
+ const image=document.getElementById('mini-feature-image');
+ if(!image)return;
+ image.dataset.visualImage=view==='focus'?'kit-mini':`kit-mini-${view}`;
+ for(const peer of document.querySelectorAll('[data-mini-view]'))peer.setAttribute('aria-pressed',String(peer===button));
+ updateVisualImages();
+});

@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
   miniFocus:value=>ipcRenderer.invoke('snapkit:mini-focus',value),
   miniTask:value=>ipcRenderer.invoke('snapkit:mini-task',value),
   onMiniFocus:callback=>{const handler=(_event,value)=>callback(value);ipcRenderer.on('snapkit:mini-focus',handler);return()=>ipcRenderer.removeListener('snapkit:mini-focus',handler);},
-  onMiniNavigate:callback=>{const handler=()=>callback();ipcRenderer.on('snapkit:mini-navigate',handler);return()=>ipcRenderer.removeListener('snapkit:mini-navigate',handler);},
+  onMiniNavigate:callback=>{const handler=(_event,target)=>callback(target||{});ipcRenderer.on('snapkit:mini-navigate',handler);return()=>ipcRenderer.removeListener('snapkit:mini-navigate',handler);},
   clipboardState:()=>ipcRenderer.invoke('snapkit:clipboard-state'),
   clipboardEnabled:value=>ipcRenderer.invoke('snapkit:clipboard-enabled',value),
   clipboardClear:()=>ipcRenderer.invoke('snapkit:clipboard-clear'),

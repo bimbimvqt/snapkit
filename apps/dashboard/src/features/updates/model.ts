@@ -14,7 +14,7 @@ export interface DesktopUpdates {
   miniFocus?:(value:MiniFocus)=>Promise<void>;
   miniTask?:(value:MiniTask|null)=>Promise<void>;
   onMiniFocus?:(callback:(value:MiniFocus)=>void)=>()=>void;
-  onMiniNavigate?:(callback:()=>void)=>()=>void;
+  onMiniNavigate?:(callback:(target:{page?:string;tool?:string})=>void)=>()=>void;
   clipboardState?:()=>Promise<ClipboardSnapshot>;
   clipboardEnabled?:(value:boolean)=>Promise<ClipboardSnapshot>;
   clipboardClear?:()=>Promise<ClipboardSnapshot>;

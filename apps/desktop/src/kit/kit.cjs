@@ -9,7 +9,8 @@ function installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerS
  const state=()=>({startupAvailable:app.isPackaged&&['darwin','win32'].includes(process.platform),openAtLogin:app.getLoginItemSettings().openAtLogin,shortcut,awake:awake!==null&&powerSaveBlocker.isStarted(awake)});
  ipcMain.handle('snapkit:kit-settings',(event)=>{valid(event);return state();});
  ipcMain.handle('snapkit:kit-startup',(event,enabled)=>{valid(event);if(typeof enabled!=='boolean'||!state().startupAvailable)throw Error('Startup is available in the installed macOS or Windows app.');app.setLoginItemSettings({openAtLogin:enabled});return state();});
- ipcMain.handle('snapkit:kit-awake',(event,enabled)=>{valid(event);if(typeof enabled!=='boolean')throw Error('Invalid setting');if(enabled&&awake===null)awake=powerSaveBlocker.start('prevent-display-sleep');else if(!enabled&&awake!==null){powerSaveBlocker.stop(awake);awake=null;}return state();});
+ const setAwake=enabled=>{if(typeof enabled!=='boolean')throw Error('Invalid setting');if(enabled&&awake===null)awake=powerSaveBlocker.start('prevent-display-sleep');else if(!enabled&&awake!==null){powerSaveBlocker.stop(awake);awake=null;}return state();};
+ ipcMain.handle('snapkit:kit-awake',(event,enabled)=>{valid(event);return setAwake(enabled);});
  ipcMain.handle('snapkit:kit-pick',async event=>{valid(event);const result=await dialog.showOpenDialog(getWindow(),{title:language()==='vi'?'Thêm tệp vào Snapkit':'Add files to Snapkit',properties:['openFile','multiSelections']});if(result.canceled)return {files:[]};return request('/files',{paths:result.filePaths.slice(0,5)});});
  ipcMain.handle('snapkit:kit-drop',async(event,paths)=>{valid(event);if(!Array.isArray(paths)||paths.length>5||paths.some(p=>typeof p!=='string'||!path.isAbsolute(p)))throw Error('Choose up to 5 files');return request('/files',{paths});});
  ipcMain.handle('snapkit:kit-reveal',async(event,id)=>{valid(event);if(typeof id!=='string'||!/^[a-z0-9-]{36}$/i.test(id))throw Error('Invalid file');const result=await request('/files/'+encodeURIComponent(id)+'/path');shell.showItemInFolder(result.path);return true;});
@@ -18,6 +19,6 @@ function installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerS
  ipcMain.handle('snapkit:kit-focus',(event,deadline)=>{valid(event);return setFocusDeadline(deadline);});
  ipcMain.handle('snapkit:kit-notify',event=>{valid(event);if(Notification.isSupported()){new Notification({title:'Snapkit',body:language()==='vi'?'Đã hoàn thành phiên tập trung. Nghỉ một chút nhé.':'Your focus session is complete. Time for a break.',silent:false}).show();}return true;});
  app.once('will-quit',()=>{if(focusTimer)clearTimeout(focusTimer);globalShortcut.unregister('CommandOrControl+Shift+Space');if(awake!==null)powerSaveBlocker.stop(awake);});
- return {setFocusDeadline};
+ return {setFocusDeadline,state,setAwake};
 }
 module.exports={installKit};

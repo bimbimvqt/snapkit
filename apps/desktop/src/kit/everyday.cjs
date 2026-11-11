@@ -13,6 +13,6 @@ function installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,fromApp,g
  ipcMain.handle('snapkit:file-undo',async(e,id)=>{valid(e);return files.revert(id);});
  ipcMain.handle('snapkit:capture-screens',async e=>{valid(e);const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:1920,height:1080}});const images=sources.filter(s=>!s.thumbnail.isEmpty()).slice(0,8).map(s=>({id:s.id,name:s.name,image:s.thumbnail.toDataURL()}));if(!images.length)throw Error('Screen capture is unavailable. Allow Screen Recording in system settings or choose an image');return images;});
  app.once('will-quit',()=>history.dispose());
- return {files};
+ return {files,history};
 }
 module.exports={installEveryday};

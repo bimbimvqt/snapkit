@@ -87,7 +87,9 @@ async function start() {
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
   const everyday=require('./kit/everyday.cjs').installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage});
   const kit=require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
-  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin});
+  const miniClipboardFixture={enabled:false,items:[],copied:''};
+  const miniHistory=process.env.SNAPKIT_SMOKE_TEST==='1'?{state:()=>({...miniClipboardFixture}),copy:async id=>{const item=miniClipboardFixture.items.find(item=>item.id===id);if(!item)throw Error('Invalid clipboard item');miniClipboardFixture.copied=item.text;return true;}}:everyday.history;
+  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin,history:miniHistory,kit});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
     if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
@@ -228,8 +230,24 @@ async function start() {
       await window.snapkitMini.action('pin');
       const unpinned=!(await window.snapkitMini.state()).pinned;
       await window.snapkitMini.action('pin');
+      await window.snapkitMini.action('mode:utility');
+      const utilities=await window.snapkitMini.state();
+      const initialAwake=utilities.utility.awake;
+      await window.snapkitMini.action('awake');
+      const toggled=(await window.snapkitMini.state()).utility.awake!==initialAwake;
+      await window.snapkitMini.action('awake');
+      let noCopy=false;try{await window.snapkitMini.action('copy');}catch{noCopy=true;}
+      await window.snapkitMini.action('compact');
+      const utilityCompact=document.body.classList.contains('compact')&&document.getElementById('mini-title').textContent==='Daily Kit';
+      await window.snapkitMini.action('compact');
+      await window.snapkitMini.action('mode:debug');
+      let debugState;for(let attempt=0;attempt<30;attempt++){debugState=await window.snapkitMini.state();if(debugState.debug)break;await new Promise(resolve=>setTimeout(resolve,100));}
+      const debugMode=debugState.mode==='debug' && !debugState.debug?.unavailable && !JSON.stringify(debugState.debug).includes('token') && document.getElementById('debug-panel').scrollHeight<=document.getElementById('debug-panel').clientHeight;
+      await window.snapkitMini.action('mode:focus');
       let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
-      return !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
+      const modes=utilities.mode==='utility' && !utilities.utility.enabled && utilities.utility.item===null && toggled && noCopy && utilityCompact && debugMode;
+
+      return modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
     })()`);
     mainWindow.close();
     const hidden=!mainWindow.isVisible();
@@ -238,12 +256,24 @@ async function start() {
     await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniTask({id:'fixture-task',userId:'fixture-user',workspaceId:'fixture-team',projectId:'fixture-project',environment:'development',title:'Hoàn thiện màn thanh toán',project:'Demo Flutter · MOB-42',done:3,total:5})`);
     await new Promise(resolve=>setTimeout(resolve,100));
     result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.getElementById('title').textContent==='Hoàn thiện màn thanh toán' && !document.getElementById('task').hidden");
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('qr')");
+    await new Promise(resolve=>setTimeout(resolve,100));
+    result.mini=result.mini && await mainWindow.webContents.executeJavaScript("[...document.querySelectorAll('.kit-card h2')].some(node=>node.textContent==='QR Kit'&&node.getBoundingClientRect().height>0)");
+    miniClipboardFixture.enabled=true;miniClipboardFixture.items=[{id:'mini-fixture',text:'https://snapkit.vn'}];
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:utility').then(()=>window.snapkitMini.action('copy'))");
+    result.mini=result.mini && miniClipboardFixture.copied==='https://snapkit.vn';
+    await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
     if(process.env.SNAPKIT_MINI_SCREENSHOT){
       for(const language of ['en','vi']){
         await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.setLanguage('${language}')`);
         await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniFocus({remaining:1458,deadline:null})`);
         await new Promise(resolve=>setTimeout(resolve,120));
-        fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
+        for(const mode of ['focus','utility','debug']){
+          await miniWindow.webContents.executeJavaScript(`window.snapkitMini.action('mode:${mode}')`);
+          await new Promise(resolve=>setTimeout(resolve,200));
+          fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-'+mode+'-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
+        }
+        await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
       }
     }
     result.clipboard=clipboardAPI;

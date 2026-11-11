@@ -11,7 +11,7 @@ async function workspace(page,role='admin') {
     const request=route.request(),url=new URL(request.url()),pathname=url.pathname;state.requests.push(pathname);
     const reply=data=>route.fulfill({json:data});
     if(pathname==='/v1/product/kit')return reply(kitCatalog);
-    if(pathname==='/v1/releases/latest')return reply({available:true,version:'0.2.0-beta.62'});
+    if(pathname==='/v1/releases/latest')return reply({available:true,version:'0.2.0-beta.63'});
     if(pathname==='/v1/auth/config')return reply({configured:true});
     if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
     if(pathname==='/v1/admin/overview')return state.failOverview?route.fulfill({status:503,json:{error:'Máy chủ tạm thời không phản hồi.'}}):reply({users:24,activeUsers:21,sessions:8,content:state.content,feedback:{total:12,open:7,pending:3,published:2},audit:[]});
