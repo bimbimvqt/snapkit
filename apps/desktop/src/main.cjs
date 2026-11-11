@@ -242,7 +242,8 @@ async function start() {
       await window.snapkitMini.action('compact');
       await window.snapkitMini.action('mode:debug');
       let debugState;for(let attempt=0;attempt<30;attempt++){debugState=await window.snapkitMini.state();if(debugState.debug)break;await new Promise(resolve=>setTimeout(resolve,100));}
-      const debugMode=debugState.mode==='debug' && !debugState.debug?.unavailable && !JSON.stringify(debugState.debug).includes('token') && document.getElementById('debug-panel').scrollHeight<=document.getElementById('debug-panel').clientHeight;
+      for(let attempt=0;attempt<40;attempt++){const panel=document.getElementById('debug-panel');if(panel.scrollHeight<=panel.clientHeight+1 && Math.abs(innerHeight-panel.getBoundingClientRect().bottom)<=3)break;await new Promise(resolve=>setTimeout(resolve,50));}
+      const debugMode=debugState.mode==='debug' && !debugState.debug?.unavailable && !JSON.stringify(debugState.debug).includes('token') && document.getElementById('debug-panel').scrollHeight<=document.getElementById('debug-panel').clientHeight+1;
       await window.snapkitMini.action('mode:focus');
       let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
       const modes=utilities.mode==='utility' && !utilities.utility.enabled && utilities.utility.item===null && toggled && noCopy && utilityCompact && debugMode;
@@ -268,7 +269,9 @@ async function start() {
       for(const mode of ['focus','utility','debug']){
         await miniWindow.webContents.executeJavaScript(`window.snapkitMini.action('mode:${mode}')`);
         await new Promise(resolve=>setTimeout(resolve,150));
-        result.mini=result.mini && await miniWindow.webContents.executeJavaScript(`(()=>{const panel=document.querySelector('main:not([hidden])');return panel.scrollHeight<=panel.clientHeight+1 && Math.abs(innerHeight-panel.getBoundingClientRect().bottom)<=3;})()`);
+        const layout=await miniWindow.webContents.executeJavaScript(`(async()=>{let metrics;for(let attempt=0;attempt<40;attempt++){const panel=document.querySelector('main:not([hidden])');metrics={scroll:panel.scrollHeight,client:panel.clientHeight,bottom:panel.getBoundingClientRect().bottom,height:innerHeight};if(metrics.scroll<=metrics.client+1 && Math.abs(metrics.height-metrics.bottom)<=3)return {ok:true,...metrics};await new Promise(resolve=>setTimeout(resolve,50));}return {ok:false,...metrics};})()`);
+        if(!layout.ok)console.error('Mini layout failed',language,mode,layout);
+        result.mini=result.mini && layout.ok;
       }
     }
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
