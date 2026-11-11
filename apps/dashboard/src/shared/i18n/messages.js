@@ -2,6 +2,11 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Connected storage":"Ổ đĩa đang kết nối",
+    "Internal SSD":"SSD trong máy","External SSD":"SSD gắn ngoài","Internal HDD":"HDD trong máy","External HDD":"HDD gắn ngoài","Internal drive":"Ổ trong máy","External drive":"Ổ gắn ngoài","Local drive":"Ổ cục bộ",
+    "System disk":"Ổ hệ thống","System disk free":"Trống trên ổ hệ thống","Snapkit data":"Dữ liệu Snapkit","Active project":"Dự án đang mở",
+    "{0} free of {1}":"Trống {0} / {1}",
+    "Available now · decimal GB. macOS may also count reclaimable space.":"Dung lượng trống hiện có · GB thập phân. macOS có thể tính thêm phần có thể thu hồi.",
     "Collapse guide": "Thu gọn hướng dẫn",
     "You can reopen Quick setup anytime.": "Bạn có thể mở lại Thiết lập nhanh bất cứ lúc nào.",
     "Quick setup": "Thiết lập nhanh",

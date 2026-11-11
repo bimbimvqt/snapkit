@@ -1,3 +1,4 @@
+import {demoVolumes} from '../../../../packages/domain/demo-volumes.js';
 import { agentRequest } from '../shared/api/client.ts';
 import { renderDeviceGrid } from '../features/devices/render.tsx';
 const t = (...args) => window.SnapkitI18n.t(...args);
@@ -33,7 +34,7 @@ async function api(url, data, quiet = false) {
     if (data !== undefined) throw new Error(previewReadOnlyMessage);
     if (url === '/api/kit') return structuredClone(window.SNAPKIT_PREVIEW.kit);
     if (url === '/api/kit/ready') return {checkedAt:Date.now(),checks:[{id:'flutter',title:'Flutter',status:'ready',detail:'Sample tool check'}],ports:[],docker:null};
-    if (url === '/api/kit/machine') return {checkedAt:Date.now(),platform:'darwin',memory:{total:17179869184,used:8589934592},disk:{free:214748364800,total:512000000000},uptime:18000,processes:[{pid:123,name:'Android Emulator',memory:1400000000,cpu:6}],caches:[{name:'build',bytes:256000000,partial:false}]};
+    if (url.startsWith('/api/kit/machine')) return {volumes:demoVolumes,checkedAt:Date.now(),platform:'darwin',memory:{total:17179869184,used:8589934592},disk:{free:demoVolumes[1].free,total:demoVolumes[1].total,name:demoVolumes[1].name},uptime:18000,processes:[{pid:123,name:'Android Emulator',memory:1400000000,cpu:6}],caches:[{name:'build',bytes:256000000,partial:false}]};
     if (url === '/api/kit/run') return {job:null};
     if (url === '/api/teams/notifications') {
       const workspace=window.SNAPKIT_PREVIEW.teams;
@@ -53,7 +54,7 @@ async function api(url, data, quiet = false) {
     if (url === '/api/tools') return { sets: [], captures: [], recordings: [], jobs: [], demo: true };
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
     if (url === '/api/product') return { version: __APP_VERSION__, channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
-    if (url.startsWith('/api/diagnostics')) return { ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, computer: { model: 'Mac mini', name: 'Sample Mac', chip: 'Apple M4', osName: 'macOS', osVersion: 'macOS 26', form: 'mini' }, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
+    if (url.startsWith('/api/diagnostics')) return { volumes:demoVolumes,ready: true, platform: 'darwin', arch: 'arm64', memoryGB: 16, computer: { model: 'Mac mini', name: 'Sample Mac', chip: 'Apple M4', osName: 'macOS', osVersion: 'macOS 26', form: 'mini' }, checks: [{ id: 'flutter', title: 'Flutter', status: 'ready', detail: "Sample · Flutter ready", help: 'https://docs.flutter.dev/get-started/install' }, { id: 'android', title: "Android tools", status: 'ready', detail: "Sample · Android tools ready", help: 'https://developer.android.com/studio' }, { id: 'ios', title: "iOS Simulator", status: 'ready', detail: "Sample · iOS ready", help: 'https://developer.apple.com/xcode/' }], storage: { root: "Sample · your computer" }, advice: "Demo only. Your actual setup is checked in Snapkit Desktop." };
     if (url.startsWith('/api/provision/catalog')) return structuredClone(window.SNAPKIT_PREVIEW.catalog);
     if (url === '/api/provision/ios/runtimes') return { runtimes: structuredClone(window.SNAPKIT_PREVIEW.catalog.ios.downloadable) };
     throw new Error("This action requires the local Snapkit server.");

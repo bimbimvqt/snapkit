@@ -27,3 +27,5 @@
 .log-view-actions .button{font-size:12px}
 @media(max-width:1100px){.log-connection{grid-template-columns:minmax(0,1fr);gap:12px}.log-session-controls{justify-content:flex-end}.log-session-controls #log-status{margin-right:auto}}
 @media(max-width:600px){.log-controls{gap:16px}.log-filters{grid-template-columns:minmax(0,1fr);padding-top:16px}.log-view-controls{gap:8px}.log-view-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}.log-view-actions .button{width:100%;white-space:normal}.log-session-controls .button{flex:1}.log-session-controls #log-status{flex-basis:100%;border:0;border-radius:0;padding:0}.log-session-controls{gap:8px}}
+
+.guide-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}

@@ -1,0 +1,2 @@
+// Fictional storage for the public demo; never derived from the host machine.
+export const demoVolumes=[{id:'system',name:'Macintosh HD',mount:'/',internal:true,kind:'ssd',connection:'Apple Fabric',filesystem:'apfs',total:500000000000,free:180000000000,roles:['system']},{id:'external',name:'Work SSD',mount:'/Volumes/Work SSD',internal:false,kind:'ssd',connection:'USB',filesystem:'apfs',total:1000000000000,free:640000000000,roles:['snapkit','project']}];

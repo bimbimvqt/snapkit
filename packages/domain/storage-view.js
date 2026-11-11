@@ -1,0 +1,3 @@
+export function storageSize(value){if(!Number.isFinite(value)||value<0)return '—';const units=['B','KB','MB','GB','TB'];const index=Math.min(4,Math.floor(Math.log10(Math.max(1,value))/3));return `${Number((value/1000**index).toFixed(index?1:0))} ${units[index]}`;}
+export function volumeKind(volume){if(volume.kind==='ssd')return volume.internal===false?'External SSD':volume.internal===true?'Internal SSD':'SSD';if(volume.kind==='hdd')return volume.internal===false?'External HDD':volume.internal===true?'Internal HDD':'HDD';return volume.internal===false?'External drive':volume.internal===true?'Internal drive':'Local drive';}
+export const storageRoles={system:'System disk',snapkit:'Snapkit data',project:'Active project'};

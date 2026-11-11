@@ -1,3 +1,4 @@
+import {storageSize,volumeKind,storageRoles} from '../../../../../packages/domain/storage-view.js';
 import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, showWorkspace } from '../../legacy/device-controller.js';
 import macMiniImage from './assets/mac-mini.webp';
 import macStudioImage from './assets/mac-studio.webp';
@@ -112,8 +113,10 @@ function renderTools() {
       const computerImages = { mini: macMiniImage, studio: macStudioImage, macbook: macbookImage, windows: windowsImage };
       art.className = `computer-art${imageKind ? ` computer-art-${imageKind}` : ''}`;
       art.innerHTML = imageKind ? `<img src="${computerImages[imageKind]}" alt="" width="280" height="156" decoding="async">` : icon(computer.form === 'laptop' ? 'laptop' : 'monitor');
-      const rows = [['Name', computer.name], ['Chip', computer.chip], ['Memory', toolState.memoryGB ? `${toolState.memoryGB} GB` : null], ['Architecture', toolState.arch?.toUpperCase()], ['Available storage', toolState.freeDiskGB != null ? `${toolState.freeDiskGB} GB` : null]];
+      const rows = [['Name', computer.name], ['Chip', computer.chip], ['Memory', toolState.memoryGB ? `${toolState.memoryGB} GB` : null], ['Architecture', toolState.arch?.toUpperCase()], ...(!toolState.volumes?.length?[['System disk free', toolState.freeDiskGB != null ? `${toolState.freeDiskGB} GB` : null]]:[])];
       $('#computer-specs').innerHTML = rows.filter(([, value]) => value).map(([label, value]) => `<div class="computer-row"><dt>${escape(t(label))}</dt><dd>${escape(value)}</dd></div>`).join('');
+      const volumes=toolState.volumes||[],volumeNode=$('#computer-volumes');volumeNode.hidden=!volumes.length;
+      volumeNode.innerHTML=volumes.length?`<h3>${escape(t('Connected storage'))}</h3><div class="storage-volume-grid">${volumes.map(v=>`<article class="storage-volume"><header>${icon('hard-drive')}<div><strong>${escape(v.name)}</strong><small>${escape([t(volumeKind(v)),v.connection,v.filesystem?.toUpperCase()].filter(Boolean).join(' · '))}</small></div></header><p>${escape(t('{0} free of {1}',[storageSize(v.free),storageSize(v.total)]))}</p><meter min="0" max="${Number(v.total)}" value="${Number(v.free)}" aria-label="${escape(t('Available storage')+' · '+v.name)}"></meter><code>${escape(v.mount)}</code><div class="storage-volume-roles">${(v.roles||[]).map(role=>`<span>${escape(t(storageRoles[role]||role))}</span>`).join('')}</div></article>`).join('')}</div><p class="storage-volume-note">${escape(t('Available now · decimal GB. macOS may also count reclaimable space.'))}</p>`:'';
       $('#computer-os-name').textContent = osName;
       $('#computer-os-version').textContent = computer.osVersion || t('Version unavailable');
       $('#computer-advice').textContent = t(toolState.advice);
