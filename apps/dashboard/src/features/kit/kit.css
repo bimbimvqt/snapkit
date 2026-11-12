@@ -26,3 +26,5 @@ body[data-developer-role=general] .sidebar-group[aria-labelledby=nav-delivery],b
 
 .kit-task-entry{display:flex;align-items:center;gap:12px;min-width:0}.kit-task-entry>.kit-task{flex:1;min-width:0}.kit-task-entry>.icon-button{flex-shrink:0}
 .kit-heading{flex-wrap:wrap}.kit-heading>div{flex:1;min-width:240px}.kit-heading>.button{flex-shrink:0}.kit-focus>header{flex-wrap:wrap;gap:12px}.kit-focus>header>.button{margin-left:auto}
+
+.kit-capture-viewport{width:100%;min-width:0;max-height:72vh;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:8px;margin:16px 0 20px;background:var(--surface-subtle)}.kit-capture-viewport .kit-capture-canvas{max-width:none;margin:0;border:0;border-radius:0;flex:none}.kit-capture-zoom{margin-top:12px}.kit-capture-zoom output{min-width:64px;text-align:center;font-variant-numeric:tabular-nums;align-self:center}.kit-capture-zoom .button[aria-pressed=true]{border-color:var(--green);color:var(--green)}

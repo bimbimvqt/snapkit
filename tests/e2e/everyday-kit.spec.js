@@ -33,7 +33,7 @@ test('system screen picker imports one frame and stops sharing immediately',asyn
  });
  await open(page,'Snap Capture');expect(await page.evaluate(()=>window.pickerCalls)).toBe(0);
  await page.getByRole('button',{name:'Choose screen',exact:true}).click();const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();expect(await canvas.evaluate(node=>Array.from(node.getContext('2d').getImageData(10,10,1,1).data))).toEqual([255,0,0,255]);
- expect(await canvas.evaluate(node=>node.getBoundingClientRect().width<=node.width+2)).toBe(true);expect(await page.evaluate(()=>window.pickerTracks.every(track=>track.readyState==='ended'))).toBe(true);expect(await page.evaluate(()=>window.pickerOptions.audio)).toBe(false);
+ expect(await canvas.evaluate(node=>Math.abs(node.getBoundingClientRect().width-node.parentElement.clientWidth)<2)).toBe(true);expect(await page.evaluate(()=>window.pickerTracks.every(track=>track.readyState==='ended'))).toBe(true);expect(await page.evaluate(()=>window.pickerOptions.audio)).toBe(false);
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));expect(await page.evaluate(()=>window.pickerCalls)).toBe(1);
 });
 test('dismissing the system picker never reports a missing global permission or retries automatically',async({page})=>{
@@ -49,4 +49,22 @@ for(const surface of ['window','browser','monitor'])test(`system picker accepts 
   }});
  },surface);
  await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();await expect(page.getByRole('alert')).toHaveCount(0);expect(await canvas.evaluate(node=>Array.from(node.getContext('2d').getImageData(10,10,1,1).data))).toEqual([0,255,0,255]);expect(await page.evaluate(()=>window.captureStops)).toBe(1);expect(await page.evaluate(()=>window.captureOptions.video.width.ideal)).toBe(7680);expect(await page.evaluate(()=>window.captureOptions.video.displaySurface)).toBe('monitor');
+});
+test('capture opens at editor width and supports zoomed drawing, scrolling and original-size export',async({page})=>{
+ await open(page,'Snap Capture');await page.getByRole('button',{name:'Try sample',exact:true}).click();
+ const canvas=page.getByLabel('Annotation canvas',{exact:true}),viewport=page.getByRole('region',{name:'Image editing area',exact:true});await expect(canvas).toBeVisible();
+ const fit=()=>canvas.evaluate(node=>({width:node.getBoundingClientRect().width,viewport:node.parentElement.clientWidth,pixels:[node.width,node.height]}));const initial=await fit();expect(Math.abs(initial.width-initial.viewport)).toBeLessThan(2);expect(initial.pixels).toEqual([1000,600]);
+ await page.screenshot({path:'/tmp/snapkit-capture-fit78.png'});
+ await page.getByRole('button',{name:'100%',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();
+ expect((await fit()).width).toBeCloseTo(1950,0);expect(await viewport.evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
+ await page.getByRole('button',{name:'Cover private text',exact:true}).click();await viewport.scrollIntoViewIfNeeded();await viewport.evaluate(node=>{node.scrollLeft=200;node.scrollTop=100;});
+ const bounds=await viewport.boundingBox();const start={x:bounds.x+70,y:bounds.y+70},end={x:bounds.x+150,y:bounds.y+150};
+ const pixel=await canvas.evaluate((node,point)=>{const rect=node.getBoundingClientRect();return {x:Math.floor((point.x-rect.left)*node.width/rect.width),y:Math.floor((point.y-rect.top)*node.height/rect.height)};},{x:(start.x+end.x)/2,y:(start.y+end.y)/2});
+ await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y);await page.mouse.up();
+ expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(pixel.x,pixel.y,1,1).data),pixel)).toEqual([0,0,0,255]);
+ await page.getByRole('button',{name:'Fit to width',exact:true}).click();expect(Math.abs((await fit()).width-(await fit()).viewport)).toBeLessThan(2);expect((await fit()).pixels).toEqual([1000,600]);
+ await page.getByRole('button',{name:'Undo annotation',exact:true}).click();expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(pixel.x,pixel.y,1,1).data),pixel)).not.toEqual([0,0,0,255]);
+ const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save annotated image',exact:true}).click();const download=await downloaded;const chunks=[];for await(const chunk of await download.createReadStream())chunks.push(chunk);const png=Buffer.concat(chunks);expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1000,600]);
+ await page.setViewportSize({width:390,height:900});await page.getByRole('button',{name:'100%',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await viewport.evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
+ await page.screenshot({path:'/tmp/snapkit-capture-zoom-mobile78.png'});
 });
