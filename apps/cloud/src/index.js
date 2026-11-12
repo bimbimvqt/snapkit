@@ -2,7 +2,6 @@ import {kitCatalog} from '../../../packages/domain/product-kit.js';
 import express from 'express';
 import { createAccounts } from './accounts.js';
 import { createTeams } from './teams.js';
-import {installFocusAudio} from './focus-audio.js';
 import { readFile, mkdir, writeFile, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -40,10 +39,8 @@ export function createCloud({ env = process.env, fetcher = fetch, verifyGoogle,p
     if (limits.size > 20000) limits.delete(limits.keys().next().value);
     next();
   });
-  app.use('/v1/admin/focus-audio',express.json({limit:'3mb'}));
   app.use(express.json({ limit: '256kb' }));
   accounts.install(app);
-  installFocusAudio(app,{env,accounts});
   const teams = createTeams({ env, accounts, fetcher,pushSender });
   app.get('/v1/admin/teams', teams.adminOverview);
   app.use('/v1/teams', teams);

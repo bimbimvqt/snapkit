@@ -1,25 +1,4 @@
 import {test,expect} from './fixtures.js';
-test('uploaded audio loops only during an opted-in focus session and follows pause and volume',async({page})=>{
- const wav=Buffer.alloc(16044);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(16000,40);
- await page.route('**/api/kit/focus-audio',route=>route.fulfill({json:{tracks:{forest:{title:'Forest sample',url:'/audio-fixture.wav'}}}}));
- await page.route('**/audio-fixture.wav',route=>route.fulfill({contentType:'audio/wav',body:wav}));
- await page.addInitScript(()=>{const NativeAudio=window.Audio;window.Audio=function(){const audio=new NativeAudio();window.__focusAudio=audio;return audio;};});
- await page.goto('/?page=kit&tool=focus');
- await expect(page.locator('.focus-audio')).toContainText('Forest sample');
- await page.getByRole('button',{name:'Focus sound off',exact:true}).click();
- await page.getByRole('button',{name:'Start focus',exact:true}).click();
- await expect.poll(()=>page.evaluate(()=>window.__focusAudio?.paused)).toBe(false);
- expect(await page.evaluate(()=>window.__focusAudio.loop)).toBe(true);
- await page.getByRole('slider',{name:'Volume',exact:true}).fill('65');
- await expect.poll(()=>page.evaluate(()=>window.__focusAudio.volume)).toBe(0.65);
- await page.getByRole('button',{name:'Pause focus',exact:true}).click();
- await expect.poll(()=>page.evaluate(()=>window.__focusAudio.paused)).toBe(true);
- await page.getByRole('button',{name:'Start focus',exact:true}).click();
- await expect.poll(()=>page.evaluate(()=>window.__focusAudio.paused)).toBe(false);
- await page.clock.install();await page.clock.fastForward(1500100);
- await expect.poll(()=>page.evaluate(()=>window.__focusAudio.paused)).toBe(true);
- await page.clock.resume();
-});
 test('desktop experience uses native state and receives Mini updates while the Focus panel is closed',async({page})=>{
  await page.addInitScript(()=>{
   let state={space:'night',plant:'pine',completed:3,totalSeconds:4500,sessionSeconds:1500,timer:{remaining:712,deadline:null}};
@@ -78,4 +57,33 @@ test('focus spaces fit small screens and reduced motion in both appearances',asy
  await expect(page.getByRole('button',{name:'Rừng yên',exact:true})).toBeVisible();
  await expect(page.getByRole('combobox',{name:'Kiểu cây trong vườn',exact:true})).toBeVisible();
  await page.locator('.kit-focus').screenshot({path:'/tmp/snapkit-garden-vi.png'});
+});
+
+test('custom themes apply to the app, persist, support editing and preserve garden on deletion',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/?lang=en&page=kit&tool=focus');
+ await expect(page.locator('.focus-audio')).toHaveCount(0);
+ const original=await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor);
+ await page.getByRole('button',{name:'New theme',exact:false}).click();
+ const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
+ await dialog.getByLabel('Theme name',{exact:true}).fill('Sunset desk');
+ await dialog.getByLabel('Background color',{exact:true}).fill('#aa1122');
+ await dialog.getByRole('combobox',{name:'Scenery',exact:true}).click();await page.getByRole('option',{name:'Gradient',exact:true}).click();
+ await dialog.getByRole('button',{name:'Save and apply',exact:true}).click();
+ await expect(dialog).not.toBeVisible();
+ await expect(page.getByRole('button',{name:'Sunset desk',exact:true})).toHaveAttribute('aria-pressed','true');
+ expect(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(original);
+ await expect(page.locator('.focus-world')).toHaveAttribute('data-space','gradient');
+ await page.reload();await expect(page.getByRole('button',{name:'Sunset desk',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.setViewportSize({width:375,height:900});
+ await page.getByRole('button',{name:'Customize Sunset desk',exact:true}).click();
+ await dialog.getByLabel('Theme name',{exact:true}).fill('Evening desk');
+ await dialog.getByRole('button',{name:'Save and apply',exact:true}).click();
+ await page.getByRole('button',{name:'Customize Evening desk',exact:true}).click();
+ expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await dialog.screenshot({path:'/tmp/snapkit-theme-editor-mobile.png'});
+ await dialog.getByRole('button',{name:'Delete theme',exact:true}).click();await dialog.getByRole('button',{name:'Delete theme',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Evening desk',exact:true})).toHaveCount(0);
+ await expect(page.locator('.focus-garden-stats strong')).toHaveText(['0','0','0']);
+ expect(errors).toEqual([]);
 });

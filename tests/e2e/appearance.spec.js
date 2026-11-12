@@ -43,3 +43,19 @@ for (const [platform, model, form, image] of [['darwin', 'Mac mini', 'mini', 'ma
     await page.locator('.computer-card').screenshot({path:`/tmp/snapkit-computer-${image}-${theme}.png`});
   }
 });
+
+test('themes created in Appearance follow navigation and stay separate from light and dark mode',async({page})=>{
+ await page.emulateMedia({colorScheme:'dark'});
+ await page.goto('/?lang=en');await page.locator('#theme-toggle').click();
+ await page.getByRole('button',{name:'New theme',exact:false}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Theme name',{exact:true}).fill('Plum studio');
+ await dialog.getByLabel('Background color',{exact:true}).fill('#582c83');await dialog.getByLabel('Accent color',{exact:true}).fill('#d9a7f2');
+ await dialog.getByRole('button',{name:'Save and apply',exact:true}).click();
+ const id=await page.locator('html').getAttribute('data-personal-theme');
+ await page.getByRole('radio',{name:'Light',exact:true}).check();await expect(page.locator('html')).toHaveAttribute('data-personal-theme',id);
+ await page.getByRole('radio',{name:'Dark',exact:true}).check();await page.locator('.appearance-card').screenshot({path:'/tmp/snapkit-personal-themes-settings.png'});
+ await page.locator('[data-app-page=setup]').click();await expect(page.locator('html')).toHaveAttribute('data-personal-theme',id);
+ await page.goto('/?lang=vi&page=kit&tool=focus');await expect(page.getByRole('button',{name:'Plum studio',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.evaluate(async()=>Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
+ await page.screenshot({path:'/tmp/snapkit-personal-theme-app.png',animations:'disabled'});
+});

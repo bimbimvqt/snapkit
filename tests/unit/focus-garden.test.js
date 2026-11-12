@@ -42,6 +42,7 @@ test('native garden survives restarts and completes while both renderer windows 
  let store;
  try{
   store=await createFocusStore(options);
+  store.action({type:'theme:save',theme:{id:'custom-00000000-0000-4000-8000-000000000001',name:'Persistent studio',scene:'gradient',accent:'#ff7799',background:'#552233'}});
   store.action({type:'space',value:'night'});store.action({type:'plant',value:'pine'});
   store.action({type:'toggle'});store.action({type:'toggle'});
   store.legacyTimer({remaining:1500,deadline:Date.now()-10});
@@ -49,6 +50,9 @@ test('native garden survives restarts and completes while both renderer windows 
   store=await createFocusStore(options);
   assert.equal(store.state().completed,1);assert.equal(store.state().totalSeconds,1500);
   assert.equal(store.state().space,'night');assert.equal(store.state().plant,'pine');
+  assert.equal(store.state().themes.at(-1).name,'Persistent studio');
+  store.action({type:'space',value:'custom-00000000-0000-4000-8000-000000000001'});
+  assert.equal(store.state().space,'custom-00000000-0000-4000-8000-000000000001');
   assert.equal(store.state().timer.deadline,null);
  }finally{store?.dispose();rmSync(directory,{recursive:true,force:true});}
 });

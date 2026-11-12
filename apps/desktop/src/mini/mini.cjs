@@ -18,8 +18,9 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
  const buildSnapshot=()=>buildView(buildState,catalog,releases,selection,mappings,starting);
  const vi=()=>language()==='vi';
  const showMain=()=>{const main=getWindow();if(main&&!main.isDestroyed()){if(main.isMinimized())main.restore();main.show();main.focus();}};
+ const {activeTheme,themeTokens}=await import('../../../../packages/domain/personal-themes.js');
  let experience=null;
- const snapshot=()=>{const clipboard=history.state();return {focus,experience,task,compact,pinned,mode,debug,quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
+ const snapshot=()=>{const clipboard=history.state();return {focus,experience,theme:experience?activeTheme(experience):null,tokens:experience?themeTokens(activeTheme(experience),!nativeTheme.shouldUseDarkColors):{},task,compact,pinned,mode,debug,quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
  const publish=()=>{if(window&&!window.isDestroyed())window.webContents.send('snapkit:mini-state',snapshot());};
  const focusStore=await require('../kit/focus-store.cjs').createFocusStore({app,setDeadline,onChange:value=>{experience=value;focus=value.timer;publish();getWindow()?.webContents.send('snapkit:focus-experience',value);getWindow()?.webContents.send('snapkit:mini-focus',focus);}});
  experience=focusStore.state();focus=experience.timer;
@@ -91,8 +92,7 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
   else if(action==='build:start'){await startBuild();}
   else if(action==='build:cancel'){if(!buildSnapshot().canCancel)throw Error('No active build');const expected=buildState.settings.workspace,state=await get('/api/state'),jobs=await get('/api/releases');if(state.settings?.workspace!==expected||jobs.active?.workspace!==expected)throw Error('Workspace changed');await post('/api/releases/'+encodeURIComponent(jobs.active.id)+'/cancel',{},state);await refreshDebug();}
   else if(action==='focus'){focusStore.action({type:'toggle'});}
-  else if(action==='sound'){focusStore.action({type:'sound',value:!experience.sound});}
-  else if(typeof action==='string'&&/^space:(forest|rain|cafe|night)$/.test(action)){focusStore.action({type:'space',value:action.slice(6)});}
+  else if(typeof action==='string'&&action.startsWith('space:')){focusStore.action({type:'space',value:action.slice(6)});}
   else if(action==='awake'){kit.setAwake(!kit.state().awake);}
   else if(action==='copy'){const value=history.state();if(!value.enabled||!value.items[0])throw Error('No captured clipboard item');await history.copy(value.items[0].id);}
   else if(['capture','qr','clipboard','logs','devices','releases'].includes(action)){showMain();getWindow()?.webContents.send('snapkit:mini-navigate',['logs','devices','releases'].includes(action)?{page:action}:{tool:action});}

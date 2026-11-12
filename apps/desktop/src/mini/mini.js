@@ -4,6 +4,8 @@ function fit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(()=
 function clock(){if(!state)return;const seconds=state.focus.deadline?Math.max(0,Math.ceil((state.focus.deadline-Date.now())/1000)):state.focus.remaining;const time=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('timer').textContent=time;if(state.mode==='focus')$('mini-time').textContent=time;const vi=state.language==='vi',running=state.focus.deadline&&seconds>0;$('focus').textContent=running?(vi?'Tạm dừng':'Pause'):(vi?'Bắt đầu':'Start');$('status').textContent=running?(vi?'Đang tập trung':'Focusing'):seconds===0?(vi?'Đã hoàn thành':'Completed'):(vi?'Sẵn sàng tập trung':'Ready to focus');}
 function render(value){
  state=value;const vi=state.language==='vi',task=state.task,mode=state.mode||'focus';
+ for(const [key,color] of Object.entries(state.tokens||{}))document.documentElement.style.setProperty(key,color);
+ for(const [key,source] of Object.entries({'--inner':'--surface-hover','--line':'--border','--ink':'--accent-ink'}))if(state.tokens?.[source])document.documentElement.style.setProperty(key,state.tokens[source]);
  document.documentElement.classList.toggle('dark',state.dark);document.documentElement.lang=state.language;document.body.classList.toggle('compact',state.compact);$('mini-bar').hidden=!state.compact;
  $('modes').setAttribute('aria-label',vi?'Chế độ widget':'Widget mode');
  for(const name of ['focus','debug','utility']){$(name+'-panel').hidden=mode!==name;$('tab-'+name).setAttribute('aria-selected',String(mode===name));}
@@ -32,13 +34,12 @@ function render(value){
  }else $('mini-title').textContent=task?.title||'Focus Kit';
  const experience=state.experience;
  if(experience){
-  $('sound').textContent=(vi?'Âm thanh · ':'Sound · ')+(experience.sound?(vi?'Bật':'On'):(vi?'Tắt':'Off'));$('sound').setAttribute('aria-pressed',String(!!experience.sound));
-  $('focus-world').dataset.space=experience.space;$('focus-plant').dataset.plant=experience.plant;
+  $('focus-world').dataset.space=state.theme?.scene||experience.space;$('focus-world').style.setProperty('--scene-color',state.theme?.background||'#234838');$('focus-plant').dataset.plant=experience.plant;
   const minutes=Math.floor(experience.totalSeconds/60),growth=minutes%100;
   $('focus-plant').dataset.stage=String(growth===0?0:growth<25?1:growth<60?2:3);
   const names=vi?{forest:'Rừng yên',rain:'Ngày mưa',cafe:'Cà phê',night:'Đêm sao'}:{forest:'Forest',rain:'Rain',cafe:'Café',night:'Night'};
   $('mini-spaces').setAttribute('aria-label',vi?'Không gian của bạn':'Your space');
-  for(const button of document.querySelectorAll('#mini-spaces button')){button.textContent=names[button.dataset.space];button.setAttribute('aria-pressed',String(button.dataset.space===experience.space));}
+  const signature=JSON.stringify([experience.themes,experience.space,vi]);if($('mini-spaces').dataset.signature!==signature){$('mini-spaces').dataset.signature=signature;$('mini-spaces').replaceChildren(...(experience.themes||[]).map(theme=>{const button=document.createElement('button');button.dataset.space=theme.id;button.textContent=names[theme.id]||theme.name;button.setAttribute('aria-pressed',String(theme.id===experience.space));button.addEventListener('click',()=>void action('space:'+theme.id));return button;}));}
   $('garden-summary').textContent=vi?`${experience.completed} phiên · ${Math.floor(minutes/100)} cây · Thêm ${100-growth} phút để cây trưởng thành`:`${experience.completed} sessions · ${Math.floor(minutes/100)} trees · ${100-growth} min to grow a tree`;
  }
  clock();fit();
@@ -54,7 +55,3 @@ const sizeObserver=new ResizeObserver(fit);for(const panel of document.querySele
 for(const name of ['android','ios','dev','prod','start','cancel'])$('build-'+name).addEventListener('click',()=>void action('build:'+name));
 
 $('debug-count').addEventListener('click',()=>{const list=$('debug-devices');list.hidden=!list.hidden;$('debug-count').setAttribute('aria-expanded',String(!list.hidden));fit();});
-
-for(const button of document.querySelectorAll('#mini-spaces button'))button.addEventListener('click',()=>void action('space:'+button.dataset.space));
-
-$('sound').addEventListener('click',()=>void action('sound'));

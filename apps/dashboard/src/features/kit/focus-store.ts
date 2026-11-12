@@ -7,31 +7,9 @@ const listeners=new Set<()=>void>();
 function read(key:string){try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}
 let state:FocusExperience=restoreFocus(read(key)||{...initialFocus(),timer:read(timerKey)||initialFocus().timer});
 let ready=!native,error='';
-let audio:HTMLAudioElement|null=null,tracks:Record<string,{title:string;url:string}>={},audioEpoch=0,audioUntil=0;
-let audioStatus={loading:false,error:'',title:'',available:false};
-const audioListeners=new Set<()=>void>();
-const audioEmit=()=>audioListeners.forEach(fn=>fn());
-function reconcileAudio(){
- const track=tracks[state.space];
- audioStatus={...audioStatus,title:track?.title||'',available:!!track};audioEmit();
- if(!state.sound||!state.timer.deadline||state.timer.deadline<=Date.now()||!track){audioEpoch++;audio?.pause();return;}
- if(!audio){audio=new Audio();audio.loop=true;audio.preload='none';audio.addEventListener('error',()=>{audioStatus={...audioStatus,error:'Could not play this audio. Try again or choose another space.'};audioEmit();});}
- audio.volume=state.volume??0.35;
- if(audio.getAttribute('src')!==track.url){audio.pause();audio.src=track.url;}
- const epoch=++audioEpoch;
- void audio.play().then(()=>{if(epoch!==audioEpoch)return;audioStatus={...audioStatus,error:''};audioEmit();}).catch(e=>{if(epoch!==audioEpoch||e.name==='AbortError')return;audioStatus={...audioStatus,error:'Could not play this audio. Try again or choose another space.'};audioEmit();});
-}
-export async function refreshFocusAudio(){
- if(audioStatus.loading)return;
- audioUntil=Date.now()+300000;audioStatus={...audioStatus,loading:true,error:''};audioEmit();
- if(window.SNAPKIT_PREVIEW){tracks={};audioStatus={...audioStatus,loading:false};reconcileAudio();return;}
- try{const response=await fetch('/api/kit/focus-audio',{signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error('Unavailable');const data=await response.json();tracks=data.tracks||{};audioStatus={...audioStatus,loading:false};reconcileAudio();}
- catch{audioStatus={...audioStatus,loading:false,error:'Focus audio is temporarily unavailable.'};audioEmit();}
-}
-setInterval(()=>{if(audio&&(!state.timer.deadline||state.timer.deadline<=Date.now()))audio.pause();if(state.sound&&Date.now()>audioUntil)void refreshFocusAudio();},1000);
-const emit=()=>{state={...state};listeners.forEach(fn=>fn());reconcileAudio();};
+const emit=()=>{state={...state};listeners.forEach(fn=>fn());};
 function persist(value:FocusExperience){localStorage.setItem(key,JSON.stringify(value));localStorage.setItem(timerKey,JSON.stringify(value.timer));}
-function accept(value:FocusExperience){state=value;error='';emit();}
+function accept(value:FocusExperience){state=restoreFocus(value);error='';emit();}
 if(native){
  desktop?.onFocusExperience?.(accept);
  void desktop!.focusExperience!(state.timer).then(value=>{ready=true;accept(value);}).catch(()=>{error='Could not load your garden. Reopen Focus Kit to retry.';ready=true;emit();});
@@ -42,13 +20,16 @@ if(native){
 }
 export async function focusAction(action:FocusAction){
  try{
-  if(native){accept(await desktop!.focusAction!(action));return;}
+  if(native){accept(await desktop!.focusAction!(action));return true;}
   const next=changeFocus(state,action);persist(next);const timerChanged=next.timer!==state.timer;accept(next);
   if(timerChanged){void desktop?.miniFocus?.(next.timer).catch(()=>{});void desktop?.kitFocus?.(next.timer.deadline).catch(()=>{});}
- }catch{error='Could not save your garden on this computer.';emit();}
+  return true;
+ }catch{error='Could not save your garden on this computer.';emit();return false;}
 }
 export function useFocusExperience(){
  const value=useSyncExternalStore(callback=>{listeners.add(callback);return()=>{listeners.delete(callback);};},()=>state);
  return {value,ready,error};
 }
-export function useFocusAudio(){return useSyncExternalStore(callback=>{audioListeners.add(callback);return()=>{audioListeners.delete(callback);};},()=>audioStatus);}
+
+export const getFocusExperience=()=>state;
+export const subscribeFocusExperience=(callback:()=>void)=>{listeners.add(callback);return()=>{listeners.delete(callback);};};

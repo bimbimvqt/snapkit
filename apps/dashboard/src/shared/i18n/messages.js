@@ -2,13 +2,8 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "Gradient": "Chuyển sắc",
     "Volume": "Âm lượng",
-    "Focus sound on": "Âm thanh tập trung · Bật",
-    "Focus sound off": "Âm thanh tập trung · Tắt",
-    "Loading focus audio\u2026": "Đang tải âm thanh…",
-    "No audio for this space yet.": "Không gian này chưa có âm thanh.",
-    "Retry audio": "Thử lại âm thanh",
-    "Focus audio is temporarily unavailable.": "Tạm thời chưa tải được âm thanh.",
     "Could not play this audio. Try again or choose another space.": "Chưa phát được âm thanh. Thử lại hoặc chọn không gian khác.",
 
     "A little space to focus. A garden that grows with you.": "Một góc nhỏ để tập trung. Một khu vườn lớn dần cùng bạn.",

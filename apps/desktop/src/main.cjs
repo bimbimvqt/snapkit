@@ -144,7 +144,7 @@ async function start() {
     setImmediate(() => app.quit()); return updater.snapshot();
   });
   ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });
-  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false, autoplayPolicy:'no-user-gesture-required' } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -218,10 +218,12 @@ async function start() {
       const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
       return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
+    await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.focusAction({type:'theme:save',theme:{id:'custom-00000000-0000-4000-8000-000000000001',name:'Smoke sunset',scene:'gradient',accent:'#ff7799',background:'#552233'}})`);
     await mini.show();
     const miniWindow=mini.getWindow();
     const miniResult=await miniWindow.webContents.executeJavaScript(`(async()=>{
       const before=await window.snapkitMini.state();
+      const customUI=before.theme?.name==='Smoke sunset'&&before.experience.space==='custom-00000000-0000-4000-8000-000000000001'&&document.getElementById('focus-world').dataset.space==='gradient'&&getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()===before.tokens['--accent'];
       await window.snapkitMini.action('space:rain');
       const garden=await window.snapkitMini.state();
       const gardenUI=garden.experience.space==='rain'&&document.getElementById('focus-world').dataset.space==='rain'&&document.querySelector('#mini-spaces [data-space=rain]').getAttribute('aria-pressed')==='true';
@@ -254,7 +256,7 @@ async function start() {
       let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
       const modes=utilities.mode==='utility' && !utilities.utility.enabled && utilities.utility.item===null && toggled && noCopy && utilityCompact && debugMode;
 
-      return gardenUI && modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
+      return customUI && gardenUI && modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
     })()`);
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.canBuild)"))break;await new Promise(resolve=>setTimeout(resolve,100));}

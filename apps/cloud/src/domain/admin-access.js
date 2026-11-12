@@ -7,7 +7,6 @@ export const adminRoles = {
 export const permissionsFor = role => [...(adminRoles[role]?.permissions || [])];
 export const hasPermission = (role, permission) => permissionsFor(role).includes(permission);
 export function routePermission(route, method) {
-  if (/^\/focus-audio(?:\/(forest|rain|cafe|night)(?:\/remove)?)?$/.test(route)) return method === 'GET' ? 'content.read' : method === 'POST' ? 'content.write' : null;
   if (route === '/teams') return method === 'GET' ? 'teams.read' : null;
   if (route === '/overview') return method === 'GET' ? 'overview.read' : null;
   if (route === '/audit') return method === 'GET' ? 'audit.read' : null;
