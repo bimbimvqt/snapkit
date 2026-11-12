@@ -2,7 +2,8 @@
 const {createClipboardHistory}=require('./clipboard.cjs');
 const {createFileKit}=require('./file-kit.cjs');
 const {captureMacScreens}=require('./screen-capture.cjs');
-function installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,systemPreferences,shell,screen,nativeCapture=captureMacScreens,platform=process.platform,fromApp,getWindow,language}){
+const {supportsSystemPicker}=require('./capture-policy.cjs');
+function installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,systemPreferences,shell,screen,nativeCapture=captureMacScreens,platform=process.platform,systemPicker=supportsSystemPicker(platform),fromApp,getWindow,language}){
  const files=createFileKit(),history=createClipboardHistory(clipboard);
  const valid=e=>{if(!fromApp(e))throw Error('Invalid caller');};
  ipcMain.handle('snapkit:clipboard-state',e=>{valid(e);return history.state();});
@@ -16,6 +17,7 @@ function installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,systemPre
  let capturePending=null,permissionRequested=false;
  const screenPermission=()=>platform==='darwin'?systemPreferences.getMediaAccessStatus('screen'):'unknown';
  async function captureScreens(){
+  if(systemPicker)return {picker:'system'};
   const permission=screenPermission();
   if(platform==='darwin'){
    if(permission==='denied'||permission==='restricted'||(permission!=='granted'&&permissionRequested))return {error:'screen-permission'};

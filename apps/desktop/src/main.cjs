@@ -7,6 +7,7 @@ const { createSplash } = require('./splash/splash.cjs');
 const { DesktopUpdater } = require('./updates/updater.cjs');
 const { startUpdateChecks } = require('./updates/schedule.cjs');
 const { installLifecycle, stopAgent } = require('./lifecycle.cjs');
+const { supportsSystemPicker, installCapturePermissions } = require('./kit/capture-policy.cjs');
 const development = !app.isPackaged && process.env.SNAPKIT_DEV === '1';
 const port = development ? Number(process.env.SNAPKIT_DEV_PORT || 4311) : process.env.SNAPKIT_SMOKE_TEST === '1' ? Number(process.env.SNAPKIT_SMOKE_PORT || 14328) : 4310;
 if (!Number.isInteger(port) || port < 1024 || port > 65535 || (development && port === 4310)) throw new Error('Invalid Dev port');
@@ -147,7 +148,7 @@ async function start() {
   mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
-  mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  installCapturePermissions({session:mainWindow.webContents.session,webContents:mainWindow.webContents,origin,systemPicker:supportsSystemPicker()});
   if (app.isPackaged) {
     const cacheVersion = path.join(app.getPath('userData'), 'cache-version.json');
     let cachedVersion;

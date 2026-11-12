@@ -15,7 +15,7 @@ test('disabling or clearing invalidates a clipboard read that is still in flight
 test('clipboard IPC rejects untrusted callers and disposes the session at exit',async()=>{const handlers=new Map(),app=new EventEmitter(),clipboard=clipboardFixture();installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard,desktopCapturer:{getSources:async()=>[]},fromApp:e=>e.trusted,getWindow:()=>null});assert.throws(()=>handlers.get('snapkit:clipboard-state')({trusted:false}),/Invalid caller/);await handlers.get('snapkit:clipboard-enabled')({trusted:true},true);app.emit('will-quit');assert.deepEqual(handlers.get('snapkit:clipboard-state')({trusted:true}),{enabled:false,items:[]});});
 test('screen capture blocks denied permission and distinguishes granted failures',async()=>{
  const handlers=new Map(),app=new EventEmitter();let permission='denied',fail=false,empty=false,calls=0;const opened=[];
- installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPreferences:{getMediaAccessStatus:type=>{assert.equal(type,'screen');return permission;}},shell:{openExternal:async url=>opened.push(url)},desktopCapturer:{getSources:async()=>{calls++;if(fail)throw Error('native capture failed');return empty?[]:[{id:'screen:1',name:'Display',thumbnail:{isEmpty:()=>false,toDataURL:()=> 'data:image/png;base64,test'}}];}},fromApp:e=>e.trusted,getWindow:()=>null});
+ installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPicker:false,systemPreferences:{getMediaAccessStatus:type=>{assert.equal(type,'screen');return permission;}},shell:{openExternal:async url=>opened.push(url)},desktopCapturer:{getSources:async()=>{calls++;if(fail)throw Error('native capture failed');return empty?[]:[{id:'screen:1',name:'Display',thumbnail:{isEmpty:()=>false,toDataURL:()=> 'data:image/png;base64,test'}}];}},fromApp:e=>e.trusted,getWindow:()=>null});
  const capture=handlers.get('snapkit:capture-screens'),settings=handlers.get('snapkit:capture-settings');
  await assert.rejects(capture({trusted:false}),/Invalid caller/);await assert.rejects(settings({trusted:false}),/Invalid caller/);assert.equal(calls,0);assert.equal(opened.length,0);
  assert.deepEqual(await capture({trusted:true}),{error:'screen-permission'});assert.equal(calls,0);
@@ -27,7 +27,7 @@ test('screen capture blocks denied permission and distinguishes granted failures
 });
 test('macOS capture fallback runs only with granted permission',async()=>{
  const handlers=new Map(),app=new EventEmitter();let nativeCalls=0,permission='denied';
- installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',screen:{getAllDisplays:()=>[{},{}]},systemPreferences:{getMediaAccessStatus:()=>permission},nativeCapture:async({displayCount})=>{assert.equal(displayCount,2);nativeCalls++;return [{id:'mac-screen:1',name:'Screen 1',image:'data:image/png;base64,test'}];},desktopCapturer:{getSources:async()=>[]},fromApp:e=>e.trusted,getWindow:()=>null});
+ installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPicker:false,screen:{getAllDisplays:()=>[{},{}]},systemPreferences:{getMediaAccessStatus:()=>permission},nativeCapture:async({displayCount})=>{assert.equal(displayCount,2);nativeCalls++;return [{id:'mac-screen:1',name:'Screen 1',image:'data:image/png;base64,test'}];},desktopCapturer:{getSources:async()=>[]},fromApp:e=>e.trusted,getWindow:()=>null});
  const capture=handlers.get('snapkit:capture-screens');assert.deepEqual(await capture({trusted:true}),{error:'screen-permission'});assert.equal(nativeCalls,0);permission='granted';
  assert.equal((await capture({trusted:true}))[0].id,'mac-screen:1');assert.equal(nativeCalls,1);app.emit('will-quit');
 });
@@ -39,9 +39,15 @@ test('native macOS fallback uses fixed executable and removes temporary captures
 });
 test('screen permission is requested once, concurrent captures share work, and granting allows retry',async()=>{
  const handlers=new Map(),app=new EventEmitter();let permission='not-determined',calls=0,nativeCalls=0,finish;
- installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',screen:{getAllDisplays:()=>[{},{}]},systemPreferences:{getMediaAccessStatus:()=>permission},nativeCapture:async()=>{nativeCalls++;return [];},desktopCapturer:{getSources:()=>{calls++;return new Promise(resolve=>{finish=resolve;});}},fromApp:e=>e.trusted,getWindow:()=>null});
+ installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPicker:false,screen:{getAllDisplays:()=>[{},{}]},systemPreferences:{getMediaAccessStatus:()=>permission},nativeCapture:async()=>{nativeCalls++;return [];},desktopCapturer:{getSources:()=>{calls++;return new Promise(resolve=>{finish=resolve;});}},fromApp:e=>e.trusted,getWindow:()=>null});
  const capture=handlers.get('snapkit:capture-screens');const first=capture({trusted:true}),second=capture({trusted:true});assert.equal(calls,1);finish([]);assert.deepEqual(await first,{error:'screen-permission'});assert.deepEqual(await second,{error:'screen-permission'});assert.equal(nativeCalls,0);
  for(const status of ['not-determined','denied','restricted']){permission=status;assert.deepEqual(await capture({trusted:true}),{error:'screen-permission'});}assert.equal(calls,1);
  permission='granted';const granted=capture({trusted:true});assert.equal(calls,2);permission='denied';finish([]);assert.deepEqual(await granted,{error:'screen-permission'});assert.equal(nativeCalls,0);
  permission='granted';const retry=capture({trusted:true});finish([{id:'screen:1',name:'Display',thumbnail:{isEmpty:()=>false,toDataURL:()=> 'data:image/png;base64,test'}}]);assert.equal((await retry)[0].id,'screen:1');app.emit('will-quit');
+});
+
+test('modern macOS uses the system picker without consulting stale global permission or enumerating screens',async()=>{
+ const handlers=new Map(),app=new EventEmitter();
+ installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPicker:true,systemPreferences:{getMediaAccessStatus:()=>assert.fail('Do not use the stale TCC grant')},desktopCapturer:{getSources:()=>assert.fail('Do not capture without system selection')},fromApp:e=>e.trusted,getWindow:()=>null});
+ const capture=handlers.get('snapkit:capture-screens');await assert.rejects(capture({trusted:false}),/Invalid caller/);assert.deepEqual(await capture({trusted:true}),{picker:'system'});app.emit('will-quit');
 });
