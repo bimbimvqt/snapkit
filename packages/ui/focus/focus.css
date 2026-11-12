@@ -1,0 +1,11 @@
+.focus-world{--world-bg:#16392f;position:relative;isolation:isolate;overflow:hidden;border-radius:16px;background:var(--world-bg);color:#fff;min-height:300px}
+.focus-world[data-space=rain]{--world-bg:#233c50}.focus-world[data-space=cafe]{--world-bg:#483b33}.focus-world[data-space=night]{--world-bg:#20273f}
+.focus-world::before{content:"";position:absolute;inset:0;z-index:-2;background:url('./forest.svg') center/cover no-repeat}
+.focus-world[data-space=rain]::before{background-image:url('./rain.svg')}.focus-world[data-space=cafe]::before{background-image:url('./cafe.svg')}.focus-world[data-space=night]::before{background-image:url('./night.svg')}
+.focus-world::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#0b1719d9,transparent 90%)}
+.focus-plant{display:block;width:140px;height:140px;flex:none;background:url('./oak-0.svg') center/contain no-repeat}
+.focus-plant[data-plant=oak][data-stage="1"]{background-image:url('./oak-1.svg')}.focus-plant[data-plant=oak][data-stage="2"]{background-image:url('./oak-2.svg')}.focus-plant[data-plant=oak][data-stage="3"]{background-image:url('./oak-3.svg')}
+.focus-plant[data-plant=pine]{background-image:url('./pine-0.svg')}.focus-plant[data-plant=pine][data-stage="1"]{background-image:url('./pine-1.svg')}.focus-plant[data-plant=pine][data-stage="2"]{background-image:url('./pine-2.svg')}.focus-plant[data-plant=pine][data-stage="3"]{background-image:url('./pine-3.svg')}
+.focus-plant[data-plant=blossom]{background-image:url('./blossom-0.svg')}.focus-plant[data-plant=blossom][data-stage="1"]{background-image:url('./blossom-1.svg')}.focus-plant[data-plant=blossom][data-stage="2"]{background-image:url('./blossom-2.svg')}.focus-plant[data-plant=blossom][data-stage="3"]{background-image:url('./blossom-3.svg')}
+.focus-space-thumb{height:55px;border-radius:8px;background:url('./forest.svg') center/cover}
+[data-space=rain]>.focus-space-thumb{background-image:url('./rain.svg')}[data-space=cafe]>.focus-space-thumb{background-image:url('./cafe.svg')}[data-space=night]>.focus-space-thumb{background-image:url('./night.svg')}

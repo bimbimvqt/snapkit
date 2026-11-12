@@ -14,6 +14,7 @@
     feedback:['Đánh giá & góp ý','Lắng nghe người dùng. Xử lý góp ý và duyệt những trải nghiệm được chia sẻ.','feedback.read'],
     users:['Tài khoản','Quản lý người dùng, vai trò và quyền truy cập Snapkit.','users.read'],
     kit:['Bộ tiện ích & phát hành','Khả năng sử dụng của từng tiện ích và tình trạng bộ cài macOS, Windows.','content.read'],
+    audio:['Âm thanh tập trung','Upload và quản lý âm thanh cho từng không gian Focus Kit.','content.read'],
     content:['Nội dung sản phẩm','Biên tập thông điệp website và thông báo bằng hai ngôn ngữ.','content.read'],
     roles:['Vai trò & phân quyền','Đúng người. Đúng phạm vi công việc.','roles.manage'],
     audit:['Nhật ký hoạt động','Theo dõi ai đã thay đổi nội dung, quyền truy cập và đánh giá.','audit.read','teams.read']
@@ -63,7 +64,7 @@
     const epoch=++loadEpoch;$('#panel-loading').hidden=false;$('#panel-error').hidden=true;
     $(`[data-admin-panel="${key}"]`).setAttribute('aria-busy','true');
     if(push){$('#page-title').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
-    try { await ({overview,teams,feedback,users,kit:loadKit,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
+    try { await ({overview,teams,feedback,users,kit:loadKit,audio:loadAudio,content:loadContent,roles:loadRoles,audit:loadAudit}[key])(); }
     catch(error) { if(epoch===loadEpoch){if(error.status===401)fail(error);else{$('#panel-error span').textContent=error.message;$('#panel-error').hidden=false;}} }
     finally { if(epoch===loadEpoch){$('#panel-loading').hidden=true;$(`[data-admin-panel="${key}"]`).removeAttribute('aria-busy');} }
   }
@@ -230,6 +231,31 @@
     $('#previous').disabled=offset===0;$('#next').disabled=offset+50>=total;$('#page').textContent='Trang '+(offset/50+1);
   }
   $('#search').onsubmit=event=>{event.preventDefault();offset=0;users().catch(fail);};$('#previous').onclick=()=>{offset=Math.max(0,offset-50);users().catch(fail);};$('#next').onclick=()=>{offset+=50;users().catch(fail);};
+  async function loadAudio() {
+    const data=await api('admin/focus-audio');const host=$('#focus-audio-list');host.replaceChildren();
+    for(const [space,label]of Object.entries({forest:'Rừng yên',rain:'Ngày mưa',cafe:'Quán cà phê',night:'Đêm sao'})){
+      const track=data.tracks[space],card=document.createElement('form');card.className='card audio-card';
+      const heading=document.createElement('h2');heading.textContent=label;
+      const nameLabel=document.createElement('label');nameLabel.textContent='Tên âm thanh';
+      const name=document.createElement('input');name.required=true;name.maxLength=100;name.value=track?.title||label;name.disabled=!can('content.write');nameLabel.append(name);
+      const fileLabel=document.createElement('label');fileLabel.textContent='Tệp MP3, WAV hoặc OGG · tối đa 2 MB';
+      const file=document.createElement('input');file.type='file';file.accept='.mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg';file.required=true;file.disabled=!can('content.write');fileLabel.append(file);
+      const status=document.createElement('p');status.setAttribute('role','status');status.textContent=track?`${(track.size/1024/1024).toFixed(1)} MB · Đã có âm thanh`:'Chưa có âm thanh. Không gian sẽ giữ yên lặng.';
+      card.append(heading,nameLabel,fileLabel);
+      if(track){const audio=document.createElement('audio');audio.controls=true;audio.preload='none';audio.src=track.url;audio.setAttribute('aria-label','Nghe thử '+label);card.append(audio);}
+      const actions=document.createElement('div');actions.className='form-actions';
+      const upload=document.createElement('button');upload.type='submit';upload.className='primary';upload.textContent=track?'Thay âm thanh':'Upload âm thanh';upload.hidden=!can('content.write');actions.append(upload);
+      if(track&&can('content.write')){const remove=document.createElement('button');remove.type='button';remove.textContent='Gỡ âm thanh';remove.onclick=async()=>{if(!await confirmAction('Gỡ âm thanh?',label+' sẽ giữ yên lặng cho đến khi có âm thanh mới.','Gỡ âm thanh'))return;remove.disabled=true;try{await api('admin/focus-audio/'+space+'/remove',{});await loadAudio();}catch(e){fail(e);remove.disabled=false;}};actions.append(remove);}
+      card.append(status,actions);host.append(card);
+      card.onsubmit=async event=>{
+        event.preventDefault();const chosen=file.files?.[0];if(!chosen)return;
+        if(chosen.size>2*1024*1024){status.textContent='Tệp vượt quá 2 MB. Hãy chọn tệp nhỏ hơn.';return;}
+        if(!can('content.write'))return;card.querySelectorAll('input,button').forEach(node=>node.disabled=true);status.textContent='Đang upload…';
+        try{const encoded=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Chưa đọc được tệp âm thanh.'));reader.readAsDataURL(chosen);});const response=await fetch('/v1/admin/focus-audio/'+space,{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Request':'1'},body:JSON.stringify({title:name.value.trim(),data:encoded}),signal:AbortSignal.timeout(120000)});const result=await response.json();if(!response.ok)throw Object.assign(Error(result.error||'Chưa upload được. Vui lòng thử lại.'),{status:response.status});await loadAudio();}
+        catch(error){status.textContent=error.message;card.querySelectorAll('input,button').forEach(node=>node.disabled=false);fail(error);}
+      };
+    }
+  }
   async function loadRoles() {
     const data=await api('admin/roles');$('#role-cards').replaceChildren();
     for(const role of Object.values(data.roles)){const card=document.createElement('article');card.className='role-card';card.innerHTML=icon('shield');const title=document.createElement('h2');title.textContent=role.label;const description=document.createElement('p');description.textContent=role.description;card.append(title,description);$('#role-cards').append(card);}

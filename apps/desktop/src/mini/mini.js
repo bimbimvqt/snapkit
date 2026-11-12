@@ -30,6 +30,17 @@ function render(value){
   $('build-start').textContent=q?.busy?(vi?'Đang build…':'Building…'):'Build '+(q?.platform==='ios'?'IPA':'APK');$('build-start').disabled=busy||!q?.canBuild;$('build-cancel').hidden=!q?.canCancel;$('build-cancel').disabled=busy;$('build-cancel').textContent=vi?'Huỷ':'Cancel';
   $('logs').textContent=vi?'Log thiết bị':'Device logs';$('devices').textContent=vi?'Thiết bị ↗':'Devices ↗';$('releases').textContent=vi?'Mở Build & release ↗':'Open Build & release ↗';$('mini-title').textContent='Debug & build';$('mini-time').textContent=d&&!d.unavailable?d.sessions+(vi?' phiên':' sessions'):'—';
  }else $('mini-title').textContent=task?.title||'Focus Kit';
+ const experience=state.experience;
+ if(experience){
+  $('sound').textContent=(vi?'Âm thanh · ':'Sound · ')+(experience.sound?(vi?'Bật':'On'):(vi?'Tắt':'Off'));$('sound').setAttribute('aria-pressed',String(!!experience.sound));
+  $('focus-world').dataset.space=experience.space;$('focus-plant').dataset.plant=experience.plant;
+  const minutes=Math.floor(experience.totalSeconds/60),growth=minutes%100;
+  $('focus-plant').dataset.stage=String(growth===0?0:growth<25?1:growth<60?2:3);
+  const names=vi?{forest:'Rừng yên',rain:'Ngày mưa',cafe:'Cà phê',night:'Đêm sao'}:{forest:'Forest',rain:'Rain',cafe:'Café',night:'Night'};
+  $('mini-spaces').setAttribute('aria-label',vi?'Không gian của bạn':'Your space');
+  for(const button of document.querySelectorAll('#mini-spaces button')){button.textContent=names[button.dataset.space];button.setAttribute('aria-pressed',String(button.dataset.space===experience.space));}
+  $('garden-summary').textContent=vi?`${experience.completed} phiên · ${Math.floor(minutes/100)} cây · Thêm ${100-growth} phút để cây trưởng thành`:`${experience.completed} sessions · ${Math.floor(minutes/100)} trees · ${100-growth} min to grow a tree`;
+ }
  clock();fit();
 }
 async function action(name){if(busy)return;busy=true;try{$('error').hidden=true;const next=await window.snapkitMini.action(name);if(next)render(next);if(name==='copy'||name==='build:start'){$('feedback').textContent=name==='build:start'?(state?.language==='vi'?'Đã bắt đầu build':'Build started'):(state?.language==='vi'?'Đã sao chép':'Copied');$('feedback').hidden=false;clearTimeout(feedbackTimer);feedbackTimer=setTimeout(()=>$('feedback').hidden=true,1800);}}catch{$('error').textContent=name.startsWith('build:download:')?(state?.language==='vi'?'Chưa tải được file. Thử lại hoặc mở Build & release.':'Could not save the file. Retry or open Build & release.'):name.startsWith('build:')?(state?.language==='vi'?'Chưa build được. Mở Build & release để kiểm tra.':'Could not build. Open Build & release to review.'):(state?.language==='vi'?'Chưa thực hiện được. Thử lại nhé.':'Could not complete. Try again.');$('error').hidden=false;}finally{busy=false;if(state)render(state);}}
@@ -43,3 +54,7 @@ const sizeObserver=new ResizeObserver(fit);for(const panel of document.querySele
 for(const name of ['android','ios','dev','prod','start','cancel'])$('build-'+name).addEventListener('click',()=>void action('build:'+name));
 
 $('debug-count').addEventListener('click',()=>{const list=$('debug-devices');list.hidden=!list.hidden;$('debug-count').setAttribute('aria-expanded',String(!list.hidden));fit();});
+
+for(const button of document.querySelectorAll('#mini-spaces button'))button.addEventListener('click',()=>void action('space:'+button.dataset.space));
+
+$('sound').addEventListener('click',()=>void action('sound'));

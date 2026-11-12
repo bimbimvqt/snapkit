@@ -8,8 +8,13 @@ export interface DesktopKitState { startupAvailable:boolean; openAtLogin:boolean
 export type ClipboardSnapshot={enabled:boolean;error?:string;items:{id:string;text:string;at:number}[]};
 export type RenameOptions={prefix:string;suffix:string;find:string;replacement:string;numbering:boolean;start:number};
 export type MiniFocus={remaining:number;deadline:number|null};
+export type FocusExperience={space:string;plant:string;sound:boolean;volume:number;completed:number;totalSeconds:number;sessionSeconds:number;timer:MiniFocus};
+export type FocusAction={type:'toggle'}|{type:'reset'|'duration';seconds:number}|{type:'space'|'plant';value:string}|{type:'sound';value:boolean}|{type:'volume';value:number};
 export type MiniTask={id:string;userId:string;workspaceId:string;projectId:string;environment:string;title:string;project:string;done:number;total:number};
 export interface DesktopUpdates {
+  focusExperience?:(legacy?:MiniFocus)=>Promise<FocusExperience>;
+  focusAction?:(value:FocusAction)=>Promise<FocusExperience>;
+  onFocusExperience?:(callback:(value:FocusExperience)=>void)=>()=>void;
   miniOpen?:()=>Promise<boolean>;
   miniFocus?:(value:MiniFocus)=>Promise<void>;
   miniTask?:(value:MiniTask|null)=>Promise<void>;

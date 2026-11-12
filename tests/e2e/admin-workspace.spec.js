@@ -6,12 +6,14 @@ import {adminRoles,permissionsFor} from '../../apps/cloud/src/domain/admin-acces
 
 async function workspace(page,role='admin') {
   const server=createCloud({env:{}}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
-  const state={content:defaultContent(),roleWrites:[],accessWrites:[],requests:[],failOverview:false};
+  const state={audio:{tracks:{}},audioUploads:[],content:defaultContent(),roleWrites:[],accessWrites:[],requests:[],failOverview:false};
   await page.route('**/v1/**',async route=>{
     const request=route.request(),url=new URL(request.url()),pathname=url.pathname;state.requests.push(pathname);
     const reply=data=>route.fulfill({json:data});
     if(pathname==='/v1/product/kit')return reply(kitCatalog);
     if(pathname==='/v1/releases/latest')return reply({available:true,version:kitCatalog.minimumVersion});
+    if(pathname==='/v1/admin/focus-audio')return reply(state.audio);
+    if(/^\/v1\/admin\/focus-audio\/(forest|rain|cafe|night)$/.test(pathname)){const space=pathname.split('/').pop(),input=request.postDataJSON();state.audioUploads.push(input);state.audio.tracks[space]={title:input.title,size:Buffer.from(input.data,'base64').length,url:'/audio-fixture.wav'};return reply(state.audio);}
     if(pathname==='/v1/auth/config')return reply({configured:true});
     if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
     if(pathname==='/v1/admin/overview')return state.failOverview?route.fulfill({status:503,json:{error:'Máy chủ tạm thời không phản hồi.'}}):reply({users:24,activeUsers:21,sessions:8,content:state.content,feedback:{total:12,open:7,pending:3,published:2},audit:[]});
@@ -93,4 +95,17 @@ test('admin grants a selected role explicitly, protects owner controls and confi
 test('admin overview recovers from failed loading without hiding navigation',async({page})=>{
   const app=await workspace(page);app.state.failOverview=true;
   try{await page.goto(app.base+'/admin/');await expect(page.locator('#panel-error')).toBeVisible();await expect(page.locator('.admin-sidebar')).toBeVisible();app.state.failOverview=false;await page.locator('#panel-retry').click();await expect(page.locator('#panel-error')).toBeHidden();await expect(page.locator('#stats .stat-card strong')).toHaveCount(4);}finally{app.close();}
+});
+
+for(const role of ['editor','viewer'])test(`focus audio admin uploads and previews with ${role} permissions`,async({page})=>{
+ const app=await workspace(page,role);
+ try{
+  await page.goto(app.base+'/admin/#audio');await expect(page.locator('.audio-card')).toHaveCount(4);
+  if(role==='viewer'){await expect(page.locator('.audio-card input[type=file]').first()).toBeDisabled();await expect(page.getByRole('button',{name:'Upload âm thanh'})).toHaveCount(0);return;}
+  const card=page.locator('.audio-card').first();await card.locator('input[type=file]').setInputFiles({name:'forest.wav',mimeType:'audio/wav',buffer:Buffer.from('RIFF-fixture-upload')});
+  await card.getByRole('button',{name:'Upload âm thanh',exact:true}).click();
+  await expect(page.locator('.audio-card').first().locator('audio')).toHaveAttribute('src','/audio-fixture.wav');
+  expect(app.state.audioUploads[0].title).toBe('Rừng yên');expect(Buffer.from(app.state.audioUploads[0].data,'base64').toString()).toBe('RIFF-fixture-upload');
+  await page.locator('.admin-audio-grid').screenshot({path:'/tmp/snapkit70-admin-audio.png'});
+ }finally{app.close();}
 });

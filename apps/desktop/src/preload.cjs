@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
+  focusExperience:legacy=>ipcRenderer.invoke('snapkit:focus-experience',legacy),
+  focusAction:value=>ipcRenderer.invoke('snapkit:focus-action',value),
+  onFocusExperience:callback=>{const handler=(_event,value)=>callback(value);ipcRenderer.on('snapkit:focus-experience',handler);return()=>ipcRenderer.removeListener('snapkit:focus-experience',handler);},
   miniOpen:()=>ipcRenderer.invoke('snapkit:mini-open'),
   miniFocus:value=>ipcRenderer.invoke('snapkit:mini-focus',value),
   miniTask:value=>ipcRenderer.invoke('snapkit:mini-task',value),

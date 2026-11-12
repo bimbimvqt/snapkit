@@ -5,7 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {debugSummary}=require('./data.cjs');
 const {key,profileFor,buildView}=require('./build.cjs');
 const {completionTracker,saveArtifact}=require('./artifacts.cjs');
-function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow,language,setDeadline,nativeTheme,origin,history,kit,Notification,dialog,shell}){
+async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow,language,setDeadline,nativeTheme,origin,history,kit,Notification,dialog,shell}){
  const completions=completionTracker(),notifications=new Set();let monitoring=false;
  let refreshTimer=null,refreshing=false,debugRefreshing=false,lastBounds=null,nextTask=0,nextDebug=0;
  let window=null,tray=null,compact=false,pinned=true,task=null,focus={remaining:1500,deadline:null};
@@ -18,8 +18,13 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
  const buildSnapshot=()=>buildView(buildState,catalog,releases,selection,mappings,starting);
  const vi=()=>language()==='vi';
  const showMain=()=>{const main=getWindow();if(main&&!main.isDestroyed()){if(main.isMinimized())main.restore();main.show();main.focus();}};
- const snapshot=()=>{const clipboard=history.state();return {focus,task,compact,pinned,mode,debug,quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
+ let experience=null;
+ const snapshot=()=>{const clipboard=history.state();return {focus,experience,task,compact,pinned,mode,debug,quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
  const publish=()=>{if(window&&!window.isDestroyed())window.webContents.send('snapkit:mini-state',snapshot());};
+ const focusStore=await require('../kit/focus-store.cjs').createFocusStore({app,setDeadline,onChange:value=>{experience=value;focus=value.timer;publish();getWindow()?.webContents.send('snapkit:focus-experience',value);getWindow()?.webContents.send('snapkit:mini-focus',focus);}});
+ experience=focusStore.state();focus=experience.timer;
+ ipcMain.handle('snapkit:focus-experience',(event,legacy)=>{if(!fromApp(event))throw Error('Invalid caller');return focusStore.migrate(legacy);});
+ ipcMain.handle('snapkit:focus-action',(event,value)=>{if(!fromApp(event))throw Error('Invalid caller');return focusStore.action(value);});
  const valid=e=>{if(e.sender!==window?.webContents||e.senderFrame!==window.webContents.mainFrame||e.senderFrame.url!==url)throw Error('Invalid widget caller');};
  async function get(route){const response=await fetch(origin+route,{signal:AbortSignal.timeout(5000)});if(!response.ok)throw Object.assign(Error('Unavailable'),{status:response.status});return response.json();}
  function notifyBuild(job){
@@ -70,7 +75,7 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
  if(process.platform==='darwin')image.setTemplateImage(true);
  tray=new Tray(image);tray.setToolTip('Snapkit');refresh();tray.on('double-click',showMain);if(process.platform==='darwin')tray.on('click',()=>tray.popUpContextMenu());else tray.on('click',showMain);
  ipcMain.handle('snapkit:mini-open',event=>{if(!fromApp(event))throw Error('Invalid caller');return show();});
- ipcMain.handle('snapkit:mini-focus',(event,value)=>{if(!fromApp(event)||!value||!Number.isFinite(value.remaining)||value.remaining<0||value.remaining>86400||(value.deadline!==null&&(!Number.isFinite(value.deadline)||value.deadline>Date.now()+86400000)))throw Error('Invalid focus');focus={remaining:value.remaining,deadline:value.deadline};publish();});
+ ipcMain.handle('snapkit:mini-focus',(event,value)=>{if(!fromApp(event)||!value||!Number.isInteger(value.remaining)||value.remaining<0||value.remaining>86400||(value.deadline!==null&&(!Number.isFinite(value.deadline)||value.deadline<=0||value.deadline>Date.now()+86400000)))throw Error('Invalid focus');focusStore.legacyTimer(value);});
  ipcMain.handle('snapkit:mini-task',(event,value)=>{if(!fromApp(event))throw Error('Invalid caller');if(value===null)task=null;else{const fields=['id','userId','workspaceId','projectId','environment','title','project'];if(fields.some(key=>typeof value?.[key]!=='string'||value[key].length>300)||!Number.isInteger(value.total)||!Number.isInteger(value.done)||value.total<0||value.done<0||value.done>value.total)throw Error('Invalid task');task=Object.fromEntries(fields.map(key=>[key,value[key]]));Object.assign(task,{total:value.total,done:value.done});mode='focus';}resize();publish();});
  ipcMain.on('snapkit:mini-fit',(event,value)=>{valid(event);if(compact||value?.mode!==mode||!Number.isInteger(value.height)||value.height<160||value.height>900)return;contentHeights[mode]=value.height;resize();});
  ipcMain.handle('snapkit:mini-state',event=>{valid(event);return snapshot();});
@@ -85,7 +90,9 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
   else if(typeof action==='string'&&/^build:download:[a-f0-9-]{36}:[a-f0-9-]{36}$/.test(action)){const [, ,jobId,artifactId]=action.split(':');await downloadArtifact(jobId,artifactId);}
   else if(action==='build:start'){await startBuild();}
   else if(action==='build:cancel'){if(!buildSnapshot().canCancel)throw Error('No active build');const expected=buildState.settings.workspace,state=await get('/api/state'),jobs=await get('/api/releases');if(state.settings?.workspace!==expected||jobs.active?.workspace!==expected)throw Error('Workspace changed');await post('/api/releases/'+encodeURIComponent(jobs.active.id)+'/cancel',{},state);await refreshDebug();}
-  else if(action==='focus'){const running=focus.deadline&&focus.deadline>Date.now();const remaining=running?Math.max(0,Math.ceil((focus.deadline-Date.now())/1000)):focus.deadline?1500:focus.remaining||1500;focus={remaining,deadline:running?null:Date.now()+remaining*1000};setDeadline(focus.deadline);getWindow()?.webContents.send('snapkit:mini-focus',focus);}
+  else if(action==='focus'){focusStore.action({type:'toggle'});}
+  else if(action==='sound'){focusStore.action({type:'sound',value:!experience.sound});}
+  else if(typeof action==='string'&&/^space:(forest|rain|cafe|night)$/.test(action)){focusStore.action({type:'space',value:action.slice(6)});}
   else if(action==='awake'){kit.setAwake(!kit.state().awake);}
   else if(action==='copy'){const value=history.state();if(!value.enabled||!value.items[0])throw Error('No captured clipboard item');await history.copy(value.items[0].id);}
   else if(['capture','qr','clipboard','logs','devices','releases'].includes(action)){showMain();getWindow()?.webContents.send('snapkit:mini-navigate',['logs','devices','releases'].includes(action)?{page:action}:{tool:action});}
@@ -95,7 +102,7 @@ function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fro
   publish();return snapshot();
  });
  nativeTheme.on('updated',publish);
- app.once('will-quit',()=>{clearInterval(refreshTimer);clearInterval(monitorTimer);nativeTheme.removeListener('updated',publish);window?.destroy();tray?.destroy();});
+ app.once('will-quit',()=>{focusStore.dispose();clearInterval(refreshTimer);clearInterval(monitorTimer);nativeTheme.removeListener('updated',publish);window?.destroy();tray?.destroy();});
  return {show,refresh,checkBuilds:monitorBuilds,getWindow:()=>window,hasTray:()=>!!tray&&!tray.isDestroyed()};
 }
 module.exports={installMini};

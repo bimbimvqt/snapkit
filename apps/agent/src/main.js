@@ -129,7 +129,7 @@ app.use((req, res, next) => {
     }
   }
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: https://snapkit.vn; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   if (req.path === '/api/pairing/claim' && origin !== webOrigin) return res.status(403).json({ error: 'Pairing claims must come from the configured website' });
   if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
@@ -158,6 +158,11 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
 const kitRouter=kitRoutes({store,demo,getTeamPlan:input=>teamRouter.startKit(input),getSettings:()=>settings,getDevices:()=>snapshot.devices,getEditor:()=>getPreferences().editor,diagnostics:()=>diagnostics({framework:settings.framework}),active:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0,boot:async d=>{if(locks.has(d.id))throw Error('Device operation in progress');locks.add(d.id);try{if(demo){d.state='online';emit('devices',snapshot);}else{await bootDevice(d);void scan().catch(()=>{});}}finally{locks.delete(d.id);}}});
+app.get('/api/kit/focus-audio',async(_req,res)=>{
+ if(demo)return res.json({tracks:{}});
+ try{const base=new URL(process.env.SNAPKIT_ACCOUNT_SERVER||'https://snapkit.vn');const response=await fetch(new URL('/v1/focus/audio',base),{signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('Unavailable');const data=await response.json(),tracks={};for(const [space,item]of Object.entries(data.tracks||{})){if(['forest','rain','cafe','night'].includes(space)&&/^\/v1\/focus\/audio\/files\/[a-f0-9]{64}\.(mp3|wav|ogg)$/.test(item.url))tracks[space]={title:String(item.title).slice(0,100),url:new URL(item.url,base).href};}res.json({tracks});}
+ catch{res.status(503).json({error:'Focus audio is temporarily unavailable.'});}
+});
 app.use('/api/kit',kitRouter);
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
 const teamRouter=teamRoutes({account,store,demo,getDevices:()=>snapshot.devices,getSessions:()=>ideSessions.list(),stopSessions:ids=>ideSessions.requestStop(ids)});

@@ -91,7 +91,7 @@ async function start() {
   const miniHistory=process.env.SNAPKIT_SMOKE_TEST==='1'?{state:()=>({...miniClipboardFixture}),copy:async id=>{const item=miniClipboardFixture.items.find(item=>item.id===id);if(!item)throw Error('Invalid clipboard item');miniClipboardFixture.copied=item.text;return true;}}:everyday.history;
   const miniBuildNotifications=[],miniDownloads=[];
   const miniNative=process.env.SNAPKIT_SMOKE_TEST==='1'?{Notification:class {static isSupported(){return true;}constructor(options){this.options=options;}on(){}show(){miniBuildNotifications.push(this.options);}},dialog:{showSaveDialog:async()=>({filePath:path.join(app.getPath('userData'),'mini-artifact.ipa'),canceled:false})},shell:{showItemInFolder:file=>miniDownloads.push(file)}}:{Notification,dialog,shell};
-  mini=require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin,history:miniHistory,kit,...miniNative});
+  mini=await require('./mini/mini.cjs').installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage,setDeadline:kit.setFocusDeadline,nativeTheme,origin,history:miniHistory,kit,...miniNative});
   ipcMain.handle('snapkit:team-notify', (event, data) => {
     if (!fromApp(event) || !data || typeof data.target?.userId !== 'string') throw new Error('Invalid caller');
     if (!Notification.isSupported()) throw new Error('Notifications are unavailable on this device.');
@@ -144,7 +144,7 @@ async function start() {
     setImmediate(() => app.quit()); return updater.snapshot();
   });
   ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });
-  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
+  mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false, autoplayPolicy:'no-user-gesture-required' } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -222,6 +222,10 @@ async function start() {
     const miniWindow=mini.getWindow();
     const miniResult=await miniWindow.webContents.executeJavaScript(`(async()=>{
       const before=await window.snapkitMini.state();
+      await window.snapkitMini.action('space:rain');
+      const garden=await window.snapkitMini.state();
+      const gardenUI=garden.experience.space==='rain'&&document.getElementById('focus-world').dataset.space==='rain'&&document.querySelector('#mini-spaces [data-space=rain]').getAttribute('aria-pressed')==='true';
+      await window.snapkitMini.action('space:forest');
       await window.snapkitMini.action('focus');
       const running=await window.snapkitMini.state();
       await window.snapkitMini.action('focus');
@@ -250,7 +254,7 @@ async function start() {
       let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
       const modes=utilities.mode==='utility' && !utilities.utility.enabled && utilities.utility.item===null && toggled && noCopy && utilityCompact && debugMode;
 
-      return modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
+      return gardenUI && modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
     })()`);
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.canBuild)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
