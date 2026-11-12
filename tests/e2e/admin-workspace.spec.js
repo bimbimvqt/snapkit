@@ -1,3 +1,4 @@
+import {avatarSource} from '../../packages/ui/avatar-source.js';
 import {kitCatalog} from '../../packages/domain/product-kit.js';
 import {test,expect} from './fixtures.js';
 import {createCloud} from '../../apps/cloud/src/index.js';
@@ -13,13 +14,13 @@ async function workspace(page,role='admin') {
     if(pathname==='/v1/product/kit')return reply(kitCatalog);
     if(pathname==='/v1/releases/latest')return reply({available:true,version:kitCatalog.minimumVersion});
     if(pathname==='/v1/auth/config')return reply({configured:true});
-    if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
+    if(pathname==='/v1/account')return reply({user:{id:'self',name:'Tuan Vuong',avatarImage:avatarSource({type:'preset',style:'lorelei',seed:'admin-fixture'}),email:'tuan@example.com',role,isOwner:role==='admin'},permissions:permissionsFor(role)});
     if(pathname==='/v1/admin/overview')return state.failOverview?route.fulfill({status:503,json:{error:'Máy chủ tạm thời không phản hồi.'}}):reply({users:24,activeUsers:21,sessions:8,content:state.content,feedback:{total:12,open:7,pending:3,published:2},audit:[]});
     if(pathname==='/v1/admin/content'){
       if(request.method()==='POST'){state.content={...request.postDataJSON(),revision:state.content.revision+1};}return reply({content:state.content});
     }
     if(pathname==='/v1/admin/teams')return reply({totals:{workspaces:1,memberships:7,projects:3,devices:2,handoffs:4},total:1,entries:[{id:'team',name:'Engineering <script>',members:7,projects:3,devices:2,reservations:1,handoffs:4,updatedAt:'2026-11-10T02:00:00Z'}]});
-    if(pathname==='/v1/admin/users')return reply({total:3,users:[{id:'self',name:'Tuan Vuong',email:'tuan@example.com',role,isOwner:role==='admin',lastLoginAt:'2026-11-06T02:00:00Z'},{id:'teammate',name:'Nguyễn Minh',email:'minh@example.com',role:'moderator',disabled:false,lastLoginAt:'2026-11-06T02:00:00Z'},{id:'member',name:'<script>alert(1)</script>',email:'member@example.com',role:'user',disabled:false}]});
+    if(pathname==='/v1/admin/users')return reply({total:3,users:[{id:'self',name:'Tuan Vuong',avatarImage:avatarSource({type:'preset',style:'lorelei',seed:'admin-fixture'}),email:'tuan@example.com',role,isOwner:role==='admin',lastLoginAt:'2026-11-06T02:00:00Z'},{id:'teammate',name:'Nguyễn Minh',email:'minh@example.com',role:'moderator',disabled:false,lastLoginAt:'2026-11-06T02:00:00Z'},{id:'member',name:'<script>alert(1)</script>',email:'member@example.com',role:'user',disabled:false}]});
     if(pathname==='/v1/admin/users/role'){state.roleWrites.push(request.postDataJSON());return reply({saved:true});}
     if(pathname==='/v1/admin/users/access'){state.accessWrites.push(request.postDataJSON());return reply({saved:true});}
     if(pathname==='/v1/admin/roles')return reply({roles:adminRoles});
@@ -75,7 +76,7 @@ for(const [role,visible]of Object.entries({admin:['overview','feedback','users',
 test('admin grants a selected role explicitly, protects owner controls and confirms access changes in a styled dialog',async({page})=>{
   const app=await workspace(page);
   try {
-    await page.goto(app.base+'/admin/#users');await expect(page.locator('#users tr')).toHaveCount(3);
+    await page.goto(app.base+'/admin/#users');await expect(page.locator('#users tr')).toHaveCount(3);await expect(page.locator('#users tr').filter({hasText:'tuan@example.com'}).locator('.account-avatar img')).toBeVisible();await expect(page.locator('#profile-initial img')).toBeVisible();
     const row=page.locator('#users tr').filter({hasText:'minh@example.com'});
     await row.getByRole('combobox').click();await page.getByRole('option',{name:'Biên tập viên',exact:true}).click();
     expect(app.state.roleWrites).toHaveLength(0);await row.getByRole('button',{name:'Lưu quyền'}).click();

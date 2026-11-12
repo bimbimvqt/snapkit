@@ -1,3 +1,4 @@
+import {avatarSource} from '../../../packages/ui/avatar-source.js';
 import {validAvatar,cleanAvatar} from '../../../packages/domain/avatar.js';
 import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
@@ -170,7 +171,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     });
     app.get('/v1/account', async (req, res) => {
       const account = await identity(req); if (!account) return res.status(401).json({ error: 'Sign in with Google to continue.' });
-      res.json({ user: account.user, permissions: permissionsFor(account.user.role), expiresAt: new Date(db.sessions[account.sessionId].expires).toISOString() });
+      res.json({ user: {...account.user,avatarImage:avatarSource(account.user.avatar)}, permissions: permissionsFor(account.user.role), expiresAt: new Date(db.sessions[account.sessionId].expires).toISOString() });
     });
     app.post('/v1/account/profile', async (req, res) => {
       const account = await identity(req); if (!account) return res.status(401).json({ error: 'Sign in with Google to continue.' });
@@ -238,7 +239,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     });
     app.get('/v1/admin/content', async (_req, res) => res.json({content: await content()}));
     app.get('/v1/admin/audit', async (_req, res) => {
-      await loaded; res.json({ entries: db.audit.slice(-100).reverse().map(entry => ({...entry, actorName: db.users[entry.actor]?.name || entry.actor})) });
+      await loaded; res.json({ entries: db.audit.slice(-100).reverse().map(entry => ({...entry, actorName: db.users[entry.actor]?.name || entry.actor, actorAvatarImage:avatarSource(db.users[entry.actor]?.avatar)})) });
     });
     app.get('/v1/admin/roles', (_req, res) => res.json({roles:adminRoles}));
     app.post('/v1/admin/users/role', async (req, res) => {
@@ -255,7 +256,7 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
     app.get('/v1/admin/users', async (req, res) => {
       await loaded; const search = String(req.query.search || '').slice(0, 160).toLowerCase(), offset = Math.max(0, Math.min(1000000, Number(req.query.offset) || 0));
       const users = Object.values(db.users).filter(u => (u.email + ' ' + u.name).toLowerCase().includes(search)).sort((a, b) => b.lastLoginAt.localeCompare(a.lastLoginAt));
-      res.json({ total: users.length, users: users.slice(offset, offset + 50).map(u => userView(u)) });
+      res.json({ total: users.length, users: users.slice(offset, offset + 50).map(u => ({...userView(u),avatarImage:avatarSource(u.avatar)})) });
     });
     app.post('/v1/admin/users/access', async (req, res) => {
       if (typeof req.body?.id !== 'string' || typeof req.body.disabled !== 'boolean') return res.status(400).json({ error: 'Choose an account and access status.' });

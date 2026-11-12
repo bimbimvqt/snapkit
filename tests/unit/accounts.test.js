@@ -39,6 +39,7 @@ test('Google OAuth binds browser, verifies nonce/email, enforces admin, CSRF, re
   assert.equal(edited.user.name,'Edited Member');assert.equal(edited.user.role,'user');assert.equal(edited.user.email,'member@example.com');assert.equal(edited.user.jobTitle,'Flutter Developer');
   const avatar={type:'preset',style:'lorelei',seed:'fixture-avatar'};
   const withAvatar=await (await post('/v1/account/profile',{...profile,avatar},member.cookie)).json();assert.deepEqual(withAvatar.user.avatar,avatar);
+  const avatarUsers=await (await request('/v1/admin/users',{headers:{Cookie:admin.cookie}})).json();assert.match(avatarUsers.users.find(user=>user.email==='member@example.com').avatarImage,/^data:image\/svg\+xml/);
   for(const invalid of [{type:'preset',style:'unknown',seed:'x'},{type:'preset',style:'lorelei',seed:'<script>'},{type:'upload',data:'data:image/svg+xml;base64,PHN2Zz4='},{type:'upload',data:'data:image/png;base64,ZmFrZQ=='},{type:'upload',data:'x'.repeat(96001)}])assert.equal((await post('/v1/account/profile',{...profile,avatar:invalid},member.cookie)).status,400);
   const signedAgain = await login('member@example.com');
   const persistedProfile = await (await request('/v1/account',{headers:{Cookie:signedAgain.cookie}})).json();
