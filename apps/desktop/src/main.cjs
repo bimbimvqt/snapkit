@@ -6,6 +6,7 @@ const os = require('node:os');
 const { createSplash } = require('./splash/splash.cjs');
 const { DesktopUpdater } = require('./updates/updater.cjs');
 const { startUpdateChecks } = require('./updates/schedule.cjs');
+const { installLifecycle, stopAgent } = require('./lifecycle.cjs');
 const development = !app.isPackaged && process.env.SNAPKIT_DEV === '1';
 const port = development ? Number(process.env.SNAPKIT_DEV_PORT || 4311) : process.env.SNAPKIT_SMOKE_TEST === '1' ? Number(process.env.SNAPKIT_SMOKE_PORT || 14328) : 4310;
 if (!Number.isInteger(port) || port < 1024 || port > 65535 || (development && port === 4310)) throw new Error('Invalid Dev port');
@@ -13,7 +14,7 @@ const origin = `http://127.0.0.1:${port}`;
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const devRoot = path.resolve(process.env.SNAPKIT_DEV_DATA_ROOT || path.join(repositoryRoot, '.snapkit-dev', process.env.SNAPKIT_DESKTOP_DEMO === '1' ? 'demo' : 'local'));
 let stopWatching, updateChecks;
-let agent, mainWindow, bootSplash, mini, quitting = false, exiting = false;
+let agent, mainWindow, bootSplash, mini;
 app.setName(development ? 'Snapkit Dev' : 'Snapkit');
 if (development) app.setPath('userData', path.join(devRoot, 'profile'));
 if (process.env.SNAPKIT_SMOKE_TEST === '1') app.setPath('userData', path.join(process.env.SNAPKIT_DATA_ROOT || os.tmpdir(), 'snapkit-smoke-profile'));
@@ -31,7 +32,6 @@ function nativeT(message) {
 }
 
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
-  app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });
   app.whenReady().then(start).catch(error => { bootSplash?.destroy(); dialog.showErrorBox(nativeT("Snapkit could not start"), `${nativeT(error.message)}\n\n${nativeT('Your projects and device data have not been removed. Close any older Snapkit process and try again.')}`); app.quit(); });
 }
 function allowedExternal(value) {
@@ -80,7 +80,7 @@ async function start() {
     });
     let agentError = '';
     agent.stderr?.on('data', chunk => { agentError = (agentError + chunk.toString()).slice(-4096); });
-    agent.once('exit', () => { if (!exiting) { bootSplash?.destroy(); dialog.showErrorBox(nativeT("Snapkit needs to restart"), nativeT("The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.")); app.quit(); } });
+    agent.once('exit', () => { if (!lifecycle.exiting) { bootSplash?.destroy(); dialog.showErrorBox(nativeT("Snapkit needs to restart"), nativeT("The device connection stopped. Restart Snapkit to reconnect. Your device data is still on this computer.")); app.quit(); } });
     const deadline = Date.now() + 20000;
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
@@ -143,7 +143,7 @@ async function start() {
     });
     setImmediate(() => app.quit()); return updater.snapshot();
   });
-  ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); app.relaunch(); app.quit(); });
+  ipcMain.handle('snapkit:restart', event => { if (!fromApp(event)) throw new Error('Invalid caller'); lifecycle.restart(); });
   mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
@@ -157,7 +157,7 @@ async function start() {
       fs.mkdirSync(path.dirname(cacheVersion), { recursive: true }); fs.writeFileSync(cacheVersion, JSON.stringify(app.getVersion()));
     }
   }
-  mainWindow.on('close', event => { if (!exiting) { event.preventDefault(); mainWindow.hide(); } });
+  mainWindow.on('close', event => { if (!lifecycle.exiting) { event.preventDefault(); mainWindow.hide(); } });
   const firstPaint = new Promise(resolve => mainWindow.once('ready-to-show', resolve));
   let resolveReady;
   const rendererReady = new Promise(resolve => { resolveReady = resolve; });
@@ -171,7 +171,7 @@ async function start() {
     readyReported = await Promise.race([rendererReady, readyFallback]);
   } finally { clearTimeout(readyTimeout); ipcMain.removeListener('snapkit:ready', readyListener); }
   await bootSplash.finish();
-  if (exiting || mainWindow.isDestroyed()) return;
+  if (lifecycle.exiting || mainWindow.isDestroyed()) return;
   if (development) {
     mainWindow.setTitle('Snapkit Dev');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -325,32 +325,25 @@ async function start() {
     app.quit();
   }
 }
-app.on('activate',()=>{if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.show();mainWindow.focus();}});
 app.on('window-all-closed', () => {if(!mini?.hasTray())app.quit();});
-app.on('before-quit', event => {
-  if (exiting) return;
-  event.preventDefault();
-  if(quitting)return;
-  quitting=true;
-  (async () => {
-      try {
-        if(process.env.SNAPKIT_SMOKE_TEST==='1'||!mainWindow||mainWindow.isDestroyed())throw Error('Skip quit check');
-        const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(2000) });
-        const state = await response.json();
-        if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) {
-          if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
-          const choice = await dialog.showMessageBox(mainWindow, { type: 'question', title: nativeT(state.activeReleaseTask ? "A build or upload is still running" : "A device task is still running"), message: nativeT("Keep Snapkit open to finish your device task."), detail: nativeT(state.activeReleaseTask ? "Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying." : "Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."), buttons: [nativeT("Keep Snapkit open"), nativeT("Quit Snapkit")], defaultId: 0, cancelId: 0 });
-          if (choice.response !== 1) { quitting=false; return; }
-        }
-      } catch {}
-    exiting = true;
-    stopWatching?.(); updateChecks?.stop();
-    bootSplash?.destroy();
-    await updater.close().catch(() => {});
-    if (agent) {
-      const child = agent; agent = null;
-      await new Promise(resolve => { const timer = setTimeout(() => { child.kill(); resolve(); }, 15000); child.once('exit', () => { clearTimeout(timer); resolve(); }); child.postMessage({ type: 'shutdown' }); });
+const lifecycle=installLifecycle({
+  app,
+  showMain(){if(mainWindow&&!mainWindow.isDestroyed()){if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();}},
+  async confirmQuit(){
+    if(process.env.SNAPKIT_SMOKE_TEST==='1'||!mainWindow||mainWindow.isDestroyed())return true;
+    const response=await fetch(origin+'/api/state',{signal:AbortSignal.timeout(2000)});
+    const state=await response.json();
+    if(state.activeKitTask||state.activeReleaseTask||state.activeRecordings||state.debugSessions?.length||state.jobs?.some(job=>job.status==='running')){
+      if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
+      const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:nativeT(state.activeReleaseTask?"A build or upload is still running":"A device task is still running"),message:nativeT("Keep Snapkit open to finish your device task."),detail:nativeT(state.activeReleaseTask?"Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying.":"Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."),buttons:[nativeT("Keep Snapkit open"),nativeT("Quit Snapkit")],defaultId:0,cancelId:0});
+      return choice.response===1;
     }
-    app.quit();
-  })();
+    return true;
+  },
+  async cleanup(){
+    stopWatching?.();updateChecks?.stop();bootSplash?.destroy();
+    const child=agent;agent=null;
+    // Updater cancellation must not delay asking the local agent to shut down.
+    await Promise.allSettled([updater.close(),stopAgent(child)]);
+  }
 });

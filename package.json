@@ -1,6 +1,6 @@
 {
   "name": "snapkit-device-center",
-  "version": "0.2.0-beta.73",
+  "version": "0.2.0-beta.74",
   "private": true,
   "type": "module",
   "description": "Local Flutter and React Native device control center",
@@ -17,7 +17,7 @@
     "desktop:pack": "python3 scripts/package-ide-extension.py && electron-builder --dir --publish never",
     "desktop:dist": "python3 scripts/package-ide-extension.py && electron-builder --publish never",
     "cloud": "node apps/cloud/src/index.js",
-    "desktop:smoke": "node tests/desktop/smoke.cjs && node tests/desktop/update-fs-smoke.cjs",
+    "desktop:smoke": "node tests/desktop/shutdown-smoke.cjs && node tests/desktop/smoke.cjs && node tests/desktop/update-fs-smoke.cjs",
     "desktop:dev": "node scripts/desktop-dev.cjs",
     "desktop:dev:local": "node scripts/desktop-dev.cjs --local",
     "desktop:dev:smoke": "node tests/desktop/dev-smoke.cjs",

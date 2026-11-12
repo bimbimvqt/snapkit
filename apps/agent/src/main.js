@@ -499,7 +499,27 @@ const statusPoll = setInterval(() => {
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
-async function stop() { await releaseBuilds.close(); await deviceTools.close(); stopCommands(); clearInterval(poll); clearInterval(statusPoll); for (const res of clients) res.end(); server.close(); }
+let stopping;
+server.on('request',(_req,res)=>res.once('finish',()=>{if(stopping)server.closeIdleConnections();}));
+function stop() {
+  if(stopping)return stopping;
+  stopping=(async()=>{
+    // Stop accepting work before waiting for build/recording cleanup.
+    clearInterval(poll);clearInterval(statusPoll);
+    const closed=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+    // Attach the rejection handler immediately while cleanup is still running.
+    const drained=closed.then(()=>null,error=>error);
+    for(const res of clients){res.shouldKeepAlive=false;res.end();}clients.clear();
+    const results=await Promise.allSettled([releaseBuilds.close(),deviceTools.close()]);
+    stopCommands();server.closeIdleConnections();
+    const serverError=await drained;
+    const failed=results.some(result=>result.status==='rejected')||serverError;
+    if(failed)console.error('Snapkit shutdown cleanup failed.');
+    // Electron's parent IPC port can keep an otherwise idle utility process alive.
+    // All owned task cleanup and HTTP responses have completed at this point.
+    process.exit(failed?1:0);
+  })().catch(error=>{console.error('Snapkit shutdown failed:',error.message);process.exit(1);});
+  return stopping;
+}
 process.on('SIGINT', stop); process.on('SIGTERM', stop);
-
-process.parentPort?.on('message', event => { if (event.data?.type === 'shutdown') stop(); });
+process.parentPort?.on('message', event => { if (event.data?.type === 'shutdown') void stop(); });
