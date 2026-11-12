@@ -1,9 +1,12 @@
 // Capture one frame from the screen the user selected in the macOS system picker.
 export async function captureSystemScreen():Promise<Blob>{
- const stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:1},audio:false});
+ const stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'monitor',width:{ideal:7680},height:{ideal:4320},frameRate:{ideal:5,max:5}},audio:false});
  const video=document.createElement('video');video.muted=true;video.srcObject=stream;
  let timer:ReturnType<typeof setTimeout>|undefined;
  try{
+  const track=stream.getVideoTracks()[0];
+  const surface=track?.getSettings().displaySurface;
+  if(surface&&surface!=='monitor')throw new Error('screen-only');
   return await Promise.race([
    (async()=>{
     const frame=new Promise<void>(resolve=>video.requestVideoFrameCallback(()=>resolve()));

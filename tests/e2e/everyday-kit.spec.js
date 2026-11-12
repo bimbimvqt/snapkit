@@ -33,11 +33,18 @@ test('system screen picker imports one frame and stops sharing immediately',asyn
  });
  await open(page,'Snap Capture');expect(await page.evaluate(()=>window.pickerCalls)).toBe(0);
  await page.getByRole('button',{name:'Choose screen',exact:true}).click();const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();expect(await canvas.evaluate(node=>Array.from(node.getContext('2d').getImageData(10,10,1,1).data))).toEqual([255,0,0,255]);
- expect(await page.evaluate(()=>window.pickerTracks.every(track=>track.readyState==='ended'))).toBe(true);expect(await page.evaluate(()=>window.pickerOptions.audio)).toBe(false);
+ expect(await canvas.evaluate(node=>node.getBoundingClientRect().width<=node.width+2)).toBe(true);expect(await page.evaluate(()=>window.pickerTracks.every(track=>track.readyState==='ended'))).toBe(true);expect(await page.evaluate(()=>window.pickerOptions.audio)).toBe(false);
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));expect(await page.evaluate(()=>window.pickerCalls)).toBe(1);
 });
 test('dismissing the system picker never reports a missing global permission or retries automatically',async({page})=>{
  await page.addInitScript(()=>{window.pickerCalls=0;window.snapkitDesktop={captureScreens:async()=>({picker:'system'}),captureSettings:async()=>true};Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:async()=>{window.pickerCalls++;throw new DOMException('User cancelled','NotAllowedError');}});});
  await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('No screen was shared');await expect(page.getByRole('button',{name:'Open Screen Recording settings',exact:true})).toHaveCount(0);
  await page.evaluate(()=>{for(let i=0;i<5;i++)window.dispatchEvent(new Event('focus'));});expect(await page.evaluate(()=>window.pickerCalls)).toBe(1);
+});
+test('desktop capture requests high resolution and rejects application-window sources',async({page})=>{
+ await page.addInitScript(()=>{
+  window.captureStops=0;window.snapkitDesktop={captureScreens:async()=>({picker:'system'})};
+  Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:async options=>{window.captureOptions=options;const canvas=document.createElement('canvas'),stream=canvas.captureStream(5),track=stream.getVideoTracks()[0];Object.defineProperty(track,'getSettings',{value:()=>({displaySurface:'window'})});const stop=track.stop.bind(track);track.stop=()=>{window.captureStops++;stop();};return stream;}});
+ });
+ await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Choose Entire Screen');await expect(page.getByLabel('Annotation canvas',{exact:true})).toHaveCount(0);expect(await page.evaluate(()=>window.captureStops)).toBe(1);expect(await page.evaluate(()=>window.captureOptions.video.width.ideal)).toBe(7680);expect(await page.evaluate(()=>window.captureOptions.video.displaySurface)).toBe('monitor');
 });
