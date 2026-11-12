@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('snapkitDesktop', Object.freeze({
   filePick:()=>ipcRenderer.invoke('snapkit:file-pick'),
   fileApply:(id,options)=>ipcRenderer.invoke('snapkit:file-apply',id,options),
   fileUndo:id=>ipcRenderer.invoke('snapkit:file-undo',id),
+  captureSettings:()=>ipcRenderer.invoke('snapkit:capture-settings'),
   captureScreens:()=>ipcRenderer.invoke('snapkit:capture-screens'),
   kitSettings: () => ipcRenderer.invoke('snapkit:kit-settings'),
   kitStartup: enabled => ipcRenderer.invoke('snapkit:kit-startup', enabled),

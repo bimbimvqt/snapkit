@@ -2,3 +2,5 @@
 .teams-application .choice-trigger[aria-expanded=true],.teams-dialog .choice-trigger[aria-expanded=true]{border-color:var(--purple)}.teams-application .choice-trigger:focus-visible,.teams-dialog .choice-trigger:focus-visible{outline-color:var(--purple)}.react-choice-popup{font-family:var(--font,sans-serif)}
 
 .react-choice-popup input[type=search]{appearance:none;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;background:var(--surface-subtle);color:var(--text);padding:9px 12px;font:inherit;outline:2px solid transparent;outline-offset:-2px;box-shadow:none}.react-choice-popup input[type=search]:focus,.react-choice-popup input[type=search]:focus-visible{border-color:var(--purple);outline-color:var(--purple);outline-offset:-2px;box-shadow:none}
+
+.choice-avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex-shrink:0;border-radius:7px;overflow:hidden;background:var(--surface-hover);color:var(--text);font-size:11px}.choice-avatar img{width:100%;height:100%;object-fit:cover}.choice-value,.choice-option-label{display:flex;align-items:center;gap:8px;min-width:0}

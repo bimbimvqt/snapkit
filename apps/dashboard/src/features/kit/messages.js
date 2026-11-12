@@ -247,3 +247,13 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
 }
 
 Object.assign(window.SnapkitMessages.translations,{'Open floating widget':'Mở widget nổi','Could not open widget':'Chưa mở được widget','Pin task in widget: {0}':'Ghim task vào widget: {0}'});
+
+Object.assign(window.SnapkitMessages.translations,{
+ "Allow Snapkit in System Settings → Privacy & Security → Screen & System Audio Recording. If it is already enabled, fully quit and reopen Snapkit, then try again.":"Cho phép Snapkit trong Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Ghi màn hình & Âm thanh hệ thống. Nếu đã bật, hãy thoát hẳn rồi mở lại Snapkit và thử lại.",
+ "macOS reports that Screen Recording is allowed, but capture failed. Try again. If it still fails, fully quit and reopen Snapkit to apply the permission.":"macOS báo đã cấp quyền ghi màn hình nhưng chưa chụp được. Hãy thử lại. Nếu vẫn lỗi, thoát hẳn rồi mở lại Snapkit để áp dụng quyền.",
+ "Could not capture the screen. Try again or choose an image.":"Chưa chụp được màn hình. Hãy thử lại hoặc chọn ảnh.",
+ "Open Screen Recording settings":"Mở cài đặt quyền ghi màn hình",
+ "Could not open System Settings. Open Privacy & Security → Screen & System Audio Recording manually.":"Chưa mở được Cài đặt hệ thống. Hãy mở Quyền riêng tư & Bảo mật → Ghi màn hình & Âm thanh hệ thống."
+});
+
+Object.assign(window.SnapkitMessages.translations,{'Redo annotation':'Làm lại chỉnh sửa'});

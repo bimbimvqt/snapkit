@@ -279,6 +279,6 @@ export function createAccounts({ env, fetcher = fetch, verifyGoogle } = {}) {
       }); res.json({ content: result });
     });
   }
-  return { install, identity, content, config, origin, isActiveUser:async id=>{await loaded;return !!db.users[id]&&!db.users[id].disabled;} };
+  return { install, identity, content, config, origin, memberProfiles:ids=>Object.fromEntries(ids.filter(id=>db.users[id]&&!db.users[id].disabled).map(id=>[id,{name:db.users[id].name,avatar:db.users[id].avatar||null}])), isActiveUser:async id=>{await loaded;return !!db.users[id]&&!db.users[id].disabled;} };
 }
 function hashForPKCE(value) { return createHash('sha256').update(value).digest('base64url'); }

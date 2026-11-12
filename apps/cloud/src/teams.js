@@ -61,15 +61,15 @@ function audit(workspace, user, action, projectId = null, environment = null) {
   workspace.audit = workspace.audit.slice(-500);
   workspace.updatedAt = now();
 }
-function view(workspace, userId) {
+function workspaceView(workspace, userId, profiles) {
   const member = memberOf(workspace, userId);
   const visible = id => teamProjectVisible(member, id);
   const layers = member.serviceLayers ?? teamLayers;
   const blueprintView = blueprint => ({ ...blueprint, hasServices: blueprint.services.length > 0, services: blueprint.services.filter(s => layers.includes(s.kind)) });
   return {
     id: workspace.id, name: workspace.name, layers: [...teamLayers, ...(workspace.customLayers || [])].filter(layer=>member.role==='owner'||layers.includes(layer)), createdAt: workspace.createdAt, updatedAt: workspace.updatedAt,
-    membership: { ...member, permissions: teamPermissions(member.role) },
-    members: workspace.members.map(m => ({ ...m, projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
+    membership: { ...member, ...profiles[member.userId], permissions: teamPermissions(member.role) },
+    members: workspace.members.map(m => ({ ...m, ...profiles[m.userId], projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
     invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(({delivery,...i}) => ({ ...i, delivery:delivery?{status:delivery.status,attemptedAt:delivery.attemptedAt,sentAt:delivery.sentAt}: {status:'not_sent'} })) : [],
     projects: workspace.projects.filter(p => visible(p.id)).map(p => ({ ...p, blueprint: blueprintView(p.blueprint), history: p.history.map(blueprintView) })),
     devices: workspace.devices.filter(d => visible(d.projectId)).map(d => ({ ...d, hostPresence:d.hostPresence?{userId:d.hostPresence.userId,online:d.hostPresence.online&&Date.now()-d.hostPresence.seenAt<45000,seenAt:d.hostPresence.seenAt}:null, reservation: d.reservation?.expiresAt > Date.now() && memberOf(workspace, d.reservation.userId) ? d.reservation : null })),
@@ -83,6 +83,7 @@ function view(workspace, userId) {
 // Separate from account/admin data and every local personal workspace. One writer
 // serializes permission checks and atomic commits; never serve uncommitted state.
 export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
+  const view=(workspace,userId)=>workspaceView(workspace,userId,accounts.memberProfiles?.(workspace.members.map(member=>member.userId))||{});
   const mailer=invitationMailer({env,fetcher});
   const file = path.join(env.SNAPKIT_CLOUD_DATA || 'cloud-data', 'teams.json');
   let db = { version: 1, workspaces: [] }, queue = Promise.resolve();

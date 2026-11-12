@@ -188,3 +188,15 @@ test('project identity persists raster icons and enforces tenant and role permis
  const disk=JSON.parse(await readFile(path.join(directory,'teams.json'),'utf8'));assert.equal(disk.workspaces[0].projects[0].icon,png);
  await ok('owner',base+'/members/pm',{role:'viewer',projectIds:[project.id],environments:['development']});assert.equal((await request('pm',route,payload)).status,403);
 });
+
+test('team snapshots use current account avatars without copying private profile fields into team storage',async t=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'snapkit-team-avatar-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ await writeFile(path.join(directory,'accounts.json'),JSON.stringify({users:{owner:{id:'owner',email:'owner@example.com',name:'Owner',bio:'private bio',avatar:null}},sessions:{[createHash('sha256').update('avatar-owner').digest('hex')]:{userId:'owner',expires:Date.now()+86400000}},content:defaultContent(),audit:[]}));
+ const server=createCloud({env:{SNAPKIT_CLOUD_DATA:directory}}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));t.after(()=>server.close());const base='http://127.0.0.1:'+server.address().port;
+ const request=async(route,data)=>{const response=await fetch(base+route,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer avatar-owner','Content-Type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});assert.equal(response.ok,true);return response.json();};
+ const workspace=await request('/v1/teams',{name:'Avatar workspace'});const avatar={type:'preset',style:'lorelei',seed:'updated-owner'};
+ await request('/v1/account/profile',{name:'New Owner',jobTitle:'Lead',bio:'private bio',avatar});
+ const snapshot=await request('/v1/teams/'+workspace.id);assert.deepEqual(snapshot.members[0].avatar,avatar);assert.equal(snapshot.members[0].name,'New Owner');assert.deepEqual(snapshot.membership.avatar,avatar);assert.equal(snapshot.members[0].bio,undefined);assert.equal(snapshot.members[0].jobTitle,undefined);
+ const stored=JSON.parse(await readFile(path.join(directory,'teams.json'),'utf8'));assert.equal(stored.workspaces[0].members[0].avatar,undefined);
+ await request('/v1/account/profile',{name:'New Owner',jobTitle:'Lead',bio:'',avatar:null});assert.equal((await request('/v1/teams/'+workspace.id)).members[0].avatar,null);
+});

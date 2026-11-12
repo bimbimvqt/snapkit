@@ -26,3 +26,7 @@ body>.sidebar,.teams-sidebar{width:240px;padding:26px 16px 16px}.app-shell,.team
 @media(min-width:761px) and (max-width:1250px){body>.sidebar,.teams-sidebar{width:210px;padding-inline:12px}.app-shell,.teams-shell{margin-left:210px}.teams-brand>small{display:none}}
 
 .teams-task-dependencies{gap:12px}.teams-task-dependencies .button{max-width:100%;white-space:normal;text-align:left;overflow-wrap:anywhere}.teams-task-blocker-form>form{margin:16px 0 12px}.teams-task-detail>form>details{margin-bottom:16px}
+
+.teams-updates{display:flex;align-items:center;gap:12px;margin-top:auto;min-height:44px;padding:12px;border-radius:8px;color:var(--muted);text-align:left;flex-shrink:0}.teams-updates:hover,.teams-updates[aria-current=page]{background:var(--surface-hover);color:var(--purple)}.teams-updates svg{width:20px;height:20px;flex-shrink:0}.teams-shared-page{min-width:0}@media(max-width:760px){.teams-updates{justify-content:center;width:44px}.teams-updates>span{display:none}}
+
+.teams-sidebar-foot{margin-top:8px}.teams-update-indicator{margin-left:auto;font-size:10px;color:var(--purple)}@media(max-width:760px){.teams-updates{position:relative}.teams-updates .teams-update-indicator{display:block;position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--purple);font-size:0}}
