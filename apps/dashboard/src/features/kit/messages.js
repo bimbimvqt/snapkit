@@ -3,7 +3,6 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "Clipboard Kit": "Clipboard Kit",
   "QR Kit": "QR Kit",
   "Snap Capture": "Snap Capture",
-  "Choose Entire Screen in the macOS picker. Application windows are not supported for desktop screenshots.": "Chọn Entire Screen trong bộ chọn macOS. Chụp desktop không hỗ trợ chế độ cửa sổ ứng dụng.",
   "No screen was shared. Choose a screen to try again, or choose an image.": "Chưa chia sẻ màn hình. Chọn màn hình để thử lại hoặc chọn ảnh có sẵn.",
   "Rename a batch of files. Preview every change before applying it.": "Đổi tên nhiều tệp. Xem trước từng thay đổi rồi mới áp dụng.",
   "Choose files": "Chọn tệp",

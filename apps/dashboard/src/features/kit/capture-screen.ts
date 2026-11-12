@@ -4,9 +4,8 @@ export async function captureSystemScreen():Promise<Blob>{
  const video=document.createElement('video');video.muted=true;video.srcObject=stream;
  let timer:ReturnType<typeof setTimeout>|undefined;
  try{
-  const track=stream.getVideoTracks()[0];
-  const surface=track?.getSettings().displaySurface;
-  if(surface&&surface!=='monitor')throw new Error('screen-only');
+  // Electron's native picker can report window/browser even after Entire Screen.
+  // The user's native selection is authoritative; metadata must not reject it.
   return await Promise.race([
    (async()=>{
     const frame=new Promise<void>(resolve=>video.requestVideoFrameCallback(()=>resolve()));

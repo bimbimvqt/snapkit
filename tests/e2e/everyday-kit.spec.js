@@ -41,10 +41,12 @@ test('dismissing the system picker never reports a missing global permission or 
  await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('No screen was shared');await expect(page.getByRole('button',{name:'Open Screen Recording settings',exact:true})).toHaveCount(0);
  await page.evaluate(()=>{for(let i=0;i<5;i++)window.dispatchEvent(new Event('focus'));});expect(await page.evaluate(()=>window.pickerCalls)).toBe(1);
 });
-test('desktop capture requests high resolution and rejects application-window sources',async({page})=>{
- await page.addInitScript(()=>{
+for(const surface of ['window','browser','monitor'])test(`system picker accepts the selected screen when Electron reports ${surface}`,async({page})=>{
+ await page.addInitScript(surface=>{
   window.captureStops=0;window.snapkitDesktop={captureScreens:async()=>({picker:'system'})};
-  Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:async options=>{window.captureOptions=options;const canvas=document.createElement('canvas'),stream=canvas.captureStream(5),track=stream.getVideoTracks()[0];Object.defineProperty(track,'getSettings',{value:()=>({displaySurface:'window'})});const stop=track.stop.bind(track);track.stop=()=>{window.captureStops++;stop();};return stream;}});
- });
- await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Choose Entire Screen');await expect(page.getByLabel('Annotation canvas',{exact:true})).toHaveCount(0);expect(await page.evaluate(()=>window.captureStops)).toBe(1);expect(await page.evaluate(()=>window.captureOptions.video.width.ideal)).toBe(7680);expect(await page.evaluate(()=>window.captureOptions.video.displaySurface)).toBe('monitor');
+  Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:async options=>{
+   window.captureOptions=options;const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;const ctx=canvas.getContext('2d');ctx.fillStyle='#00ff00';ctx.fillRect(0,0,160,90);const stream=canvas.captureStream(5),track=stream.getVideoTracks()[0];Object.defineProperty(track,'getSettings',{value:()=>({displaySurface:surface})});const stop=track.stop.bind(track);track.stop=()=>{window.captureStops++;stop();};return stream;
+  }});
+ },surface);
+ await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();await expect(page.getByRole('alert')).toHaveCount(0);expect(await canvas.evaluate(node=>Array.from(node.getContext('2d').getImageData(10,10,1,1).data))).toEqual([0,255,0,255]);expect(await page.evaluate(()=>window.captureStops)).toBe(1);expect(await page.evaluate(()=>window.captureOptions.video.width.ideal)).toBe(7680);expect(await page.evaluate(()=>window.captureOptions.video.displaySurface)).toBe('monitor');
 });
