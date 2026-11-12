@@ -6,7 +6,8 @@ const path=require('node:path');
 const os=require('node:os');
 if(!process.versions.electron){
  const {spawn}=require('node:child_process');
- const child=spawn(require('electron'),[__filename],{stdio:'inherit',env:{...process.env,ELECTRON_RUN_AS_NODE:''}});
+ const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
+ const child=spawn(require('electron'),[__filename],{stdio:'inherit',env});
  const timer=setTimeout(()=>{child.kill();process.exitCode=1;},30000);
  child.once('error',error=>{clearTimeout(timer);console.error(error);process.exitCode=1;});
  child.once('exit',code=>{clearTimeout(timer);process.exitCode=code===0?0:1;});
