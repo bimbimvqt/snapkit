@@ -6,14 +6,17 @@ const path=require('node:path');
 const os=require('node:os');
 if(!process.versions.electron){
  const {spawn}=require('node:child_process');
- const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'snapkit-shutdown-'));
+ const cleanup=()=>fs.rmSync(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});
+ const env={...process.env,SNAPKIT_SHUTDOWN_SMOKE_ROOT:root};delete env.ELECTRON_RUN_AS_NODE;
  const child=spawn(require('electron'),[__filename],{stdio:'inherit',env});
  const timer=setTimeout(()=>{child.kill();process.exitCode=1;},30000);
- child.once('error',error=>{clearTimeout(timer);console.error(error);process.exitCode=1;});
- child.once('exit',code=>{clearTimeout(timer);process.exitCode=code===0?0:1;});
+ child.once('error',error=>{clearTimeout(timer);console.error(error);cleanup();process.exitCode=1;});
+ child.once('exit',code=>{clearTimeout(timer);try{cleanup();process.exitCode=code===0?0:1;}catch(error){console.error(error);process.exitCode=1;}});
 }else{
  const {app,utilityProcess}=require('electron');
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'snapkit-shutdown-'));
+ const root=process.env.SNAPKIT_SHUTDOWN_SMOKE_ROOT;
+ if(!root)throw Error('Missing isolated shutdown test directory');
  app.setPath('userData',path.join(root,'profile'));
  let agent;
  app.whenReady().then(async()=>{
@@ -32,6 +35,6 @@ if(!process.versions.electron){
     console.log(`PASS: agent shutdown ${Date.now()-start}ms, event stream closed; same-port launch ${attempt+1}`);
    }finally{clearTimeout(timer);await reader.cancel().catch(()=>{});}
   }
-  fs.rmSync(root,{recursive:true,force:true});app.quit();
- }).catch(error=>{console.error(error);agent?.kill();fs.rmSync(root,{recursive:true,force:true});app.exit(1);});
+  app.quit();
+ }).catch(error=>{console.error(error);agent?.kill();app.exit(1);});
 }
