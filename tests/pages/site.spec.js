@@ -11,7 +11,7 @@ test('Pages works under a project prefix and preview never calls local APIs', as
   await expect(page.getByRole('heading', { name: /Debug nhiều thiết bị.*Ngay từ editor của bạn/ })).toBeVisible();
   await expect(page.locator('#debug-video')).toBeVisible();
   await page.getByRole('button', { name: 'Kiểm tra công cụ' }).click();
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261111-visual');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261113-cleanup83');
   await expect(page.getByRole('contentinfo')).toContainText('Tải ứng dụng');
   await page.goto('demo/?lang=en');
   await expect(page.locator('#server-status')).toHaveText('Static preview · sample data');
@@ -102,7 +102,7 @@ test('landing switches EN/VN, keeps preview and links, and remembers the languag
   await page.getByRole('button', { name: 'Setup & tools', exact: true }).click();
   await chooseLanguage(page, 'vi');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Debug nhiều thiết bị.');
-  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261111-visual');
+  await expect(page.locator('#app-preview')).toHaveAttribute('src', 'assets/setup-vi.webp?v=20261113-cleanup83');
   expect(await page.locator('.download-button').evaluateAll(links => links.map(link => link.href))).toEqual(downloads);
   await page.goto('./');
   await expect(page.locator('[data-language-select]')).toHaveAttribute('data-language-current', 'vi');
@@ -133,7 +133,7 @@ test('current workflows and app gallery work in both languages with keyboard nav
     await chooseLanguage(page,language);
     for(const key of ['devices','setup','captures','releases']) {
       await page.locator(`[data-preview="${key}"]`).click();
-      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261111-visual`);
+      await expect(page.locator('#app-preview')).toHaveAttribute('src',`assets/${key}${language==='vi'?'-vi':''}.webp?v=20261113-cleanup83`);
       await expect.poll(()=>page.locator('#app-preview').evaluate(image=>image.complete&&image.naturalWidth>0)).toBe(true);
     }
     for(const width of [375,768,1024,1440]) {
@@ -197,7 +197,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto('./?lang=en');
  await page.locator('[data-preview=teams]').click();
- await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261111-visual');
+ await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261113-cleanup83');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
  // The gallery CTA opens the interactive preview; documentation can be linked elsewhere.
@@ -258,7 +258,7 @@ test('Flutter workspace sample explains all 11 teammates, project layers and the
     expect(await images.count()).toBeGreaterThan(10);
     for(const image of await images.all()) {
       await image.scrollIntoViewIfNeeded();
-      await expect(image).toHaveAttribute('src',new RegExp(`${suffix}\\.webp$`));
+      await expect(image).toHaveAttribute('src',new RegExp(`${suffix}\\.webp(?:\\?v=[^ ]+)?$`));
       await expect.poll(()=>image.evaluate(el=>el.complete&&el.naturalWidth>0)).toBe(true);
     }
     expect(await page.locator('.hero-screen').evaluate(el=>getComputedStyle(el).transform)).toBe('none');
@@ -266,7 +266,7 @@ test('Flutter workspace sample explains all 11 teammates, project layers and the
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
   await chooseLanguage(page,'vi');
-  await expect(page.locator('.hero-screen img')).toHaveAttribute('src','assets/visual/devices-vi.webp');
+  await expect(page.locator('.hero-screen img')).toHaveAttribute('src','assets/visual/devices-vi.webp?v=20261113-cleanup83');
 });
 
 test('task filters never leave an unrelated detail beside an empty board',async({page})=>{

@@ -107,7 +107,7 @@ async function choosePreview(key) {
   const epoch = ++previewEpoch;
   const language = window.SnapkitI18n.language;
   if (key !== 'debug') pauseDebugVideo();
-  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261111-visual`;
+  const source = `assets/${key}${language === 'vi' ? '-vi' : ''}.webp?v=20261113-cleanup83`;
   const figure = previewFigure; previewPending = true; updatePreviewLoading();
   try {
     const next = new Image(); next.src = key === 'debug' ? `assets/debug-sync/${language}.webp` : source; await next.decode();
@@ -269,7 +269,7 @@ void loadReviews();
 function updateVisualImages() {
   const suffix = window.SnapkitI18n.language === 'vi' ? '-vi' : '';
   for (const image of document.querySelectorAll('[data-visual-image]')) {
-    const source = `assets/visual/${image.dataset.visualImage}${suffix}.webp`;
+    const source = `assets/visual/${image.dataset.visualImage}${suffix}.webp?v=20261113-cleanup83`;
     if (image.getAttribute('src') !== source) image.src = source;
   }
 }
