@@ -2,7 +2,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {launchPlan,validateBuild} from './workspace.js';
-export function createTeamRuntime({account,store,getDevices=()=>[],getSessions=()=>[],resources=async()=>[],binding}){
+export function createTeamRuntime({account,store,getDevices=()=>[],getSessions=()=>[],binding}){
  let active=null,lastSeen=null,until=0,syncing=false,lastHeartbeat=0,clientId=randomUUID();
  const file=path.join(store,'team-runtime-client.json');const ready=readFile(file,'utf8').then(raw=>{const v=JSON.parse(raw);if(/^[a-f0-9-]{36}$/.test(v.id))clientId=v.id;}).catch(async e=>{if(e.code!=='ENOENT')throw e;await mkdir(store,{recursive:true});await writeFile(file,JSON.stringify({id:clientId}),{mode:0o600});});ready.catch(()=>{});
  const error=(message,status=409)=>Object.assign(Error(message),{status});
@@ -15,7 +15,7 @@ export function createTeamRuntime({account,store,getDevices=()=>[],getSessions=(
   const targetIds=input.targetIds;if(!Array.isArray(targetIds)||!targetIds.length||targetIds.length>8||targetIds.some(id=>typeof id!=='string'))throw error('Choose up to eight online mobile devices.',400);
   const settings={workspace:root,...profile,targetIds,ideEnabled:true};const plan=launchPlan(settings,getDevices());if(plan.status!=='ready')throw error(plan.reason||'Start the selected devices first.');
   const devices=targetIds.map(id=>getDevices().find(d=>d.id===id));
-  const w=await account.request('/v1/teams/'+input.workspaceId+'/debug-sessions',{projectId:input.projectId,taskId:input.taskId,environment:input.environment,clientId,teamDeviceIds:await resources(input),devices:devices.map(d=>({id:createHash('sha256').update(clientId+':'+d.id).digest('hex'),name:d.platform==='ios'?'iOS target':'Android target',platform:d.platform}))});
+  const w=await account.request('/v1/teams/'+input.workspaceId+'/debug-sessions',{projectId:input.projectId,taskId:input.taskId,environment:input.environment,clientId,devices:devices.map(d=>({id:createHash('sha256').update(clientId+':'+d.id).digest('hex'),name:d.platform==='ios'?'iOS target':'Android target',platform:d.platform}))});
   const session=w.debugSessions.find(s=>s.clientId===clientId&&s.userId===w.membership.userId&&s.status==='preparing');if(!session)throw error('Could not prepare the team debug session.');
   active={workspaceId:input.workspaceId,projectId:input.projectId,taskId:input.taskId,environment:input.environment,sessionId:session.id,path:root,settings,status:'preparing',preparedAt:Date.now()};lastSeen=w;until=Date.now()+5000;return {sessionId:session.id,path:root,status:'preparing'};
  }

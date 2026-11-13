@@ -13,7 +13,7 @@ test('SDK stdio initializes, lists read tools, calls API and observes live acces
  t.after(async()=>{await client.close();await new Promise(resolve=>server.close(resolve));await rm(store,{recursive:true,force:true});});
  await client.connect(transport);const tools=await client.listTools();assert.equal(tools.tools.length,4);assert.ok(!tools.tools.some(t=>t.name==='snapkit_test'));
  const result=await client.callTool({name:'snapkit_context',arguments:{}});assert.equal(JSON.parse(result.content[0].text).workspace,'/test/project');
- await access.update({allowActions:true,rotate:true});assert.equal((await client.listTools()).tools.length,7);
+ await access.update({allowActions:true,rotate:true});assert.equal((await client.listTools()).tools.length,6);
  await access.update({enabled:false});const denied=await client.callTool({name:'snapkit_context',arguments:{}});assert.equal(denied.isError,true);
 });
 test('MCP relay refuses network hosts, credentials, queries and extra paths',()=>{assert.equal(loopbackEndpoint('http://localhost:4310'),'http://localhost:4310');for(const url of ['https://127.0.0.1:4310','http://example.com','http://user:pass@127.0.0.1:4310','http://127.0.0.1:4310/path','http://127.0.0.1:4310/?token=abc'])assert.throws(()=>loopbackEndpoint(url));});

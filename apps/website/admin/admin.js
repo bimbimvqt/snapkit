@@ -81,16 +81,16 @@
   let teamsOffset = 0;
   async function teams() {
     const data = await api('admin/teams?search='+encodeURIComponent($('#teams-query').value)+'&offset='+teamsOffset);
-    $('#teams-summary').textContent = `${data.totals.workspaces} workspace · ${data.totals.memberships} thành viên (theo workspace) · ${data.totals.projects} project · ${data.totals.devices} thiết bị · ${data.totals.handoffs} bàn giao · ${data.totals.tasks||0} task · ${data.totals.activeDebugSessions||0} phiên debug đang hoạt động`;
+    $('#teams-summary').textContent = `${data.totals.workspaces} workspace · ${data.totals.memberships} thành viên (theo workspace) · ${data.totals.projects} project · ${data.totals.handoffs} bàn giao · ${data.totals.tasks||0} task · ${data.totals.activeDebugSessions||0} phiên debug đang hoạt động`;
     const body = $('#teams-list');body.replaceChildren();
     for (const entry of data.entries) {
       const row = document.createElement('tr');
-      for (const value of [entry.name,entry.members,entry.projects,entry.devices,entry.reservations,entry.handoffs,date(entry.updatedAt)]) {
+      for (const value of [entry.name,entry.members,entry.projects,entry.handoffs,date(entry.updatedAt)]) {
         const cell = document.createElement('td');cell.textContent=String(value);row.append(cell);
       }
       body.append(row);
     }
-    if (!data.entries.length) {const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=7;cell.textContent='Chưa có workspace phù hợp.';row.append(cell);body.append(row);}
+    if (!data.entries.length) {const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=5;cell.textContent='Chưa có workspace phù hợp.';row.append(cell);body.append(row);}
     $('#teams-page').textContent=`${data.total} workspace · Trang ${Math.floor(teamsOffset/50)+1}`;
     $('#teams-previous').disabled=teamsOffset===0;$('#teams-next').disabled=teamsOffset+50>=data.total;
   }

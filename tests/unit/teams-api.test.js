@@ -28,7 +28,7 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   assert.equal(oversight.status, 200);
   const inventory = await oversight.json();
   assert.equal(inventory.totals.workspaces, 2);
-  assert.deepEqual(Object.keys(inventory.entries[0]).sort(), ['id','name','createdAt','updatedAt','members','projects','devices','handoffs','reservations'].sort());
+  assert.deepEqual(Object.keys(inventory.entries[0]).sort(), ['id','name','createdAt','updatedAt','members','projects','handoffs'].sort());
   assert.equal((await fetch(origin + '/v1/admin/teams', { headers: { Authorization: 'Bearer test-owner' } })).status, 403);
   assert.equal((await fetch(origin + '/v1/admin/teams')).status, 401);
   assert.equal((await request(null, base + '/projects', { name: 'CSRF' }, { Cookie: 'snapkit_session=test-owner' })).status, 403);
@@ -56,14 +56,8 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   assert.equal((await request('owner', base + '/projects/' + projectId + '/blueprint', { ...blueprint, services: [{ ...blueprint.services[0], repository: 'https://secret:password@example.com/api' }] })).status, 400);
   const racing = await Promise.all([request('owner', base + '/projects/' + projectId + '/blueprint', blueprint), request('lead', base + '/projects/' + projectId + '/blueprint', blueprint)]);
   assert.deepEqual(racing.map(r => r.status).sort(), [200, 409], 'optimistic version conflict');
-  workspace = await ok('owner', base + '/devices', { name: 'Pixel', platform: 'android', projectId, host: 'Lab host' });
-  const deviceId = workspace.devices[0].id;
-  assert.equal((await request('viewer', base + '/devices/' + deviceId + '/reserve', { minutes: 30 })).status, 403);
-  const reservations = await Promise.all([request('dev', base + '/devices/' + deviceId + '/reserve', { minutes: 30 }), request('qa', base + '/devices/' + deviceId + '/reserve', { minutes: 30 })]);
-  assert.deepEqual(reservations.map(r => r.status).sort(), [200, 409], 'one reservation wins');
-  const holder = reservations[0].ok ? 'dev' : 'qa', other = holder === 'dev' ? 'qa' : 'dev';
-  assert.equal((await request(other, base + '/devices/' + deviceId + '/release', {})).status, 403);
-  await ok(holder, base + '/devices/' + deviceId + '/release', {});
+  assert.equal((await request('owner',base+'/devices',{name:'Retired',platform:'android',projectId})).status,404);
+  assert.ok(!('devices' in await ok('owner',base)));
   const handoff = { projectId, title: 'Checkout timeout', environment: 'staging', commit: 'abc1234', buildUrl: 'https://builds.example.com/merchant/142', artifactSha256: 'a'.repeat(64), fixture: 'timeout-v3', steps: 'Open checkout\nSimulate timeout', blueprintVersion: 2 };
   assert.equal((await request('dev', base + '/handoffs', { ...handoff, environment: 'production' })).status, 403);
   workspace = await ok('dev', base + '/handoffs', handoff);
@@ -94,8 +88,8 @@ test('Teams isolates tenants, scopes and personal accounts, persists collaborati
   const restricted = await ok('viewer', base);
   assert.deepEqual(restricted.projects[0].blueprint.services, []);
   assert.equal(restricted.projects[0].blueprint.hasServices, true, 'setup can acknowledge configured services without exposing their details');
-  const revoked = await ok('dev', base); assert.equal(revoked.projects.length, 0); assert.equal(revoked.handoffs.length, 0); assert.equal(revoked.devices.length, 0);
-  assert.equal((await request('dev', base + '/devices/' + deviceId + '/reserve', { minutes: 30 })).status, 404);
+  const revoked = await ok('dev', base); assert.equal(revoked.projects.length, 0); assert.equal(revoked.handoffs.length, 0); assert.equal(revoked.devices, undefined);
+  assert.equal((await request('dev', base + '/devices/retired/reserve', { minutes: 30 })).status, 404);
   const beforeCustom = (await ok('owner', base)).projects.find(p=>p.id===projectId);
   const customRoute=base+'/projects/'+projectId+'/blueprint';
   assert.equal((await request('lead',customRoute,{version:beforeCustom.blueprint.version,services:[{name:'Escalation',kind:'AI & ML'}]})).status,403);

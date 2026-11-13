@@ -208,7 +208,7 @@ test('Teams gallery opens a read-only showcase without account data or network A
  await expect(page.locator('.teams-topbar')).toContainText('Flutter Delivery Team');
  await expect(page.locator('.teams-main')).toContainText('fictional teammates');
  await expect(page.getByRole('button',{name:'Create team workspace',exact:true})).toHaveCount(0);
- for(const name of ['Tasks','Team Debug Sync','Projects & services','Device Lab','Handoffs & approvals','Members & access','Activity log']){
+ for(const name of ['Tasks','Team Debug Sync','Projects & services','Handoffs & approvals','Members & access','Activity log']){
   await page.getByRole('button',{name,exact:true}).click();
   await expect(page.locator('.teams-main h1')).toHaveText(name);
   const text=await page.locator('.teams-application').innerText();

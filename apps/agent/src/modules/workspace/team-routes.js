@@ -1,5 +1,4 @@
 import express from 'express';
-import {createTeamDeviceHosts} from './team-device-hosts.js';
 import {createTeamRuntime} from './team-runtime.js';
 import { readFile, writeFile, mkdir, rename, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -45,10 +44,7 @@ export function teamRoutes({ account, store, demo,getDevices,getSessions,stopSes
     }); queue = pending; await pending;
     res.json({ session });
   });
-  const deviceHosts=createTeamDeviceHosts({account,store,getDevices});router.deviceHosts=deviceHosts;
-  router.get('/local-devices',(_req,res)=>res.json({devices:deviceHosts.localDevices()}));
-  router.post('/local-devices/bind',async(req,res)=>res.json(await deviceHosts.bind(req.body)));
-  const runtime=createTeamRuntime({account,store,getDevices,getSessions,resources:deviceHosts.resources,binding:async(input)=>{const {key}=await context(input);return (await read()).sessions.find(s=>s.key===key)||null;}});
+  const runtime=createTeamRuntime({account,store,getDevices,getSessions,binding:async(input)=>{const {key}=await context(input);return (await read()).sessions.find(s=>s.key===key)||null;}});
   router.teamRuntime=runtime;
   router.get('/local-debug',async(req,res)=>res.json(await runtime.options(req.query)));
   router.post('/local-debug/start',async(req,res)=>res.json(await runtime.start(req.body)));

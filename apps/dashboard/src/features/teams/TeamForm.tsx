@@ -10,7 +10,7 @@ import type {FormState,TeamWorkspace,Project,Environment} from './types';
 
 export const roleLabel=(role:string)=>t(({owner:'Owner',lead:'Tech Lead',pm:'Project manager',developer:'Developer',qa:'QA',devops:'DevOps',designer:'Designer',viewer:'Viewer'} as Record<string,string>)[role]||role);
 export const envLabel=(env:string)=>t(({development:'Development',staging:'Staging',production:'Production'} as Record<string,string>)[env]||env);
-export const formTitles:Record<FormState['kind'],string>={workspace:'Create team workspace',project:'Create team project','project-edit':'Edit project',invite:'Invite team member',member:'Edit member access',service:'Configure service',device:'Register team device',handoff:'Create QA handoff',local:'Prepare local session','remove-member':'Remove team member'};
+export const formTitles:Record<FormState['kind'],string>={workspace:'Create team workspace',project:'Create team project','project-edit':'Edit project',invite:'Invite team member',member:'Edit member access',service:'Configure service',handoff:'Create QA handoff',local:'Prepare local session','remove-member':'Remove team member'};
 export function TeamForm({form,workspace,project,busy,error,close,submit,emailConfigured}:{emailConfigured?:boolean;form:FormState;workspace:TeamWorkspace|null;project:Project|undefined;busy:boolean;error:string;close:()=>void;submit:(data:FormData)=>Promise<void>}){
  const members=useMemberProfiles(workspace?.members||[]);
  const dialog=useRef<HTMLDialogElement>(null);
@@ -49,14 +49,11 @@ export function TeamForm({form,workspace,project,busy,error,close,submit,emailCo
     <label className="teams-field">{t('Service owner')}<Select name="ownerId" aria-label={t('Service owner')} defaultValue={form.service?.ownerId||''}><option value="">{t('Unassigned')}</option>{members.filter(m=>(m.projectIds===null||m.projectIds.includes(project?.id||''))&&((serviceKind==='__custom__'&&m.role==='owner')||(m.serviceLayers?.includes(serviceKind)??true))).map(m=><option key={m.userId} value={m.userId} data-avatar={avatarSource(m.avatar)} data-initial={(m.name||m.email).slice(0,1)}>{m.name||m.email}</option>)}</Select></label>
     <p className="teams-help">{t('Repository and runtime are optional.')}</p>
    </>}
-   {form.kind==='device'&&<>
-    {field('Device name','name',{required:true,maxLength:80})}<label className="teams-field">{t('Platform')}<Select name="platform" aria-label={t('Platform')}><option value="android">Android</option><option value="ios">iOS</option></Select></label>{field('Host label','host',{maxLength:120,placeholder:t('e.g. QA workstation')})}<p className="teams-help">{t('Add a device your team can book.')}</p>
-   </>}
    {form.kind==='handoff'&&<>
     {field('Handoff title','title',{required:true,maxLength:160,defaultValue:form.task?.title})}{field('Commit hash','commit',{required:true,maxLength:40,placeholder:'8d2f4a1'})}{field('Build artifact URL','buildUrl',{required:true,type:'url',maxLength:2000})}{field('Build SHA-256','artifactSha256',{required:true,maxLength:64})}{field('Fixture reference','fixture',{maxLength:160})}<label className="teams-field">{t('Test steps')}<textarea name="steps" rows={4} maxLength={4000}/></label><p className="teams-help">{t('References are shared with the team. Use artifact links without tokens or query parameters. Do not include credentials or personal data.')}</p>
    </>}
    {form.kind==='local'&&<><p className="teams-help">{project?.name}</p><label className="teams-field">{t('Local project folder')}<span className="teams-folder"><input ref={pathInput} name="path" required maxLength={4096} placeholder="/Users/you/Projects/project"/><button className="button" type="button" onClick={()=>void browse()}>{t(browsing?'Opening…':'Browse')}</button></span></label><p className="teams-help">{t('Choose the existing project folder on this computer. Then run your project from your editor.')}</p></>}
-   {form.kind==='remove-member'&&<p className="teams-help">{t('Remove access to this workspace and release their device reservations?')}<br/><MemberIdentity userId={form.member?.userId} name={form.member?.email}/></p>}
+   {form.kind==='remove-member'&&<p className="teams-help">{t('Remove access to this workspace?')}<br/><MemberIdentity userId={form.member?.userId} name={form.member?.email}/></p>}
    </fieldset>
    {(error||browseError)&&<p className="teams-error" role="alert">{t(error||browseError)}</p>}
    <footer><button className="button" type="button" disabled={busy||browsing||iconBusy} onClick={close}>{t('Cancel')}</button><button className="button primary" type="submit" disabled={busy||browsing||iconBusy}>{t(busy?'Saving…':form.kind==='remove-member'?'Remove member':form.kind==='local'?'Prepare session':form.kind==='invite'?'Create invitation':'Save')}</button></footer>

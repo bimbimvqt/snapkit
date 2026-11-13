@@ -14,11 +14,11 @@ const productEditors = [
 ];
 function showProductPage(page) {
   if (document.body.dataset.developerRole === 'backend' && ['devices', 'setup', 'sets', 'logs', 'captures', 'releases', 'guide'].includes(page)) page = 'backend';
-  if (!['profile', 'kit', 'backend', 'devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases', 'updates'].includes(page)) return;
+  if (!['profile', 'dev-lab', 'kit', 'backend', 'devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases', 'updates'].includes(page)) return;
   activePage = page;
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices'))); button.setAttribute('aria-current', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices')) ? 'page' : 'false'); });
-  $('#breadcrumb-page').textContent = { profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
+  $('#breadcrumb-page').textContent = { 'dev-lab':'Dev Lab', profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
   if (page === 'preferences' && !toolState) void checkTools();
   if (page === 'setup') { if (!product) void loadProduct(); if (!toolState) void checkTools(); updateSetupView(); }
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
@@ -181,7 +181,7 @@ loadProduct();
 
 document.addEventListener('snapkit:language', () => {
   renderEditors(); updateJourney();
-  $('#breadcrumb-page').textContent = t({ profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
+  $('#breadcrumb-page').textContent = t({ 'dev-lab':'Dev Lab', profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
   updateSetupView();
 });

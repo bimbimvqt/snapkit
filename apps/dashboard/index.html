@@ -15,7 +15,7 @@
     <nav class="sidebar-navigation" aria-label="Main navigation">
       <section class="sidebar-group" aria-labelledby="nav-kit"><h2 class="nav-label" id="nav-kit">DAILY KIT</h2><button class="nav-item" data-app-page="kit" title="Snapkit Kit"><i data-lucide="sparkles"></i>Snapkit Kit</button></section>
       <section class="sidebar-group" aria-labelledby="nav-workspace"><h2 class="nav-label" id="nav-workspace">WORKSPACE</h2>
-        <button class="nav-item active" data-page="devices" data-app-page="devices" title="Devices"><i data-lucide="panels-top-left"></i>Devices<span id="nav-device-count">0</span></button>
+        <button class="nav-item" data-app-page="dev-lab" title="Dev Lab"><i data-lucide="flask-conical"></i>Dev Lab</button><button class="nav-item active" data-page="devices" data-app-page="devices" title="Devices"><i data-lucide="panels-top-left"></i>Devices<span id="nav-device-count">0</span></button>
       </section>
       <section class="sidebar-group" aria-labelledby="nav-delivery"><h2 class="nav-label" id="nav-delivery">DELIVERY</h2><button class="nav-item" data-app-page="releases" title="Build & release" aria-label="Build & release"><i data-lucide="package"></i>Build & release</button></section>
       <section class="sidebar-group" aria-labelledby="nav-setup"><h2 class="nav-label" id="nav-setup">SETUP</h2>
@@ -43,6 +43,7 @@
     <aside id="update-banner" class="update-banner hidden" aria-label="App update"></aside>
     <div id="review-invite-root"></div>
     <main>
+      <div id="panel-dev-lab" class="app-panel hidden"><div id="dev-lab-root"></div></div>
       <div id="panel-kit" class="app-panel hidden"><div id="kit-root"></div></div>
       <div id="panel-devices" class="app-panel">
       <div id="demo-notice" class="notice hidden"><i data-lucide="flask-conical"></i><span>Demo environment · Sample devices and simulated actions. No commands run on your machine.</span></div>

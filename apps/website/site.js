@@ -286,6 +286,6 @@ for(const button of document.querySelectorAll('[data-mini-view]'))button.addEven
  updateVisualImages();
 });
 
-function updateDevLabGuide(){const link=document.getElementById('dev-lab-guide');if(link)link.setAttribute('href',(window.SnapkitI18n.language==='vi'?'huong-dan/':'en/guides/')+'dev-lab-mcp-maestro-performance/');}
+function updateDevLabGuide(){const link=document.getElementById('dev-lab-guide');if(link)link.setAttribute('href',(window.SnapkitI18n.language==='vi'?'huong-dan/':'en/guides/')+'dev-lab-mcp-performance/');}
 document.addEventListener('snapkit:language',updateDevLabGuide);
 updateDevLabGuide();

@@ -72,11 +72,10 @@ function workspaceView(workspace, userId, profiles) {
     members: workspace.members.map(m => ({ ...m, ...profiles[m.userId], projectIds: m.projectIds === null ? null : m.projectIds.filter(visible) })),
     invitations: member.role === 'owner' ? workspace.invitations.filter(i => i.expiresAt > Date.now()).map(({delivery,...i}) => ({ ...i, delivery:delivery?{status:delivery.status,attemptedAt:delivery.attemptedAt,sentAt:delivery.sentAt}: {status:'not_sent'} })) : [],
     projects: workspace.projects.filter(p => visible(p.id)).map(p => ({ ...p, blueprint: blueprintView(p.blueprint), history: p.history.map(blueprintView) })),
-    devices: workspace.devices.filter(d => visible(d.projectId)).map(d => ({ ...d, hostPresence:d.hostPresence?{userId:d.hostPresence.userId,online:d.hostPresence.online&&Date.now()-d.hostPresence.seenAt<45000,seenAt:d.hostPresence.seenAt}:null, reservation: d.reservation?.expiresAt > Date.now() && memberOf(workspace, d.reservation.userId) ? d.reservation : null })),
     handoffs: workspace.handoffs.filter(h => visible(h.projectId) && member.environments.includes(h.environment)).map(h => ({ ...h, blueprint: blueprintView(h.blueprint) })),
     tasks:(workspace.tasks||[]).filter(t=>taskVisible(member,t)).map(t=>({...t,dependencyStates:t.dependencies.map(id=>{const dep=workspace.tasks.find(x=>x.id===id);return {id,number:dep?.number,status:dep?.status||'missing'};})})),
     debugSessions:(workspace.debugSessions||[]).filter(s=>visible(s.projectId)&&member.environments.includes(s.environment)).map(s=>({...s,status:['running','preparing'].includes(s.status)&&Date.now()-s.seenAt>45000?'disconnected':s.status})),
-    audit: workspace.audit.filter(a => (!a.projectId || visible(a.projectId)) && (!a.environment || member.environments.includes(a.environment))).slice().reverse(),
+    audit: workspace.audit.filter(a => !a.action.startsWith('device.') && (!a.projectId || visible(a.projectId)) && (!a.environment || member.environments.includes(a.environment))).slice().reverse(),
   };
 }
 
@@ -123,10 +122,9 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     const offset = Math.max(0, Math.min(10000, Number.parseInt(req.query.offset, 10) || 0));
     const workspaces = db.workspaces.filter(w => !query || w.name.toLowerCase().includes(query));
     const count = key => db.workspaces.reduce((sum, w) => sum + (w[key]||[]).length, 0);
-    res.json({ totals: { workspaces: db.workspaces.length, memberships: count('members'), projects: count('projects'), devices: count('devices'), handoffs: count('handoffs'),tasks:count('tasks'),activeDebugSessions:db.workspaces.reduce((sum,w)=>sum+(w.debugSessions||[]).filter(s=>s.status==='running'&&Date.now()-s.seenAt<=45000).length,0) },
+    res.json({ totals: { workspaces: db.workspaces.length, memberships: count('members'), projects: count('projects'), handoffs: count('handoffs'),tasks:count('tasks'),activeDebugSessions:db.workspaces.reduce((sum,w)=>sum+(w.debugSessions||[]).filter(s=>s.status==='running'&&Date.now()-s.seenAt<=45000).length,0) },
       total: workspaces.length, offset, entries: workspaces.slice().reverse().slice(offset, offset + 50).map(w => ({ id: w.id, name: w.name, createdAt: w.createdAt, updatedAt: w.updatedAt,
-        members: w.members.length, projects: w.projects.length, devices: w.devices.length, handoffs: w.handoffs.length,
-        reservations: w.devices.filter(d => d.reservation?.expiresAt > Date.now() && memberOf(w, d.reservation.userId)).length })) });
+        members: w.members.length, projects: w.projects.length, handoffs: w.handoffs.length })) });
   };
   router.use(async (req, res, next) => {
     try {
@@ -157,7 +155,7 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
       if (next.workspaces.filter(w => memberOf(w, user.id)?.role === 'owner').length >= 20 || next.workspaces.length >= 10000) fail(409, 'Team workspace limit reached.');
       const workspace = { id: randomUUID(), name: text(req.body?.name), createdAt: now(), updatedAt: now(),
         members: [{ userId: user.id, name: user.name || '', email: user.email.toLowerCase(), role: 'owner', projectIds: null, environments: [...teamEnvironments], serviceLayers: [...teamLayers], joinedAt: now() }],
-        invitations: [], projects: [], devices: [], handoffs: [], audit: [] };
+        invitations: [], projects: [], handoffs: [], audit: [] };
       audit(workspace, user, 'workspace.created'); next.workspaces.push(workspace); return view(workspace, user.id);
     }); res.status(201).json(result);
   });
@@ -237,9 +235,7 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     if (target.role === 'owner' || input.role === 'owner') fail(409, 'The workspace owner cannot be changed here.');
     if (!teamRoles.includes(input.role)) fail(400, 'Select a member role.');
     Object.assign(target, { role: input.role, ...scope(input, workspace) });
-    for (const device of workspace.devices) if (device.reservation?.userId === target.userId && !teamCan(target, 'devices.reserve', device.projectId, 'development')) device.reservation = null;
     for(const session of workspace.debugSessions||[])if(session.userId===target.userId&&(!teamCan(target,'sessions.prepare',session.projectId,session.environment)||!(target.serviceLayers??teamLayers).includes('mobile'))){session.status='ended';session.endedAt=now();}
-    for(const device of workspace.devices)if(device.hostPresence?.userId===target.userId&&!teamCan(target,'devices.manage',device.projectId,'development'))device.hostPresence.online=false;
     audit(workspace, user, 'member.access.updated');
   });
   mutate('/members/:memberId/remove', 'members.manage', (workspace, _member, user, _input, params) => {
@@ -247,9 +243,7 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     if (!target) fail(404, 'Team member not found.');
     if (target.role === 'owner') fail(409, 'The workspace owner cannot be removed.');
     workspace.members = workspace.members.filter(m => m.userId !== target.userId);
-    for (const device of workspace.devices) if (device.reservation?.userId === target.userId) device.reservation = null;
     for(const session of workspace.debugSessions||[])if(session.userId===target.userId){session.status='ended';session.endedAt=now();}
-    for(const device of workspace.devices)if(device.hostPresence?.userId===target.userId)device.hostPresence.online=false;
     audit(workspace, user, 'member.removed');
   });
   mutate('/projects', 'projects.create', (workspace, member, user, input) => {
@@ -305,29 +299,6 @@ export function createTeams({ env, accounts, fetcher=fetch, pushSender }) {
     project.history.push(project.blueprint); project.history = project.history.slice(-49);
     project.blueprint = { version: project.blueprint.version + 1, services, updatedAt: now(), updatedBy: user.id };
     audit(workspace, user, 'blueprint.updated', project.id, 'development');
-  });
-  mutate('/devices', null, (workspace, member, user, input) => {
-    projectOf(workspace, input.projectId, member); permit(member, 'devices.manage', input.projectId, 'development');
-    if (!['android', 'ios'].includes(input.platform)) fail(400, 'Select a device platform.');
-    if (workspace.devices.length >= 200) fail(409, 'Team device limit reached.');
-    workspace.devices.push({ id: randomUUID(), name: text(input.name), platform: input.platform, projectId: input.projectId, host: text(input.host, 120, true), reservation: null, createdAt: now() });
-    audit(workspace, user, 'device.registered', input.projectId);
-  });
-  mutate('/devices/:deviceId/reserve', null, (workspace, member, user, input, params) => {
-    const device = workspace.devices.find(d => d.id === params.deviceId);
-    if (!device) fail(404, 'Team device not found.');
-    projectOf(workspace, device.projectId, member); permit(member, 'devices.reserve', device.projectId, 'development');
-    if (!Number.isInteger(input.minutes) || input.minutes < 5 || input.minutes > 120) fail(400, 'Reserve a device for 5 to 120 minutes.');
-    if (device.reservation?.expiresAt > Date.now()) fail(409, 'This device is already reserved.');
-    device.reservation = { userId: user.id, name: user.name || user.email, expiresAt: Date.now() + input.minutes * 60000 };
-    audit(workspace, user, 'device.reserved', device.projectId);
-  });
-  mutate('/devices/:deviceId/release', null, (workspace, member, user, _input, params) => {
-    const device = workspace.devices.find(d => d.id === params.deviceId);
-    if (!device) fail(404, 'Team device not found.');
-    projectOf(workspace, device.projectId, member);
-    if (device.reservation?.userId !== user.id) permit(member, 'devices.manage', device.projectId, 'development');
-    device.reservation = null; audit(workspace, user, 'device.released', device.projectId);
   });
   mutate('/handoffs', null, (workspace, member, user, input) => {
     const project = projectOf(workspace, input.projectId, member);

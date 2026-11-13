@@ -24,7 +24,7 @@ async function teamService(page,testInfo,mail=false){
  return cleanup;
 }
 
-test('Personal and Teams stay separate while real cloud project, service, membership and bookings persist',async({page},testInfo)=>{
+test('Personal and Teams stay separate while real cloud project, service and membership persist',async({page},testInfo)=>{
  const cleanup=await teamService(page,testInfo);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.goto('/');await expect(page.locator('#workspace-switch')).toBeVisible();
@@ -35,15 +35,13 @@ test('Personal and Teams stay separate while real cloud project, service, member
   await page.locator('.teams-empty').getByRole('button',{name:'Create team workspace',exact:true}).click();
   const dialog=page.locator('.teams-dialog');
   await dialog.getByLabel('Team workspace name').fill('Engineering');await dialog.getByRole('button',{name:'Save',exact:true}).click();
-  await expect(dialog).toBeHidden();await expect(page.locator('.teams-topbar')).toContainText('Engineering');
+  await expect(dialog).toBeHidden();await expect(page.locator('.teams-topbar')).toContainText('Engineering');await expect(page.getByRole('button',{name:'Device Lab',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Register team device',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Create team project',exact:true}).click();await dialog.getByLabel('Project name',{exact:true}).fill('Merchant Platform');await dialog.getByLabel('Description',{exact:true}).fill('Mobile + APIs');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();
   await page.getByRole('button',{name:'Projects & services',exact:true}).click();
   await page.locator('.teams-sectionbar').getByRole('button',{name:'Add service',exact:true}).click();
   await dialog.getByLabel('Service name').fill('Orders API');await dialog.getByLabel('Repository URL').fill('https://github.com/example/orders');await dialog.getByLabel('Runtime requirement').fill('Node 22');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();
   await expect(page.locator('.teams-service')).toContainText('Orders API');
   await page.getByRole('button',{name:'Members & access',exact:true}).click();await page.getByRole('button',{name:'Invite team member',exact:true}).click();await dialog.getByLabel('Google account email').fill('qa@example.com');await dialog.getByRole('combobox',{name:'Team role',exact:true}).click();await dialog.getByRole('option',{name:'QA',exact:true}).click();await dialog.getByRole('button',{name:'Create invitation',exact:true}).click();await expect(dialog).toBeHidden();await expect(page.locator('.teams-events')).toContainText('qa@example.com');
-  await page.getByRole('button',{name:'Device Lab',exact:true}).click();await page.getByRole('button',{name:'Register team device',exact:true}).click();await dialog.getByLabel('Device name').fill('Pixel QA');await dialog.getByLabel('Host label').fill('Lab Mac');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();
-  await page.getByRole('button',{name:'Book 30 minutes',exact:true}).click();await expect(page.getByRole('button',{name:'Release booking',exact:true})).toBeVisible();await page.getByRole('button',{name:'Release booking',exact:true}).click();
   await page.getByRole('button',{name:'Handoffs & approvals',exact:true}).click();await page.getByRole('button',{name:'Create QA handoff',exact:true}).click();await dialog.getByLabel('Handoff title').fill('Checkout timeout');await dialog.getByLabel('Commit hash').fill('abc1234');await dialog.getByLabel('Build artifact URL').fill('https://builds.example.com/142');await dialog.getByLabel('Build SHA-256').fill('a'.repeat(64));await dialog.getByLabel('Test steps').fill('Open checkout');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).toBeHidden();await expect(page.locator('.teams-handoff-list')).toContainText('Checkout timeout');await expect(page.getByRole('button',{name:'Approve release',exact:true})).toHaveCount(0);
   await page.reload();await expect(page.locator('.teams-topbar')).toContainText('Engineering');
   await page.getByRole('button',{name:'Projects & services',exact:true}).click();await expect(page.locator('.teams-service')).toContainText('Orders API');
@@ -127,7 +125,6 @@ test('setup journey follows saved data and invitation acceptance; every Teams me
   const listing=await cleanup.api('qa','');await cleanup.api('qa','/invitations/'+listing.invitations[0].id+'/accept',{});
   await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(journey).toHaveCount(0);await expect(page.locator('.teams-workspace-summary')).toContainText('Workspace ready');
   const teams=await cleanup.api('owner','');const workspace=await cleanup.api('owner','/'+teams.workspaces[0].id);expect(workspace.members.find(m=>m.userId==='qa').role).toBe('viewer');expect(workspace.projects[0].blueprint.services[0]).toMatchObject({kind:'frontend',ownerId:'owner'});
-  await page.getByRole('button',{name:'Device Lab',exact:true}).click();await page.getByRole('button',{name:'Register team device',exact:true}).click();await choose('Platform','iOS');await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.getByRole('button',{name:'Overview',exact:true}).click();await page.getByRole('combobox',{name:'Language',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).click();await expect(page.getByRole('combobox',{name:'Language',exact:true})).toHaveAttribute('aria-expanded','false');
   expect(await page.locator('.teams-application select,.teams-dialog select').count()).toBe(0);
   await page.screenshot({path:testInfo.outputPath('teams-setup-complete.png'),fullPage:true});

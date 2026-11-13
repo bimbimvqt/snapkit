@@ -506,7 +506,7 @@ function refreshStatus() {
   return statusPending;
 }
 const statusPoll = setInterval(() => {
-  ideSessions.prune();if(!demo){void teamRouter.teamRuntime.sync();void teamRouter.deviceHosts.sync();}
+  ideSessions.prune();if(!demo){void teamRouter.teamRuntime.sync();}
   if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void devLab.cancel(); void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
