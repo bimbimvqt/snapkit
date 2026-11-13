@@ -32,6 +32,7 @@ const previewReadOnlyMessage = "Preview only. Open the local Dashboard at http:/
 async function api(url, data, quiet = false) {
   if (window.SNAPKIT_PREVIEW) {
     if (data !== undefined) throw new Error(previewReadOnlyMessage);
+    if (url === '/api/dev-lab') return {demo:true,workspace:state.settings.workspace,flows:[],devices:[],jobs:[],active:null,mcp:{enabled:false,allowActions:false,config:{}}};
     if (url === '/api/kit') return structuredClone(window.SNAPKIT_PREVIEW.kit);
     if (url === '/api/kit/ready') return {checkedAt:Date.now(),checks:[{id:'flutter',title:'Flutter',status:'ready',detail:'Sample tool check'}],ports:[],docker:null};
     if (url.startsWith('/api/kit/machine')) return {volumes:demoVolumes,checkedAt:Date.now(),platform:'darwin',memory:{total:17179869184,used:8589934592},disk:{free:demoVolumes[1].free,total:demoVolumes[1].total,name:demoVolumes[1].name},uptime:18000,processes:[{pid:123,name:'Android Emulator',memory:1400000000,cpu:6}],caches:[{name:'build',bytes:256000000,partial:false}]};

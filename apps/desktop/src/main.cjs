@@ -1,3 +1,7 @@
+if(process.argv.includes('--snapkit-mcp')) {
+ const {app}=require('electron');
+ app.whenReady().then(async()=>{app.dock?.hide();const {startMcp}=await import('../../../packages/mcp/stdio.js');await startMcp();process.stdin.on('end',()=>app.quit());}).catch(error=>{console.error(error.message);app.exit(1);});
+} else {
 'use strict';
 const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem } = require('electron');
 const path = require('node:path');
@@ -52,7 +56,7 @@ async function start() {
   const legacy = '/Volumes/SanDiskSSDData/SnapkitData';
   const dataRoot = development ? path.join(devRoot, 'data') : process.env.SNAPKIT_DATA_ROOT || (process.platform === 'darwin' && fs.existsSync(path.join(legacy, 'state/settings.json')) ? legacy : path.join(app.getPath('appData'), process.platform === 'linux' ? 'snapkit' : 'Snapkit'));
   const extras = ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), 'flutter/bin'), path.join(os.homedir(), 'development/flutter/bin')];
-  const env = { ...process.env, SNAPKIT_DATA_ROOT: dataRoot, SNAPKIT_DESKTOP: '1', PORT: String(port), PATH: [process.env.PATH || '', ...extras].join(path.delimiter) };
+  const env = { ...process.env, SNAPKIT_DATA_ROOT: dataRoot, SNAPKIT_DESKTOP: '1', SNAPKIT_DESKTOP_EXECUTABLE: process.execPath, SNAPKIT_DESKTOP_APP_PATH: app.isPackaged ? '' : repositoryRoot, PORT: String(port), PATH: [process.env.PATH || '', ...extras].join(path.delimiter) };
   const health = async () => {
     try { const r = await fetch(origin + '/api/health', { signal: AbortSignal.timeout(1000) }); const data = await r.json(); return data.product === 'snapkit' && data.protocol === 1 && data.version === app.getVersion() && data.desktop === true && data.demo === (process.env.SNAPKIT_DESKTOP_DEMO === '1'); } catch { return false; }
   };
@@ -139,7 +143,7 @@ async function start() {
       const response = await fetch(origin + '/api/state', { signal: AbortSignal.timeout(3000) });
       if (!response.ok) throw Error(nativeT('Could not check active tasks. Try again.'));
       const state = await response.json();
-      if (state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) throw Error(nativeT('Finish builds, uploads, recordings and debugging before installing the update.'));
+      if (state.activeLabTask || state.activeKitTask || state.activeReleaseTask || state.activeRecordings || state.debugSessions?.length || state.jobs?.some(job => job.status === 'running')) throw Error(nativeT('Finish builds, uploads, recordings and debugging before installing the update.'));
     });
     setImmediate(() => app.quit()); return updater.snapshot();
   });
@@ -330,7 +334,7 @@ const lifecycle=installLifecycle({
     if(process.env.SNAPKIT_SMOKE_TEST==='1'||!mainWindow||mainWindow.isDestroyed())return true;
     const response=await fetch(origin+'/api/state',{signal:AbortSignal.timeout(2000)});
     const state=await response.json();
-    if(state.activeKitTask||state.activeReleaseTask||state.activeRecordings||state.debugSessions?.length||state.jobs?.some(job=>job.status==='running')){
+    if(state.activeLabTask||state.activeKitTask||state.activeReleaseTask||state.activeRecordings||state.debugSessions?.length||state.jobs?.some(job=>job.status==='running')){
       if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
       const choice=await dialog.showMessageBox(mainWindow,{type:'question',title:nativeT(state.activeReleaseTask?"A build or upload is still running":"A device task is still running"),message:nativeT("Keep Snapkit open to finish your device task."),detail:nativeT(state.activeReleaseTask?"Quitting cancels the local build or upload. If uploading, check App Store Connect before retrying.":"Quitting stops active recordings and may interrupt a download or installation. Your existing devices and project files will be kept."),buttons:[nativeT("Keep Snapkit open"),nativeT("Quit Snapkit")],defaultId:0,cancelId:0});
       return choice.response===1;
@@ -344,3 +348,5 @@ const lifecycle=installLifecycle({
     await Promise.allSettled([updater.close(),stopAgent(child)]);
   }
 });
+
+}

@@ -200,7 +200,8 @@ test('Teams gallery opens a read-only showcase without account data or network A
  await expect(page.locator('#app-preview')).toHaveAttribute('src','assets/teams.webp?v=20261111-visual');
  await expect(page.locator('#preview-caption')).toContainText('fictional sample data');
  await expect(page.locator('#preview-demo-link')).toHaveAttribute('href','demo/?product=teams');
- const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
+ // The gallery CTA opens the interactive preview; documentation can be linked elsewhere.
+ const links=await page.locator('#preview-demo-link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
  expect(links.some(link=>/blob\/|#readme|huong-dan\/|en\/guides\//.test(link))).toBe(false);
  calls.length=0;
  await page.locator('#preview-demo-link').click();

@@ -1,3 +1,6 @@
+import {DevLab} from './modules/dev-lab/lab.js';
+import {McpAccess} from './modules/dev-lab/mcp.js';
+import {labRoutes} from './modules/dev-lab/routes.js';
 import {demoVolumes} from '../../../packages/domain/demo-volumes.js';
 import express from 'express';
 import {kitRoutes} from './modules/kit/kit.js';
@@ -132,7 +135,7 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   if (req.path === '/api/pairing/claim' && origin !== webOrigin) return res.status(403).json({ error: 'Pairing claims must come from the configured website' });
-  if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
+  if (req.path.startsWith('/api/') && !['GET', 'HEAD'].includes(req.method) && !req.remoteToken && req.path !== '/api/pairing/claim' && req.path !== '/api/mcp' && req.headers['x-snapkit-token'] !== token) return res.status(403).json({ error: 'Invalid local session token. Reload the dashboard.' });
   next();
 });
 // Project icons are normalized raster images; keep their larger body budget scoped to Teams.
@@ -147,21 +150,30 @@ app.post('/api/auth/start', async (req, res) => { if (demo || req.remoteToken) r
 app.post('/api/auth/poll', async (req, res) => { if (demo || req.remoteToken) return res.status(403).json({ error: 'Sign-in is available in the local app.' }); res.json(await account.poll()); });
 app.post('/api/auth/logout', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Sign out from the local app.' });
-  await releaseBuilds.cancelActive(); await deviceTools.close(); await account.logout(); for (const client of clients) client.end(); clients.clear(); pairings.revoke(); res.json({ signedOut: true });
+  await devLab.cancel(); await releaseBuilds.cancelActive(); await deviceTools.close(); await account.logout(); for (const client of clients) client.end(); clients.clear(); pairings.revoke(); res.json({ signedOut: true });
 });
 app.use('/api', async (req, res, next) => {
   if (demo || req.path === '/health') return next();
   const status = await account.status(req.method === 'POST');
   if (status.authenticated) return next();
-  if (req.path === '/state') return res.json({ authRequired: true, activeKitTask:kitRouter.busy(), activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, devices: [], jobs: [], debugSessions: [], warnings: [], settings: { targetIds: [], ideEnabled: false }, token: req.remoteToken ? undefined : token, platform: process.platform, host: os.hostname(), demo: false });
+  if (req.path === '/state') return res.json({ authRequired: true, activeKitTask:kitRouter.busy(), activeLabTask: !!devLab.active, activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, devices: [], jobs: [], debugSessions: [], warnings: [], settings: { targetIds: [], ideEnabled: false }, token: req.remoteToken ? undefined : token, platform: process.platform, host: os.hostname(), demo: false });
   if (req.path === '/ide/plan') return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
   return res.status(401).json({ error: 'Sign in with Google to use Snapkit.' });
 });
+// Dev Lab owns its targets until the task has fully stopped.
+app.use('/api',(req,res,next)=>{if(devLab.active&&req.method==='POST'&&(/^\/(?:workspace|workspaces|targets|ide|devices|releases|tools|kit|provision)(?:\/|$)/.test(req.path)||req.path==='/teams/local-debug/start'||req.path==='/teams/local-session'))return res.status(409).json({error:'Wait for Dev Lab to finish or cancel its active run'});next();});
 const kitRouter=kitRoutes({store,demo,getTeamPlan:input=>teamRouter.startKit(input),getSettings:()=>settings,getDevices:()=>snapshot.devices,getEditor:()=>getPreferences().editor,diagnostics:()=>diagnostics({framework:settings.framework}),active:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0,boot:async d=>{if(locks.has(d.id))throw Error('Device operation in progress');locks.add(d.id);try{if(demo){d.state='online';emit('devices',snapshot);}else{await bootDevice(d);void scan().catch(()=>{});}}finally{locks.delete(d.id);}}});
 app.use('/api/kit',kitRouter);
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
 const teamRouter=teamRoutes({account,store,demo,getDevices:()=>snapshot.devices,getSessions:()=>ideSessions.list(),stopSessions:ids=>ideSessions.requestStop(ids)});
 app.use('/api/teams',teamRouter);
+const devLab=new DevLab({store,demo,getSettings:()=>settings,getDevices:()=>snapshot.devices,conflict:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0||ideSessions.list().length>0||kitRouter.busy()||locks.size>0});
+await devLab.restore();
+const mcpAccess=new McpAccess({store,demo,lab:devLab,port,context:()=>({workspace:settings.workspace,framework:settings.framework,devices:snapshot.devices.map(({id,name,platform,state,os})=>({id,name,platform,state,os})),sessions:ideSessions.list().map(({id,deviceId,status})=>({id,deviceId,status}))}),logs:id=>{device(id);return deviceTools.log(id,0);}});
+await mcpAccess.restore();
+app.use('/api/dev-lab',labRoutes(devLab,mcpAccess));
+app.post('/api/mcp',async(req,res)=>{if(!mcpAccess.authorize(req))return res.status(403).json({error:'MCP is disabled or authentication failed'});res.json(await mcpAccess.dispatch(req.body));});
+
 app.post('/api/reviews', async (req, res) => {
   if (demo || req.remoteToken) return res.status(403).json({error: 'Open Snapkit Desktop to send a review. Demo reviews are not submitted.'});
   const receipt = await account.review(reviewInput(req.body));
@@ -247,7 +259,7 @@ app.get('/api/tools/captures/:id/file', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Capture not found.' });
   res.download(deviceTools.file(item), `Snapkit-${item.createdAt.replace(/[:.]/g, '-')}.${item.kind === 'image' ? 'png' : 'mp4'}`, { dotfiles: 'allow' });
 });
-app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeKitTask:kitRouter.busy(), activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
+app.get('/api/state', async (req, res) => res.json({ debugSessions: ideSessions.list(), debugRevision, storage: await storageStatus(), jobs: provisioner.jobs, activeKitTask:kitRouter.busy(), activeLabTask: !!devLab.active, activeReleaseTask: !!releaseBuilds.active || releaseBuilds.starting, activeRecordings: deviceTools.recordings.size, ...snapshot, settings, demo, token: req.remoteToken ? undefined : token, host: os.hostname(), platform: demo ? 'darwin' : process.platform, scanning: !!scanning }));
 app.post('/api/scan', async (_req, res) => res.json(await scan()));
 let pickingFolder = false;
 app.post('/api/folders/pick', async (req, res) => {
@@ -495,7 +507,7 @@ function refreshStatus() {
 }
 const statusPoll = setInterval(() => {
   ideSessions.prune();if(!demo){void teamRouter.teamRuntime.sync();void teamRouter.deviceHosts.sync();}
-  if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
+  if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void devLab.cancel(); void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
 const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
@@ -510,7 +522,7 @@ function stop() {
     // Attach the rejection handler immediately while cleanup is still running.
     const drained=closed.then(()=>null,error=>error);
     for(const res of clients){res.shouldKeepAlive=false;res.end();}clients.clear();
-    const results=await Promise.allSettled([releaseBuilds.close(),deviceTools.close()]);
+    const results=await Promise.allSettled([devLab.close(),releaseBuilds.close(),deviceTools.close()]);
     stopCommands();server.closeIdleConnections();
     const serverError=await drained;
     const failed=results.some(result=>result.status==='rejected')||serverError;

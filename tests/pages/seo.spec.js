@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow','snapkit-everyday-kit'];
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow','snapkit-everyday-kit','dev-lab-mcp-maestro-performance'];
 const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
 test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
  const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
@@ -74,3 +74,4 @@ test('guide library and articles keep readable navigation and real app images in
  }
  expect(errors).toEqual([]);
 });
+test('Dev Lab landing and bilingual guide explain real capabilities and limitations',async({page})=>{await page.goto('./?lang=en');await expect(page.locator('#dev-lab h2')).toHaveText('From testing to decisions.');await expect(page.locator('#dev-lab')).toContainText('iOS Simulator has no frame metric');await page.getByRole('link',{name:'Dev Lab guide',exact:true}).click();await expect(page.locator('h1')).toContainText('Dev Lab');await expect(page.locator('main')).toContainText('MCP is disabled by default');await expect(page.locator('main')).toContainText('command duration is not time to first rendered frame');await page.goto('huong-dan/dev-lab-mcp-maestro-performance/');await expect(page.locator('main')).toContainText('Mặc định MCP tắt');});

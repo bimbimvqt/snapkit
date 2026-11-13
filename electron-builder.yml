@@ -10,6 +10,7 @@ files:
   - apps/agent/**
   - packages/ui/**
   - packages/domain/**
+  - packages/mcp/**
   - package.json
   - snapkit-debug-sync.vsix
   - '!**/*.map'
