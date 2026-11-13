@@ -4,6 +4,7 @@ import {mkdtemp,mkdir,writeFile,readFile,rm,symlink,stat} from 'node:fs/promises
 import os from 'node:os';import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {androidMetrics,compareMeasurements} from '../../packages/domain/dev-lab.js';
+import {installedApps} from '../../apps/agent/src/modules/dev-lab/installed-apps.js';
 import {targetDevice} from '../../apps/agent/src/modules/dev-lab/targets.js';
 import {DevLab} from '../../apps/agent/src/modules/dev-lab/lab.js';
 import {McpAccess} from '../../apps/agent/src/modules/dev-lab/mcp.js';
@@ -21,3 +22,20 @@ test('logout/shutdown during asynchronous validation prevents a task from starti
 
 test('redaction covers JSON credentials as well as CLI key-value logs',()=>{const value=cleanLog('{"access_token":"sample-secret","refresh_token":"refresh-secret"} password=plain-secret');for(const secret of ['sample-secret','refresh-secret','plain-secret'])assert.ok(!value.includes(secret));});
 test('performance jobs are scoped, cancellable and reject removed task types',async t=>{const {lab}=await fixture(t,async(_name,_args,{signal})=>{await delay(5000,undefined,{signal});return '';});await assert.rejects(lab.start('test',{deviceIds:[device.id]}),/Unknown/);await assert.rejects(lab.start('performance',{deviceIds:[device.id],appId:'com.example.app',flowId:'retired'}),/Unknown/);const first=lab.start('performance',{deviceIds:[device.id],appId:'com.example.app',seconds:1});await assert.rejects(lab.start('performance',{}),/Stop active/);const job=await first;await lab.cancel();assert.equal(job.status,'cancelled');assert.equal(lab.active,null);job.status='running';await lab.save();await lab.restore();assert.equal(lab.history()[0].status,'interrupted');lab.getSettings=()=>({workspace:'/other'});assert.equal(lab.history().length,0);});
+
+test('installed Android apps are discovered with validated IDs and no shell interpolation',async t=>{
+ const {lab}=await fixture(t,async(name,args)=>{assert.equal(name,'adb');assert.deepEqual(args,['-s','emulator-5554','shell','pm','list','packages','-3']);return 'package:com.example.z\npackage:com.example.app\npackage:com.example.app\npackage:com.bad;command\nnoise';});
+ assert.deepEqual(await lab.apps(device.id),[{id:'com.example.app',name:'com.example.app'},{id:'com.example.z',name:'com.example.z'}]);
+ await assert.rejects(lab.apps('missing'),/online/);
+});
+test('shutdown cancels installed-app discovery and demo never queries devices',async t=>{
+ let cancelled=false;const {lab}=await fixture(t,async(_name,_args,{signal})=>{try{await delay(5000,undefined,{signal});}catch(e){cancelled=true;throw e;}});
+ const pending=assert.rejects(lab.apps(device.id),/abort/i);await lab.close();await pending;assert.equal(cancelled,true);assert.equal(lab.discoveries.size,0);
+ lab.demo=true;assert.deepEqual(await lab.apps(device.id),[]);
+});
+
+test('iOS installed-app discovery converts plist and only lists user apps',async()=>{
+ const plist='<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.test.app</key><dict><key>ApplicationType</key><string>User</string><key>CFBundleDisplayName</key><string>Test App</string></dict><key>com.apple.system</key><dict><key>ApplicationType</key><string>System</string></dict></dict></plist>';
+ const apps=await installedApps({device:{platform:'ios',connection:'SIM-1'},run:async(name,args,options)=>{if(name==='xcrun'){assert.deepEqual(args,['simctl','listapps','SIM-1']);return plist;}if(process.platform==='darwin')return controlledRun(name,args,options);return JSON.stringify({'com.test.app':{ApplicationType:'User',CFBundleDisplayName:'Test App'},'com.apple.system':{ApplicationType:'System'}});}});
+ assert.deepEqual(apps,[{id:'com.test.app',name:'Test App'}]);
+});

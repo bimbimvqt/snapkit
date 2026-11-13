@@ -4,7 +4,11 @@ Open **Dev Lab** from the sidebar in Snapkit Desktop. Workspaces, devices, runs 
 
 ## Compare builds
 
-Install build A on the device using your normal build/install workflow. Enter its package/bundle ID, a build label and an observation duration. Measure it, install build B and measure again using the same device and observation duration. Choose both successful measurements under **Build comparison**.
+1. Open **Dev Lab → Performance** and choose your device and installed app. One available device/app is selected automatically.
+2. Press **Measure current build**. Snapkit uses a 5-second observation by default.
+3. Install your new build on the same device, then press **New build installed — measure & compare**. App, device and duration stay fixed. Snapkit compares automatically and explains opening time, memory and recorded jank separately.
+
+The comparison draft is saved locally per workspace so you can leave and return. Cancellation or failure keeps the successful first measurement. **Options & missing apps** contains manual app ID entry and duration. Previous measurements and technical notes are collapsed below the main flow. **Save comparison** exports both measurements and their differences as JSON.
 
 - Android: cold launch `am start -W -S` TotalTime, end-of-run PSS memory and HWUI frame jank from `dumpsys gfxinfo`. HWUI does not represent every Flutter or React Native engine frame.
 - iOS Simulator on macOS: `simctl launch` command duration and host RSS for the app process. Command duration is not time to first rendered frame. Frame jank is unavailable; use Instruments for rendering analysis.

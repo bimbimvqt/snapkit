@@ -2,17 +2,23 @@ import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
+import {installedApps} from './installed-apps.js';
 import {targetDevice} from './targets.js';
 import {controlledRun,cleanLog} from './process.js';
 import {measureApp} from './performance.js';
 import {compareMeasurements} from '../../../../../packages/domain/dev-lab.js';
 export class DevLab {
- constructor({store,getSettings,getDevices,conflict=()=>false,demo=false,run=controlledRun}){Object.assign(this,{store,getSettings,getDevices,conflict,demo,run});this.jobs=[];this.active=null;this.writes=Promise.resolve();this.closing=false;}
+ constructor({store,getSettings,getDevices,conflict=()=>false,demo=false,run=controlledRun}){Object.assign(this,{store,getSettings,getDevices,conflict,demo,run});this.jobs=[];this.active=null;this.writes=Promise.resolve();this.closing=false;this.discoveryController=new AbortController();this.discoveries=new Set();}
  async restore(){try{const rows=JSON.parse(await readFile(path.join(this.store,'dev-lab.json'),'utf8'));if(Array.isArray(rows))this.jobs=rows.filter(j=>j.kind==='performance'&&/^idle:/.test(j.workload||'')).slice(0,60).map(j=>j.status==='running'?{...j,status:'interrupted',error:'Snapkit stopped before this run finished'}:j);}catch{} }
  project(workspace=this.getSettings().workspace){return createHash('sha256').update(workspace||'').digest('hex').slice(0,24);}
  history(){return this.jobs.filter(j=>j.project===this.project());}
  async save(){if(this.demo)return;const data=JSON.stringify(this.jobs);this.writes=this.writes.catch(()=>{}).then(async()=>{await mkdir(this.store,{recursive:true});const file=path.join(this.store,'dev-lab.json');await writeFile(file+'.tmp',data,{mode:0o600});await rename(file+'.tmp',file);});await this.writes;}
  async status(){const workspace=this.getSettings().workspace;return {demo:this.demo,workspace:workspace||'',devices:this.getDevices().filter(d=>{try{targetDevice(d);return true;}catch{return false;}}).map(d=>({id:d.id,name:d.name,platform:d.platform})),jobs:this.history().map(j=>({...j,logs:j.logs.slice(-4000)})),active:this.active?.id||null};}
+ async apps(deviceId,signal){
+  if(this.demo)return [];if(this.closing)throw Error('Snapkit is closing');
+  const pending=installedApps({device:targetDevice(this.getDevices().find(d=>d.id===deviceId)),run:this.run,signal:signal?AbortSignal.any([signal,this.discoveryController.signal]):this.discoveryController.signal});
+  this.discoveries.add(pending);try{return await pending;}finally{this.discoveries.delete(pending);}
+ }
  async start(kind,input={}){
   if(this.demo)throw Error('Demo only. Open Snapkit Desktop to run on your devices');
   if(this.closing||this.active||this.conflict())throw Error('Stop active builds, debug sessions, recordings and kit tasks before running Dev Lab');
@@ -39,6 +45,6 @@ export class DevLab {
   job.status='succeeded';
  }
  async cancel(){const active=this.active;if(!active)return;active.controller.abort();await active.done;}
- async close(){this.closing=true;await this.cancel();await this.writes;}
+ async close(){this.closing=true;this.discoveryController.abort();await Promise.allSettled([...this.discoveries]);await this.cancel();await this.writes;}
  compare(a,b){return compareMeasurements(this.history().find(j=>j.id===a),this.history().find(j=>j.id===b));}
 }
