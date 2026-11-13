@@ -293,8 +293,8 @@ async function start() {
     result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.getElementById('title').textContent==='Hoàn thiện màn thanh toán' && !document.getElementById('task').hidden");
     result.miniDiagnostics.stages.push({check:"result.mini && await miniWindow.webContents.executeJavaScript(\"document.getElementById('title').text",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('qr')");
-    await new Promise(resolve=>setTimeout(resolve,100));
-    result.mini=result.mini && await mainWindow.webContents.executeJavaScript("[...document.querySelectorAll('.kit-card h2')].some(node=>node.textContent==='QR Kit'&&node.getBoundingClientRect().height>0)");
+    const qrVisible=await mainWindow.webContents.executeJavaScript(`(async()=>{for(let attempt=0;attempt<40;attempt++){if([...document.querySelectorAll('.kit-card h2')].some(node=>node.textContent==='QR Kit'&&node.getBoundingClientRect().height>0))return true;await new Promise(resolve=>setTimeout(resolve,100));}return false;})()`);
+    result.mini=result.mini && qrVisible;
     result.miniDiagnostics.stages.push({check:"result.mini && await mainWindow.webContents.executeJavaScript(\"[...document.querySelectorAll('.kit-c",ok:!!result.mini});
     miniClipboardFixture.enabled=true;miniClipboardFixture.items=[{id:'mini-fixture',text:'https://snapkit.vn'}];
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:utility').then(()=>window.snapkitMini.action('copy'))");
