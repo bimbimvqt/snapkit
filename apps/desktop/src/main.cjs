@@ -254,42 +254,52 @@ async function start() {
       let invalid=false;try{await window.snapkitMini.action('invalid');}catch{invalid=true;}
       const modes=utilities.mode==='utility' && !utilities.utility.enabled && utilities.utility.item===null && toggled && noCopy && utilityCompact && debugMode;
 
-      return customUI && gardenUI && modes && !!before && running.focus.deadline>Date.now() && paused.focus.deadline===null && compact && unpinned && invalid && !window.snapkitDesktop;
+      const checks={customUI,gardenUI,modes,hasState:!!before,running:running.focus.deadline>Date.now(),paused:paused.focus.deadline===null,compact,unpinned,invalid,isolated:!window.snapkitDesktop};return {...checks,ok:Object.values(checks).every(Boolean),modeChecks:{utility:utilities.mode==='utility',clipboardDisabled:!utilities.utility.enabled,empty:utilities.utility.item===null,toggled,noCopy,utilityCompact,debugMode}};
     })()`);
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.canBuild)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
     const beforeBuild=await fetch(origin+'/api/state').then(r=>r.json());
     const staleBuild=await fetch(origin+'/api/releases/build',{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':beforeBuild.token},body:JSON.stringify({expectedWorkspace:'stale-workspace',format:'apk'})});
-    result.mini=miniResult && staleBuild.status===409;
+    result.miniDiagnostics={initial:miniResult,stages:[]};
+    result.mini=miniResult.ok && staleBuild.status===409;
+    result.miniDiagnostics.stages.push({check:"miniResult.ok && staleBuild.status===409;",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:android').then(()=>window.snapkitMini.action('build:dev'))");
     const starts=await miniWindow.webContents.executeJavaScript("Promise.allSettled([window.snapkitMini.action('build:start'),window.snapkitMini.action('build:start')]).then(results=>results.map(result=>result.status))");
     result.mini=result.mini && starts.filter(status=>status==='fulfilled').length===1 && starts.filter(status=>status==='rejected').length===1;
+    result.miniDiagnostics.stages.push({check:"result.mini && starts.filter(status=>status==='fulfilled').length===1 && starts.filter(status=>statu",ok:!!result.mini});
     const devBuild=await fetch(origin+'/api/releases').then(r=>r.json());
     result.mini=result.mini && devBuild.jobs[0]?.plan.format==='apk' && devBuild.jobs[0]?.plan.flavor==='dev' && devBuild.jobs[0]?.plan.target==='lib/main_dev.dart' && devBuild.jobs[0]?.plan.defineFile==='config/dev.json';
+    result.miniDiagnostics.stages.push({check:"result.mini && devBuild.jobs[0]?.plan.format==='apk' && devBuild.jobs[0]?.plan.flavor==='dev' && dev",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:cancel')");
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('build:ios').then(()=>window.snapkitMini.action('build:prod')).then(()=>window.snapkitMini.action('build:start'))");
     await new Promise(resolve=>setTimeout(resolve,800));
     const prodBuild=await fetch(origin+'/api/releases').then(r=>r.json());
     result.mini=result.mini && prodBuild.jobs[0]?.plan.format==='ipa' && prodBuild.jobs[0]?.plan.flavor==='prod' && prodBuild.jobs[0]?.plan.target==='lib/main_prod.dart' && prodBuild.jobs[0]?.status==='succeeded' && !prodBuild.jobs[0]?.uploadStatus;
+    result.miniDiagnostics.stages.push({check:"result.mini && prodBuild.jobs[0]?.plan.format==='ipa' && prodBuild.jobs[0]?.plan.flavor==='prod' && ",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     miniWindow.hide();await mini.checkBuilds();await mini.checkBuilds();
     for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.artifacts.length>0)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>window.snapkitMini.action('build:download:'+s.quickBuild.artifacts[0].jobId+':'+s.quickBuild.artifacts[0].id))");
     result.mini=result.mini && miniBuildNotifications.filter(n=>n.title==='Build complete'||n.title==='Build hoàn tất').length===1 && miniBuildNotifications.every(n=>n.silent===false) && miniDownloads.length===1 && fs.readFileSync(miniDownloads[0],'utf8').includes('not installable');
+    result.miniDiagnostics.stages.push({check:"result.mini && miniBuildNotifications.filter(n=>n.title==='Build complete'||n.title==='Build ho\u00e0n t\u1ea5",ok:!!result.mini});
     miniWindow.show();
     mainWindow.close();
     const hidden=!mainWindow.isVisible();
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('open')");
     result.mini=result.mini && hidden && mainWindow.isVisible() && miniWindow.isAlwaysOnTop() && mini.hasTray();
+    result.miniDiagnostics.stages.push({check:"result.mini && hidden && mainWindow.isVisible() && miniWindow.isAlwaysOnTop() && mini.hasTray();",ok:!!result.mini});
     await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.miniTask({id:'fixture-task',userId:'fixture-user',workspaceId:'fixture-team',projectId:'fixture-project',environment:'development',title:'Hoàn thiện màn thanh toán',project:'Demo Flutter · MOB-42',done:3,total:5})`);
     await new Promise(resolve=>setTimeout(resolve,100));
     result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.getElementById('title').textContent==='Hoàn thiện màn thanh toán' && !document.getElementById('task').hidden");
+    result.miniDiagnostics.stages.push({check:"result.mini && await miniWindow.webContents.executeJavaScript(\"document.getElementById('title').text",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('qr')");
     await new Promise(resolve=>setTimeout(resolve,100));
     result.mini=result.mini && await mainWindow.webContents.executeJavaScript("[...document.querySelectorAll('.kit-card h2')].some(node=>node.textContent==='QR Kit'&&node.getBoundingClientRect().height>0)");
+    result.miniDiagnostics.stages.push({check:"result.mini && await mainWindow.webContents.executeJavaScript(\"[...document.querySelectorAll('.kit-c",ok:!!result.mini});
     miniClipboardFixture.enabled=true;miniClipboardFixture.items=[{id:'mini-fixture',text:'https://snapkit.vn'}];
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:utility').then(()=>window.snapkitMini.action('copy'))");
     result.mini=result.mini && miniClipboardFixture.copied==='https://snapkit.vn';
+    result.miniDiagnostics.stages.push({check:"result.mini && miniClipboardFixture.copied==='https://snapkit.vn';",ok:!!result.mini});
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
     for(const language of ['en','vi']){
       await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.setLanguage('${language}')`);
@@ -300,6 +310,7 @@ async function start() {
         if(mode==='debug')result.mini=result.mini && await miniWindow.webContents.executeJavaScript("document.querySelector('#build-artifacts button').textContent.startsWith("+JSON.stringify(language==='vi'?'Tải ':'Save ')+")");
         if(!layout.ok)console.error('Mini layout failed',language,mode,layout);
         result.mini=result.mini && layout.ok;
+    result.miniDiagnostics.stages.push({check:"result.mini && layout.ok;",ok:!!result.mini});
       }
     }
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
