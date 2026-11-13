@@ -51,3 +51,9 @@ test('modern macOS uses the system picker without consulting stale global permis
  installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'darwin',systemPicker:true,systemPreferences:{getMediaAccessStatus:()=>assert.fail('Do not use the stale TCC grant')},desktopCapturer:{getSources:()=>assert.fail('Do not capture without system selection')},fromApp:e=>e.trusted,getWindow:()=>null});
  const capture=handlers.get('snapkit:capture-screens');await assert.rejects(capture({trusted:false}),/Invalid caller/);assert.deepEqual(await capture({trusted:true}),{picker:'system'});app.emit('will-quit');
 });
+
+test('legacy screen capture requests native Retina pixels instead of a 1080p thumbnail',async()=>{
+ const handlers=new Map(),app=new EventEmitter();let requested;
+ installEveryday({app,ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{},clipboard:clipboardFixture(),platform:'win32',systemPicker:false,screen:{getAllDisplays:()=>[{size:{width:2560,height:1440},scaleFactor:2}]},desktopCapturer:{getSources:async options=>{requested=options;return [{id:'screen:1',name:'Retina',thumbnail:{isEmpty:()=>false,toDataURL:()=> 'data:image/png;base64,test'}}];}},fromApp:e=>e.trusted,getWindow:()=>null});
+ assert.equal((await handlers.get('snapkit:capture-screens')({trusted:true}))[0].name,'Retina');assert.deepEqual(requested,{types:['screen'],thumbnailSize:{width:5120,height:2880}});app.emit('will-quit');
+});

@@ -24,7 +24,12 @@ function installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,systemPre
    if(permission!=='granted')permissionRequested=true;
   }
   try{
-   const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:1920,height:1080}});
+   // Electron sizes are DIP; screen capture must request physical pixels.
+   const displays=screen?.getAllDisplays()||[];
+   const nativeWidth=Math.max(1920,...displays.map(d=>Math.round((d.size?.width||0)*(d.scaleFactor||1))));
+   const nativeHeight=Math.max(1080,...displays.map(d=>Math.round((d.size?.height||0)*(d.scaleFactor||1))));
+   const scale=Math.min(1,Math.sqrt(24000000/(nativeWidth*nativeHeight)));
+   const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:Math.floor(nativeWidth*scale),height:Math.floor(nativeHeight*scale)}});
    const images=sources.filter(s=>!s.thumbnail.isEmpty()).slice(0,8).map(s=>({id:s.id,name:s.name,image:s.thumbnail.toDataURL()}));
    if(images.length)return images;
   }catch(error){console.warn('Snap Capture failed:',error.message);}

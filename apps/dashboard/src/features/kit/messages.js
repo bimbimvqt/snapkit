@@ -4,6 +4,8 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "QR Kit": "QR Kit",
   "Snap Capture": "Snap Capture",
   "Image zoom": "Thu phóng ảnh",
+  "Original image": "Ảnh gốc",
+  "Above 100%, original pixels are enlarged. Capture at full resolution for more detail.": "Trên 100% là phóng lớn điểm ảnh gốc. Chụp ở độ phân giải đầy đủ để có thêm chi tiết.",
   "Zoom level": "Mức thu phóng",
   "Zoom in": "Phóng to",
   "Zoom out": "Thu nhỏ",

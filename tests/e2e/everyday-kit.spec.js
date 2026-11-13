@@ -53,18 +53,61 @@ for(const surface of ['window','browser','monitor'])test(`system picker accepts 
 test('capture opens at editor width and supports zoomed drawing, scrolling and original-size export',async({page})=>{
  await open(page,'Snap Capture');await page.getByRole('button',{name:'Try sample',exact:true}).click();
  const canvas=page.getByLabel('Annotation canvas',{exact:true}),viewport=page.getByRole('region',{name:'Image editing area',exact:true});await expect(canvas).toBeVisible();
- const fit=()=>canvas.evaluate(node=>({width:node.getBoundingClientRect().width,viewport:node.parentElement.clientWidth,pixels:[node.width,node.height]}));const initial=await fit();expect(Math.abs(initial.width-initial.viewport)).toBeLessThan(2);expect(initial.pixels).toEqual([1000,600]);
- await page.screenshot({path:'/tmp/snapkit-capture-fit78.png'});
+ const fit=()=>canvas.evaluate(node=>({width:node.getBoundingClientRect().width,viewport:node.parentElement.clientWidth,pixels:[node.width,node.height]}));const initial=await fit();expect(Math.abs(initial.width-initial.viewport)).toBeLessThan(2);expect(initial.pixels[0]).toBeCloseTo(initial.width,0);expect(initial.pixels[1]/initial.pixels[0]).toBeCloseTo(.6,2);
+ await page.screenshot({path:'/tmp/snapkit-capture-fit79.png'});
  await page.getByRole('button',{name:'100%',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();
  expect((await fit()).width).toBeCloseTo(1950,0);expect(await viewport.evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
  await page.getByRole('button',{name:'Cover private text',exact:true}).click();await viewport.scrollIntoViewIfNeeded();await viewport.evaluate(node=>{node.scrollLeft=200;node.scrollTop=100;});
  const bounds=await viewport.boundingBox();const start={x:bounds.x+70,y:bounds.y+70},end={x:bounds.x+150,y:bounds.y+150};
- const pixel=await canvas.evaluate((node,point)=>{const rect=node.getBoundingClientRect();return {x:Math.floor((point.x-rect.left)*node.width/rect.width),y:Math.floor((point.y-rect.top)*node.height/rect.height)};},{x:(start.x+end.x)/2,y:(start.y+end.y)/2});
+ const pixel=await canvas.evaluate((node,point)=>{const rect=node.getBoundingClientRect();return {x:(point.x-rect.left)/rect.width,y:(point.y-rect.top)/rect.height};},{x:(start.x+end.x)/2,y:(start.y+end.y)/2});
  await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y);await page.mouse.up();
- expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(pixel.x,pixel.y,1,1).data),pixel)).toEqual([0,0,0,255]);
- await page.getByRole('button',{name:'Fit to width',exact:true}).click();expect(Math.abs((await fit()).width-(await fit()).viewport)).toBeLessThan(2);expect((await fit()).pixels).toEqual([1000,600]);
- await page.getByRole('button',{name:'Undo annotation',exact:true}).click();expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(pixel.x,pixel.y,1,1).data),pixel)).not.toEqual([0,0,0,255]);
+ expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(Math.floor(pixel.x*node.width),Math.floor(pixel.y*node.height),1,1).data),pixel)).toEqual([0,0,0,255]);
+ await page.getByRole('button',{name:'Fit to width',exact:true}).click();expect(Math.abs((await fit()).width-(await fit()).viewport)).toBeLessThan(2);expect((await fit()).pixels[0]).toBeCloseTo((await fit()).width,0);
+ await page.getByRole('button',{name:'Undo annotation',exact:true}).click();expect(await canvas.evaluate((node,pixel)=>Array.from(node.getContext('2d').getImageData(Math.floor(pixel.x*node.width),Math.floor(pixel.y*node.height),1,1).data),pixel)).not.toEqual([0,0,0,255]);
  const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save annotated image',exact:true}).click();const download=await downloaded;const chunks=[];for await(const chunk of await download.createReadStream())chunks.push(chunk);const png=Buffer.concat(chunks);expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1000,600]);
  await page.setViewportSize({width:390,height:900});await page.getByRole('button',{name:'100%',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await viewport.evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
- await page.screenshot({path:'/tmp/snapkit-capture-zoom-mobile78.png'});
+ await page.screenshot({path:'/tmp/snapkit-capture-zoom-mobile79.png'});
+});
+
+test('screen capture negotiates native pixels before importing the selected video frame',async({page})=>{
+ await page.addInitScript(()=>{
+  window.snapkitDesktop={captureScreens:async()=>({picker:'system'})};
+  Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:async()=>{
+   const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;
+   const ctx=canvas.getContext('2d');ctx.fillStyle='#ff0000';ctx.fillRect(0,0,160,90);
+   const stream=canvas.captureStream(5),track=stream.getVideoTracks()[0];let native=false;
+   const settings=track.getSettings.bind(track),caps=track.getCapabilities.bind(track);
+   track.getCapabilities=()=>({...caps(),width:{min:1,max:640},height:{min:1,max:360},resizeMode:['none','crop-and-scale']});
+   track.getSettings=()=>({...settings(),width:native?640:160,height:native?360:90,resizeMode:native?'none':'crop-and-scale'});
+   track.applyConstraints=async constraints=>{window.nativeConstraints=constraints;native=true;canvas.width=640;canvas.height=360;ctx.fillStyle='#00ff00';ctx.fillRect(0,0,640,360);};
+   window.nativeTrack=track;return stream;
+  }});
+ });
+ await open(page,'Snap Capture');await page.getByRole('button',{name:'Choose screen',exact:true}).click();
+ const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();
+ await expect(page.getByText('640 × 360 px',{exact:false})).toBeVisible();
+ expect(await page.evaluate(()=>window.nativeConstraints)).toEqual({resizeMode:'none',width:{ideal:640},height:{ideal:360}});
+ expect(await canvas.evaluate(c=>Array.from(c.getContext('2d').getImageData(10,10,1,1).data))).toEqual([0,255,0,255]);
+ expect(await page.evaluate(()=>window.nativeTrack.readyState)).toBe('ended');
+ const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save annotated image',exact:true}).click();const chunks=[];for await(const chunk of await (await downloaded).createReadStream())chunks.push(chunk);const png=Buffer.concat(chunks);expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([640,360]);
+});
+test('Retina preview redraws at physical pixel density and preserves sharp source pixels when enlarged',async({browser})=>{
+ const context=await browser.newContext({deviceScaleFactor:2,viewport:{width:1440,height:1100}}),page=await context.newPage();
+ try{
+  await page.route('**/api/product',async route=>{const r=await route.fetch(),data=await r.json();data.preferences.developerProfile={role:'frontend',framework:'flutter'};await route.fulfill({json:data});});
+  await open(page,'Snap Capture');
+  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=600;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,1000,600);ctx.fillStyle='#000';for(let x=0;x<1000;x+=2)ctx.fillRect(x,0,1,600);return c.toDataURL().split(',')[1];});
+  await page.getByLabel('Image to annotate',{exact:true}).setInputFiles({name:'stripes.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+  const canvas=page.getByLabel('Annotation canvas',{exact:true});await expect(canvas).toBeVisible();
+  const backing=()=>canvas.evaluate(c=>({width:c.width,cssWidth:c.getBoundingClientRect().width}));
+  expect((await backing()).width).toBeCloseTo((await backing()).cssWidth*2,0);
+  await page.getByRole('button',{name:'100%',exact:true}).click();await expect(page.getByLabel('Zoom level',{exact:true})).toHaveText('100%');expect(await backing()).toEqual({width:1000,cssWidth:500});
+  await page.getByRole('button',{name:'Zoom in',exact:true}).click();await page.getByRole('button',{name:'Zoom in',exact:true}).click();
+  // Nearest-neighbour enlargement retains the original black/white edges;
+  // interpolated gray pixels would reveal a blurred preview.
+  expect(await canvas.evaluate(c=>{const row=c.getContext('2d').getImageData(0,10,c.width,1).data;return [...row].every((v,i)=>i%4===3?v===255:v===0||v===255);})).toBe(true);
+  await page.getByRole('button',{name:'Mark rectangle',exact:true}).click();const bounds=await canvas.boundingBox();await page.mouse.move(bounds.x+30,bounds.y+30);await page.mouse.down();await page.mouse.move(bounds.x+170,bounds.y+100);await page.mouse.up();
+  await page.screenshot({path:'/tmp/snapkit-retina79.png'});
+  const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save annotated image',exact:true}).click();const chunks=[];for await(const chunk of await (await downloaded).createReadStream())chunks.push(chunk);const bytes=Buffer.concat(chunks);expect([bytes.readUInt32BE(16),bytes.readUInt32BE(20)]).toEqual([1000,600]);
+ }finally{await context.close();}
 });
