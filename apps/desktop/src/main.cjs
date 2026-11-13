@@ -1,7 +1,3 @@
-if(process.argv.includes('--snapkit-mcp')) {
- const {app}=require('electron');
- app.whenReady().then(async()=>{app.dock?.hide();const {startMcp}=await import('../../../packages/mcp/stdio.js');await startMcp();process.stdin.on('end',()=>app.quit());}).catch(error=>{console.error(error.message);app.exit(1);});
-} else {
 'use strict';
 const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem } = require('electron');
 const path = require('node:path');
@@ -56,7 +52,7 @@ async function start() {
   const legacy = '/Volumes/SanDiskSSDData/SnapkitData';
   const dataRoot = development ? path.join(devRoot, 'data') : process.env.SNAPKIT_DATA_ROOT || (process.platform === 'darwin' && fs.existsSync(path.join(legacy, 'state/settings.json')) ? legacy : path.join(app.getPath('appData'), process.platform === 'linux' ? 'snapkit' : 'Snapkit'));
   const extras = ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), 'flutter/bin'), path.join(os.homedir(), 'development/flutter/bin')];
-  const env = { ...process.env, SNAPKIT_DATA_ROOT: dataRoot, SNAPKIT_DESKTOP: '1', SNAPKIT_DESKTOP_EXECUTABLE: process.execPath, SNAPKIT_DESKTOP_APP_PATH: app.isPackaged ? '' : repositoryRoot, PORT: String(port), PATH: [process.env.PATH || '', ...extras].join(path.delimiter) };
+  const env = { ...process.env, SNAPKIT_DATA_ROOT: dataRoot, SNAPKIT_DESKTOP: '1', SNAPKIT_DESKTOP_EXECUTABLE: process.execPath, SNAPKIT_MCP_RELAY_PATH: app.isPackaged ? path.join(process.resourcesPath, 'mcp/snapkit-mcp.cjs') : path.join(repositoryRoot, 'apps/desktop/build/mcp.cjs'), PORT: String(port), PATH: [process.env.PATH || '', ...extras].join(path.delimiter) };
   const health = async () => {
     try { const r = await fetch(origin + '/api/health', { signal: AbortSignal.timeout(1000) }); const data = await r.json(); return data.product === 'snapkit' && data.protocol === 1 && data.version === app.getVersion() && data.desktop === true && data.demo === (process.env.SNAPKIT_DESKTOP_DEMO === '1'); } catch { return false; }
   };
@@ -348,5 +344,3 @@ const lifecycle=installLifecycle({
     await Promise.allSettled([updater.close(),stopAgent(child)]);
   }
 });
-
-}

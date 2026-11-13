@@ -1,6 +1,6 @@
 {
   "name": "snapkit-device-center",
-  "version": "0.2.0-beta.81",
+  "version": "0.2.0-beta.82",
   "private": true,
   "type": "module",
   "description": "Local Flutter and React Native device control center",
@@ -24,7 +24,7 @@
     "clean": "node scripts/clean-generated.cjs",
     "desktop:update:smoke": "node tests/desktop/update-smoke.cjs",
     "desktop:update:fs-smoke": "node tests/desktop/update-fs-smoke.cjs",
-    "build:dashboard": "vite build --config apps/dashboard/vite.config.ts",
+    "build:dashboard": "node scripts/build-mcp.js && vite build --config apps/dashboard/vite.config.ts",
     "dev:dashboard": "vite --config apps/dashboard/vite.config.ts",
     "check:dashboard": "tsc -p apps/dashboard/tsconfig.json",
     "prestart": "npm run build:dashboard",
@@ -67,7 +67,8 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3",
-    "vite": "^7.3.7"
+    "vite": "^7.3.7",
+    "esbuild": "0.28.2"
   },
   "main": "apps/desktop/src/main.cjs",
   "author": "Snapkit",
