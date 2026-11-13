@@ -122,7 +122,7 @@ async function refresh(button = $('#refresh-button')) {
   refreshing = false; $('#devices-grid').removeAttribute('aria-busy'); $('#refresh-button svg')?.classList.remove('spin'); render();
 }
 // Discover only after the user opens a device feature, never on app startup.
-document.addEventListener('snapkit:page', event => {
+document.addEventListener('snapkit:device-page', event => {
   if (['devices', 'dev-lab', 'sets', 'logs', 'captures', 'releases'].includes(event.detail) && !state.scannedAt) void refresh();
 });
 let workspaceProfiles = [];

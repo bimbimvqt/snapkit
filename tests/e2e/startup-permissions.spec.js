@@ -1,11 +1,16 @@
 import {test,expect} from './fixtures.js';
 test('startup stays passive; opening Devices starts discovery and Setup checks tools',async({page})=>{
- await page.route('**/api/state',async route=>{const response=await route.fetch();await route.fulfill({json:{...await response.json(),scannedAt:null}});});
+ let releaseProduct;const productGate=new Promise(resolve=>{releaseProduct=resolve;});
+ await page.route('**/api/product',async route=>{await productGate;await route.fallback();});
+ await page.route('**/api/state',async route=>{const response=await route.fetch(),snapshot=await response.json();await route.fulfill({json:{...snapshot,scannedAt:null,settings:{...snapshot.settings,spaceId:'startup-space',framework:'flutter'}}});});
  const requests=[];
  page.on('request',request=>{const path=new URL(request.url()).pathname;if(['/api/scan','/api/diagnostics'].includes(path))requests.push(path);});
- await page.addInitScript(()=>{window.snapkitDesktop={ready(){},setLanguage:async()=>{}};});
- await page.goto('/?lang=en');await expect(page.locator('body')).toHaveAttribute('data-ui-ready','true');
- await expect(page.locator('#panel-kit')).toBeVisible();expect(requests).toEqual([]);
+ await page.addInitScript(()=>{window.__startupPages=[];document.addEventListener('snapkit:page',event=>window.__startupPages.push(event.detail));window.snapkitDesktop={ready(){},setLanguage:async()=>{}};});
+ try{await page.goto('/?lang=en');await expect(page.locator('body')).toHaveAttribute('data-ui-ready','true');}finally{releaseProduct();}
+ await expect(page.locator('#panel-kit')).toBeVisible();
+
+ expect(await page.evaluate(()=>window.__startupPages)).toEqual(expect.arrayContaining(['devices','kit']));
+ expect(requests).toEqual([]);
  await page.locator('[data-app-page="devices"]').click();await expect.poll(()=>requests.filter(p=>p==='/api/scan').length).toBe(1);
  await page.locator('[data-app-page="setup"]').click();await expect.poll(()=>requests.filter(p=>p==='/api/diagnostics').length).toBe(1);
 });

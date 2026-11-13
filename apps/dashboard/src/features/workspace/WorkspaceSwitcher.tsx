@@ -44,7 +44,7 @@ function WorkspaceSwitcher() {
         if(document.body.dataset.developerRole !== role || document.body.dataset.framework !== framework) {
           document.body.dataset.developerRole=role; document.body.dataset.framework=framework;
           document.dispatchEvent(new CustomEvent('snapkit:profile',{detail:{role,framework}}));
-          showProductPage(role==='backend'?'backend':'devices');
+          showProductPage(role==='backend'?'backend':'devices', {discover:false});
         }
       }
     };

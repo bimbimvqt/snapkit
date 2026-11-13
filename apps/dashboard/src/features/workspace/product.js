@@ -12,7 +12,7 @@ const productEditors = [
   ['cursor', 'Cursor', 'Extension available', 'mouse-pointer-2'],
   ['antigravity', 'Antigravity IDE', 'Extension available', 'orbit']
 ];
-function showProductPage(page) {
+function showProductPage(page, { discover = true } = {}) {
   if (document.body.dataset.developerRole === 'backend' && ['devices', 'setup', 'sets', 'logs', 'captures', 'releases', 'guide'].includes(page)) page = 'backend';
   if (!['profile', 'dev-lab', 'kit', 'backend', 'devices', 'setup', 'preferences', 'plan', 'guide', 'sets', 'logs', 'captures', 'releases', 'updates'].includes(page)) return;
   activePage = page;
@@ -22,6 +22,7 @@ function showProductPage(page) {
   if (page === 'preferences' && !toolState) void checkTools();
   if (page === 'setup') { if (!product) void loadProduct(); if (!toolState) void checkTools(); updateSetupView(); }
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
+  if (discover) document.dispatchEvent(new CustomEvent('snapkit:device-page', { detail: page }));
   window.scrollTo({ top: 0, behavior: 'instant' });
   const heading = $(`#panel-${page} h1`); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
 }
