@@ -144,7 +144,7 @@ export function registerKitMessages(){Object.assign(window.SnapkitMessages.trans
   "Adding files…": "Đang thêm tệp…",
   "Local file references only. Shared teammates do not receive these files.": "Tham chiếu tệp lưu trên máy. Thành viên khác chưa nhận được các tệp này.",
   "Files added locally. Nothing was uploaded.": "Đã thêm tệp trên máy, chưa tải lên mạng.",
-  "Use File Check for browser files. Snap Drop requires the desktop app.": "Dùng Kiểm tra tệp trong trình duyệt. Snap Drop cần ứng dụng desktop.",
+  "Snap Drop requires the desktop app.": "Snap Drop cần ứng dụng desktop.",
   "Show file": "Hiện tệp",
   "Install on selected Android devices": "Cài lên thiết bị Android đã chọn",
   "Remove reference": "Xóa tham chiếu",

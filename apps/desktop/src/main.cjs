@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem, desktopCapturer, systemPreferences } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog, ipcMain, shell, utilityProcess, safeStorage, powerMonitor, nativeTheme, Notification, globalShortcut, powerSaveBlocker, clipboard, ClipboardItem } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -7,7 +7,6 @@ const { createSplash } = require('./splash/splash.cjs');
 const { DesktopUpdater } = require('./updates/updater.cjs');
 const { startUpdateChecks } = require('./updates/schedule.cjs');
 const { installLifecycle, stopAgent } = require('./lifecycle.cjs');
-const { supportsSystemPicker, installCapturePermissions } = require('./kit/capture-policy.cjs');
 const development = !app.isPackaged && process.env.SNAPKIT_DEV === '1';
 const port = development ? Number(process.env.SNAPKIT_DEV_PORT || 4311) : process.env.SNAPKIT_SMOKE_TEST === '1' ? Number(process.env.SNAPKIT_SMOKE_PORT || 14328) : 4310;
 if (!Number.isInteger(port) || port < 1024 || port > 65535 || (development && port === 4310)) throw new Error('Invalid Dev port');
@@ -86,7 +85,7 @@ async function start() {
     while (!await health()) { if (Date.now() > deadline) throw new Error(agentError || nativeT("The device connection did not start in time.")); await new Promise(resolve => setTimeout(resolve, 200)); }
   }
   const fromApp = event => event.sender === mainWindow?.webContents && new URL(event.senderFrame.url).origin === origin;
-  const everyday=require('./kit/everyday.cjs').installEveryday({app,ipcMain,dialog,clipboard,desktopCapturer,systemPreferences,shell,screen,fromApp,getWindow:()=>mainWindow,language:()=>desktopLanguage});
+  const everyday=require('./kit/everyday.cjs').installEveryday({app,ipcMain,clipboard,fromApp});
   const kit=require('./kit/kit.cjs').installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow:()=>mainWindow,origin,language:()=>desktopLanguage});
   const miniClipboardFixture={enabled:false,items:[],copied:''};
   const miniHistory=process.env.SNAPKIT_SMOKE_TEST==='1'?{state:()=>({...miniClipboardFixture}),copy:async id=>{const item=miniClipboardFixture.items.find(item=>item.id===id);if(!item)throw Error('Invalid clipboard item');miniClipboardFixture.copied=item.text;return true;}}:everyday.history;
@@ -148,7 +147,8 @@ async function start() {
   mainWindow = new BrowserWindow({ width: 1440, height: 980, minWidth: 900, minHeight: 680, show: false, title: development ? 'Snapkit Dev' : 'Snapkit', backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#f6f7f8', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false } });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => { try { void shell.openExternal(allowedExternal(url)); } catch {} return { action: 'deny' }; });
   mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
-  installCapturePermissions({session:mainWindow.webContents.session,webContents:mainWindow.webContents,origin,systemPicker:supportsSystemPicker()});
+  mainWindow.webContents.session.setPermissionCheckHandler(()=>false);
+  mainWindow.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
   if (app.isPackaged) {
     const cacheVersion = path.join(app.getPath('userData'), 'cache-version.json');
     let cachedVersion;
@@ -199,8 +199,6 @@ async function start() {
     if(!clipboardAPI||clipboardItem?.text!=='Snapkit native clipboard fixture')throw Error('Electron clipboard contract failed');
     await clipboardHistory.copy(clipboardItem.id);await clipboardHistory.clear();
     if(clipboardHistory.state().items.length)throw Error('Clipboard clear failed');clipboardHistory.dispose();
-    const kitFixture=path.join(process.env.SNAPKIT_DATA_ROOT,'kit-smoke.txt');fs.writeFileSync(kitFixture,'smoke fixture');
-    const kitSelection=await everyday.files.choose([kitFixture]);const kitRename=await everyday.files.apply(kitSelection.id,{prefix:'renamed-'});
     const result = await mainWindow.webContents.executeJavaScript(`(async () => {
       const [p,h] = await Promise.all([fetch('/api/product').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
       const initial = window.SnapkitI18n.language;
@@ -210,8 +208,7 @@ async function start() {
       const english = document.querySelector('#add-device').textContent.trim() === 'Add device';
       window.SnapkitI18n.setLanguage(initial);
       const clipboardState=await window.snapkitDesktop.clipboardState();
-      await window.snapkitDesktop.fileUndo('${kitRename.undoId}');
-      const everyday=!clipboardState.enabled && clipboardState.items.length===0 && typeof window.snapkitDesktop.captureScreens==='function';
+      const everyday=!clipboardState.enabled && clipboardState.items.length===0 && !('captureScreens' in window.snapkitDesktop) && !('filePick' in window.snapkitDesktop);
       const kitState=await window.snapkitDesktop.kitSettings();
       const awake=await window.snapkitDesktop.kitAwake(true);
       const asleep=await window.snapkitDesktop.kitAwake(false);
@@ -320,7 +317,6 @@ async function start() {
       }
     }
     result.clipboard=clipboardAPI;
-    result.everyday=result.everyday && fs.readFileSync(kitFixture,'utf8')==='smoke fixture';
     result.splash = splashVerified && splashClosed && readyReported;
     fs.writeFileSync(process.env.SNAPKIT_SMOKE_OUTPUT || path.join(os.tmpdir(), 'snapkit-desktop-smoke.json'), JSON.stringify(result));
     app.quit();

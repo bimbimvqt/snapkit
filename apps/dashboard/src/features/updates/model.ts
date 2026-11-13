@@ -6,7 +6,6 @@ export interface UpdateState {
 }
 export interface DesktopKitState { startupAvailable:boolean; openAtLogin:boolean; shortcut:boolean; awake:boolean }
 export type ClipboardSnapshot={enabled:boolean;error?:string;items:{id:string;text:string;at:number}[]};
-export type RenameOptions={prefix:string;suffix:string;find:string;replacement:string;numbering:boolean;start:number};
 export type MiniFocus={remaining:number;deadline:number|null};
 export type PersonalTheme={id:string;name:string;scene:string;accent:string;background:string};
 export type FocusExperience={space:string;themes:PersonalTheme[];plant:string;completed:number;totalSeconds:number;sessionSeconds:number;timer:MiniFocus};
@@ -25,11 +24,6 @@ export interface DesktopUpdates {
   clipboardEnabled?:(value:boolean)=>Promise<ClipboardSnapshot>;
   clipboardClear?:()=>Promise<ClipboardSnapshot>;
   clipboardCopy?:(id:string)=>Promise<boolean>;
-  filePick?:()=>Promise<{id:string;files:{id:string;name:string}[]}|null>;
-  fileApply?:(id:string,options:RenameOptions)=>Promise<{cancelled?:boolean;count?:number;undoId?:string}>;
-  fileUndo?:(id:string)=>Promise<{count:number}>;
-  captureScreens?:()=>Promise<{id:string;name:string;image:string}[]|{error:'screen-permission'|'mac-capture-failed'|'capture-failed'}|{picker:'system'}>;
-  captureSettings?:()=>Promise<boolean>;
   kitSettings?:()=>Promise<DesktopKitState>;
   kitStartup?:(enabled:boolean)=>Promise<DesktopKitState>;
   kitAwake?:(enabled:boolean)=>Promise<DesktopKitState>;

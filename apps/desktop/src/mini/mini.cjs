@@ -95,7 +95,7 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
   else if(typeof action==='string'&&action.startsWith('space:')){focusStore.action({type:'space',value:action.slice(6)});}
   else if(action==='awake'){kit.setAwake(!kit.state().awake);}
   else if(action==='copy'){const value=history.state();if(!value.enabled||!value.items[0])throw Error('No captured clipboard item');await history.copy(value.items[0].id);}
-  else if(['capture','qr','clipboard','logs','devices','releases'].includes(action)){showMain();getWindow()?.webContents.send('snapkit:mini-navigate',['logs','devices','releases'].includes(action)?{page:action}:{tool:action});}
+  else if(['text','qr','clipboard','logs','devices','releases'].includes(action)){showMain();getWindow()?.webContents.send('snapkit:mini-navigate',['logs','devices','releases'].includes(action)?{page:action}:{tool:action});}
   else if(action==='open'){showMain();if(task)getWindow()?.webContents.send('snapkit:team-notification',{userId:task.userId,...task,taskId:task.id,page:'tasks'});else getWindow()?.webContents.send('snapkit:mini-navigate',{tool:'focus'});}
   else if(action==='clear'){task=null;resize();}
   else throw Error('Invalid action');

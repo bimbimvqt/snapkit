@@ -112,3 +112,5 @@
 @media(max-width:600px){.filekit-preview>img{width:220%;max-width:none;transform:translateX(-50%)}}
 
 .visual-landing .preview-tabs{background:var(--surface);border-color:var(--line)}.visual-landing .preview-tabs button[aria-pressed=true]{background:#bef48d1f;color:#e2f6d7}.visual-landing .app-window{border-color:var(--line)}.visual-landing .workflow-panel{background:var(--surface);border-color:var(--line)}
+
+.kit-text-preview{width:100%;margin:0;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--text);font:13px/1.8 ui-monospace,monospace;white-space:pre;overflow:auto;align-self:center}

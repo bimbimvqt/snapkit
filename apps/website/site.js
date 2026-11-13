@@ -281,7 +281,7 @@ for(const button of document.querySelectorAll('[data-mini-view]'))button.addEven
  if(!['focus','utility','debug'].includes(view))return;
  const image=document.getElementById('mini-feature-image');
  if(!image)return;
- image.dataset.visualImage=view==='focus'?'kit-mini':`kit-mini-${view}`;
+ image.dataset.visualImage=view==='focus'?'kit-mini':view==='utility'?'kit-mini-tools':`kit-mini-${view}`;
  for(const peer of document.querySelectorAll('[data-mini-view]'))peer.setAttribute('aria-pressed',String(peer===button));
  updateVisualImages();
 });

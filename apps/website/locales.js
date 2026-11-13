@@ -1,6 +1,9 @@
 window.SnapkitMessages = {
   "source": "vi",
   "translations": {
+"Văn bản, clipboard, QR và tập trung. Tiện ích gọn cho công việc mỗi ngày.":"Text, clipboard, QR codes and focus. Compact tools for your daily workflow.","JSON gọn. Văn bản sạch.":"Tidy JSON. Clean text.","Định dạng JSON, chuyển Base64, URL và tạo UUID ngay trên máy.":"Format JSON, convert Base64 and URLs, and generate UUIDs locally.","Mở Text Kit":"Open Text Kit","Ví dụ JSON đã định dạng":"Formatted JSON example","Thêm Focus Kit để giữ nhịp tập trung. Không cần kết nối dự án.":"Add Focus Kit to stay focused. No connected project required.",
+
+
 "Đánh dấu ảnh. Che thông tin riêng tư. Hoàn tác và làm lại.": "Annotate images. Cover private details. Undo and redo.","Đánh dấu ảnh. Che thông tin riêng tư.": "Annotate images. Cover private details.","Văn bản vừa sao chép, luôn trong tầm tay.": "Your recent copies, always within reach.","Một link. Một mã QR.": "One link. One QR code.","Tạo, quét, chia sẻ. Ngay trên máy.": "Create, scan, share. On your computer.","Khám phá Snap Capture": "Explore Snap Capture","Khám phá Clipboard Kit": "Explore Clipboard Kit","Khám phá QR Kit": "Explore QR Kit",
 "Bộ tiện ích": "Everyday kit",
 "Việc nhỏ. Xong trong một chạm.": "Small tasks. One place.",
