@@ -20,13 +20,3 @@ export async function setPush(userId:string,enabled:boolean){
 export async function testPush(userId:string){if(desktop()?.notifyTeam)return desktop()!.notifyTeam({test:true,target:{userId}});const sub=await (await navigator.serviceWorker.ready).pushManager.getSubscription();if(!sub)throw Error('Enable push on this browser first.');return api('/api/teams/push/test',{endpoint:sub.endpoint},true);}
 export function desktopPush(userId:string,items:{workspaceId:string;page:string;projectId?:string;environment?:string;taskId?:string}[]){if(pushEnabled(userId)&&items.length)void desktop()?.notifyTeam({target:{...items[0],userId}}).catch(()=>{});}
 export function listenPush(user:()=>string){const open=(target:Target)=>{if(target?.userId===user()&&['home','tasks','sessions','handoffs','projects','members'].includes(target.page||'')&&typeof target.workspaceId==='string')document.dispatchEvent(new CustomEvent('snapkit:notification-open',{detail:target}));};const message=(e:MessageEvent)=>{if(e.data?.type==='snapkit-push-open')open(e.data.detail);};navigator.serviceWorker?.addEventListener('message',message);const dispose=desktop()?.onTeamNotification?.(open);const url=new URL(location.href),target=url.searchParams.get('push');if(target&&user()){url.searchParams.delete('push');history.replaceState(null,'',url);try{open(JSON.parse(target));}catch{}}return()=>{navigator.serviceWorker?.removeEventListener('message',message);dispose?.();};}
-
-// Ask on first signed-in launch, while respecting an existing opt-out.
-export async function startupPush(userId:string):Promise<'prompt'|'requested'|'enabled'|null>{
- if(!userId||!pushSupported()||localStorage.getItem(key(userId))!==null||localStorage.getItem('snapkit-push-asked:'+userId))return null;
- if(desktop()?.notifyTeam){localStorage.setItem('snapkit-push-asked:'+userId,'1');try{await setPush(userId,true);return 'requested';}catch{localStorage.removeItem('snapkit-push-asked:'+userId);return null;}}
- if(Notification.permission==='denied')return null;
- if(Notification.permission==='granted'){await setPush(userId,true);return 'enabled';}
- return 'prompt';
-}
-export function deferStartupPush(userId:string){localStorage.setItem('snapkit-push-asked:'+userId,'1');}

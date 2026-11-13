@@ -30,7 +30,7 @@ export function refreshAndroidSDK() {
 export async function configureStorage() {
   // Fail closed if an external volume was unplugged; never create a fake mount directory.
   if (dataRoot.startsWith('/Volumes/')) await realpath(path.join('/Volumes', dataRoot.split('/')[2]));
-  for (const key of ['avd', ...(process.platform === 'darwin' ? ['iosDevices'] : []), 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
+  for (const key of ['avd', 'downloads', 'temp', 'state']) await mkdir(storage[key], { recursive: true });
   process.env.ANDROID_AVD_HOME = storage.avd;
   refreshAndroidSDK();
   process.env.TMPDIR = storage.temp + path.sep; process.env.TMP = storage.temp; process.env.TEMP = storage.temp;
@@ -44,6 +44,8 @@ export async function storageStatus() {
     note: `Android devices, downloads and Snapkit state use the data root. iOS device data: ${storage.iosDevices}. Installed iOS runtime images remain managed by Xcode in /Library/Developer/CoreSimulator.` };
 }
 export async function requireIOSStorage() {
+  // Initialize simulator storage only for an explicit simulator operation.
+  if (process.platform === 'darwin') await mkdir(storage.iosDevices, { recursive: true });
   const info = await storageStatus();
   if (!info.iosReady) throw new Error(`iOS device storage is unavailable at ${storage.iosDevices}. Check the default CoreSimulator Devices directory before creating a simulator.`);
   // Ensure the external target remains accessible before a simulator mutation.

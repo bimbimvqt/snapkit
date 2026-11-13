@@ -24,7 +24,8 @@ export function discoverSDKs({ platform = process.platform, home = os.homedir(),
   }
   if (platform === 'darwin') android.push(p.join(home, 'Library/Android/sdk'));
   if (platform === 'win32') android.push(p.join(env.LOCALAPPDATA || p.join(home, 'AppData/Local'), 'Android/Sdk'));
-  const volumes = mounts ?? (platform === 'darwin' ? directories('/Volumes') : platform === 'win32' ? 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => `${letter}:\\`) : [...directories('/media'), ...directories(p.join('/media', p.basename(home))), ...directories('/mnt'), ...directories(p.join('/run/media', p.basename(home)))]);
+  // External disks are inspected only when explicitly supplied by the caller.
+  const volumes = mounts ?? [];
   const roots = [home, ...volumes];
   const containers = ['', 'development', 'Development', 'Developer', 'dev', 'tools', 'Tools', 'sdk', 'SDKs', 'src', 'sdks'];
   for (const root of roots) {

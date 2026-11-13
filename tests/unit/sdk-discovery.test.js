@@ -21,3 +21,9 @@ test('FVM SDK and standard Linux Android layout are detected', () => {
 test('Windows drives use native paths and launcher extensions', () => {
   assert.deepEqual(probe(['D:\\flutter\\bin\\flutter.bat', 'D:\\Android\\sdk\\platform-tools\\adb.exe'], { platform: 'win32', home: 'C:\\Users\\test', mounts: ['D:\\'] }), { flutterSDK: 'D:\\flutter', androidSDK: 'D:\\Android\\sdk' });
 });
+test('default discovery never enumerates or probes unrequested mounted disks', () => {
+  const visited=[];
+  discoverSDKs({platform:'darwin',home:'/Users/test',env:{},directories:value=>{visited.push(value);return [];},isFile:value=>{visited.push(value);return false;}});
+  assert.equal(visited.some(value=>value.startsWith('/Volumes')),false);
+  assert.equal(probe(['/Volumes/External SSD/flutter/bin/flutter']).flutterSDK,'/Volumes/External SSD/flutter');
+});

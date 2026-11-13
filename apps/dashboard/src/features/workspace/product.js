@@ -172,7 +172,6 @@ async function loadProduct() {
     $('#pref-flutter').value = product.preferences?.flutterSDK || '';
     $('#pref-android').value = product.preferences?.androidSDK || '';
     renderEditors(); updateJourney();
-    if (window.snapkitDesktop && !product.preferences?.onboardingComplete) await checkTools();
   } catch { if (!product) toolError = 'Could not load setup information.'; }
   finally { productLoading = false; updateSetupView(); }
 }

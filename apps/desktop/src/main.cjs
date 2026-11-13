@@ -107,6 +107,16 @@ async function start() {
     fs.mkdirSync(path.dirname(languageFile), { recursive: true });
     fs.writeFileSync(languageFile, JSON.stringify(value), { mode: 0o600 });
   });
+  let folderPicking = false;
+  ipcMain.handle('snapkit:pick-folder', async (event) => {
+    if (!fromApp(event)) throw new Error('Invalid caller');
+    if (folderPicking) throw new Error('A folder picker is already open');
+    folderPicking = true;
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory', 'createDirectory'] });
+      return { path: result.canceled ? '' : result.filePaths[0] || '' };
+    } finally { folderPicking = false; }
+  });
   ipcMain.handle('snapkit:release-file', async (event, kind) => {
     if (!fromApp(event) || !['private-key', 'export-options'].includes(kind)) throw new Error('Invalid caller');
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: [{ name: kind === 'private-key' ? 'App Store Connect key' : 'Export options', extensions: [kind === 'private-key' ? 'p8' : 'plist'] }] });

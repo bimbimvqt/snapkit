@@ -79,6 +79,7 @@ if(savedSpaces?.version === 1 && Array.isArray(savedSpaces.entries) && savedSpac
 const spaces = new WorkspaceSpaces(savedSpaces, settings);
 let snapshot = { devices: demo ? structuredClone(demoDevices) : [], warnings: [], scannedAt: null };
 let scanning = null;
+let discoveryEnabled = false;
 const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
 let debugRevision = 0;
@@ -104,6 +105,7 @@ async function persist() {
   }
 }
 async function scan() {
+  discoveryEnabled = true;
   if (demo) { snapshot.scannedAt = new Date().toISOString(); return snapshot; }
   if (!scanning) scanning = discover({framework: settings.spaceId ? settings.framework : undefined}).then(async result => { const updates = await deviceStatus(result.devices); for (const d of result.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); snapshot = result; emit('devices', snapshot); return snapshot; }).finally(() => { scanning = null; });
   return scanning;
@@ -488,7 +490,6 @@ app.use(express.static(path.join(root, 'packages/ui')));
 app.use((error, _req, res, _next) => { console.error(error.message); res.status(400).json({ error: error.message }); });
 const server = app.listen(port, '127.0.0.1', () => {
   console.log(`\n  Snapkit Device Center → http://127.0.0.1:${port}${demo ? ' (DEMO — no device commands)' : ''}\n`);
-  if (!demo) scan().catch(e => console.error(e.message));
 });
 server.on('error', e => { console.error(e.message); process.exitCode = 1; });
 let statusPending = null;
@@ -510,7 +511,7 @@ const statusPoll = setInterval(() => {
   if (!demo && clients.size) account.status().then(status => { if (!status.authenticated) { void devLab.cancel(); void deviceTools.close(); for (const client of clients) client.end(); clients.clear(); } }).catch(() => {});
   if (clients.size || Date.now() - lastRemoteActivity < 60000) refreshStatus()?.catch(e => console.error(e.message));
 }, 2000);
-const poll = setInterval(() => { if ((clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
+const poll = setInterval(() => { if (discoveryEnabled && (clients.size || Date.now() - lastRemoteActivity < 60000) && !demo) scan().catch(e => console.error(e.message)); }, 30000);
 let stopping;
 server.on('request',(_req,res)=>res.once('finish',()=>{if(stopping)server.closeIdleConnections();}));
 function stop() {

@@ -121,6 +121,10 @@ async function refresh(button = $('#refresh-button')) {
   await busy(button, async () => { const result = await api('/api/scan', {}); state = { ...state, ...result, scanning: false };  });
   refreshing = false; $('#devices-grid').removeAttribute('aria-busy'); $('#refresh-button svg')?.classList.remove('spin'); render();
 }
+// Discover only after the user opens a device feature, never on app startup.
+document.addEventListener('snapkit:page', event => {
+  if (['devices', 'dev-lab', 'sets', 'logs', 'captures', 'releases'].includes(event.detail) && !state.scannedAt) void refresh();
+});
 let workspaceProfiles = [];
 let detectedFramework = 'flutter';
 let workspaceMismatch = false;

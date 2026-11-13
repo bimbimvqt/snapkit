@@ -5,6 +5,7 @@ export class AgentError extends Error {
 }
 // No session data is persisted or logged. Pairing validation stays in the controller.
 export async function agentRequest<T = unknown>(url: string, data: unknown, context: RequestContext): Promise<T> {
+  if (url === '/api/folders/pick' && data !== undefined && !context.connection && window.snapkitDesktop?.pickFolder) return await window.snapkitDesktop.pickFolder() as T;
   const headers: Record<string, string> = context.connection ? { Authorization: `Bearer ${context.connection.token}` } : {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (!context.connection && context.token) headers['X-Snapkit-Token'] = context.token; }
   const timeout = url === '/api/folders/pick' ? 310000 : url.includes('/api/provision/catalog') ? 135000 : url === '/api/scan' || url.includes('/boot') || url.includes('/shutdown') ? 120000 : 30000;

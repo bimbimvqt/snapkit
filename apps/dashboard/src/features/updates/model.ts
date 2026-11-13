@@ -12,6 +12,7 @@ export type FocusExperience={space:string;themes:PersonalTheme[];plant:string;co
 export type FocusAction={type:'toggle'}|{type:'reset'|'duration';seconds:number}|{type:'space'|'plant';value:string}|{type:'theme:save';theme:PersonalTheme}|{type:'theme:delete';value:string};
 export type MiniTask={id:string;userId:string;workspaceId:string;projectId:string;environment:string;title:string;project:string;done:number;total:number};
 export interface DesktopUpdates {
+  pickFolder?: () => Promise<{path:string}>;
   focusExperience?:(legacy?:MiniFocus)=>Promise<FocusExperience>;
   focusAction?:(value:FocusAction)=>Promise<FocusExperience>;
   onFocusExperience?:(callback:(value:FocusExperience)=>void)=>()=>void;
