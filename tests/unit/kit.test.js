@@ -42,3 +42,13 @@ test('machine scans do not follow build symlinks and shared kits require the bou
 test('Antigravity launches the IDE bundle or IDE CLI rather than the other application',async()=>{
  const f=await fixture({getEditor:()=> 'antigravity'});try{await f.request('/resume',{});assert.equal((await finished(f)).status,'complete');const launch=f.calls.find(([name])=>name==='open'||name.startsWith('antigravity'));assert.deepEqual(launch,process.platform==='darwin'?['open',['-b','com.google.antigravity-ide',f.project]]:[process.platform==='win32'?'antigravity-ide.cmd':'antigravity-ide',['--reuse-window',f.project]]);}finally{await f.close();}
 });
+
+test('saved device recipes discover on resume while ordinary startup and editor-only kits stay passive',async()=>{
+ let scans=0,booted=false;const devices=[];
+ const f=await fixture({getDevices:()=>devices,discoverDevices:async()=>{scans++;devices.push({id:'saved',name:'Saved phone',state:'offline'});},boot:async()=>{booted=true;}});
+ try{
+  await f.request();assert.equal(scans,0);
+  await f.request('/recipe',{openEditor:false,deviceIds:[]});await f.request('/resume',{});await finished(f);assert.equal(scans,0);
+  await f.request('/recipe',{openEditor:false,deviceIds:['saved']});await f.request('/resume',{});const job=await finished(f);assert.equal(scans,1);assert.equal(booted,true);assert.equal(job.status,'complete');
+ }finally{await f.close();}
+});

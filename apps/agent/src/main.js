@@ -164,7 +164,7 @@ app.use('/api', async (req, res, next) => {
 });
 // Dev Lab owns its targets until the task has fully stopped.
 app.use('/api',(req,res,next)=>{if(devLab.active&&req.method==='POST'&&(/^\/(?:workspace|workspaces|targets|ide|devices|releases|tools|kit|provision)(?:\/|$)/.test(req.path)||req.path==='/teams/local-debug/start'||req.path==='/teams/local-session'))return res.status(409).json({error:'Wait for Dev Lab to finish or cancel its active run'});next();});
-const kitRouter=kitRoutes({store,demo,getTeamPlan:input=>teamRouter.startKit(input),getSettings:()=>settings,getDevices:()=>snapshot.devices,getEditor:()=>getPreferences().editor,diagnostics:()=>diagnostics({framework:settings.framework}),active:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0,boot:async d=>{if(locks.has(d.id))throw Error('Device operation in progress');locks.add(d.id);try{if(demo){d.state='online';emit('devices',snapshot);}else{await bootDevice(d);void scan().catch(()=>{});}}finally{locks.delete(d.id);}}});
+const kitRouter=kitRoutes({store,demo,discoverDevices:()=>snapshot.scannedAt?Promise.resolve():scan(),getTeamPlan:input=>teamRouter.startKit(input),getSettings:()=>settings,getDevices:()=>snapshot.devices,getEditor:()=>getPreferences().editor,diagnostics:()=>diagnostics({framework:settings.framework}),active:()=>!!releaseBuilds.active||releaseBuilds.starting||deviceTools.recordings.size>0,boot:async d=>{if(locks.has(d.id))throw Error('Device operation in progress');locks.add(d.id);try{if(demo){d.state='online';emit('devices',snapshot);}else{await bootDevice(d);void scan().catch(()=>{});}}finally{locks.delete(d.id);}}});
 app.use('/api/kit',kitRouter);
 app.get('/api/health', (_req, res) => res.json({ product: 'snapkit', version: packageInfo.version, protocol: 1, desktop: process.env.SNAPKIT_DESKTOP === '1', demo }));
 const teamRouter=teamRoutes({account,store,demo,getDevices:()=>snapshot.devices,getSessions:()=>ideSessions.list(),stopSessions:ids=>ideSessions.requestStop(ids)});
@@ -414,6 +414,7 @@ app.get('/api/ide/plan', async (_req, res) => {
   // Demo state is never used to launch real IDE sessions.
   if (demo) return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
   const teamPlan=await teamRouter.teamRuntime.plan();if(teamPlan)return res.json(teamPlan);
+  if (!snapshot.scannedAt && settings.ideEnabled !== false && settings.workspace && settings.targetIds?.length) await scan();
   let plan = launchPlan(settings, snapshot.devices);
   if (plan.status === 'ready') {
     try { await validateBuild(await validateWorkspace(settings.workspace), settings); }

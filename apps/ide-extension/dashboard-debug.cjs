@@ -18,7 +18,7 @@ function getPlan(base) {
   }
   return new Promise((resolve, reject) => {
     // Native extension host HTTP: no browser CORS changes or stored bearer tokens.
-    const request = http.get(new URL('/api/ide/plan', url), { timeout: 1500 }, response => {
+    const request = http.get(new URL('/api/ide/plan', url), { timeout: 120000 }, response => {
       let body = '';
       response.setEncoding('utf8');
       response.on('data', chunk => {
