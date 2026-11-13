@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow','snapkit-everyday-kit','dev-lab-mcp-performance'];
+const slugs=['flutter-multi-device-debugging','react-native-multi-device-debugging','android-emulator-ios-simulator','install-snapkit-macos-windows','snapkit-teams-workflow','snapkit-everyday-kit'];
 const paths=['','en/','huong-dan/','en/guides/',...slugs.flatMap(slug=>[`huong-dan/${slug}/`,`en/guides/${slug}/`])];
 test('all public search URLs render useful HTML without JavaScript and have reciprocal locale metadata',async({browser,baseURL,request})=>{
  const context=await browser.newContext({javaScriptEnabled:false}); const page=await context.newPage();
@@ -74,4 +74,8 @@ test('guide library and articles keep readable navigation and real app images in
  }
  expect(errors).toEqual([]);
 });
-test('Dev Lab landing and bilingual guide explain real capabilities and limitations',async({page})=>{await page.goto('./?lang=en');await expect(page.locator('#dev-lab h2')).toHaveText('From testing to decisions.');await expect(page.locator('#dev-lab')).toContainText('iOS Simulator has no frame metric');await page.getByRole('link',{name:'Dev Lab guide',exact:true}).click();await expect(page.locator('h1')).toContainText('Dev Lab');await expect(page.locator('main')).toContainText('MCP is disabled by default');await expect(page.locator('main')).toContainText('command duration is not time to first rendered frame');await page.goto('huong-dan/dev-lab-mcp-performance/');await expect(page.locator('main')).toContainText('Mặc định MCP tắt');});
+test('retired developer lab is absent from landing, guides and sitemap',async({page,request})=>{
+ await page.goto('./?lang=en');await expect(page.locator('#dev-lab')).toHaveCount(0);await expect(page.getByRole('link',{name:'Dev Lab guide',exact:true})).toHaveCount(0);
+ const sitemap=await request.get('sitemap.xml');expect(await sitemap.text()).not.toContain('dev-lab-mcp-performance');
+ for(const path of ['huong-dan/dev-lab-mcp-performance/','en/guides/dev-lab-mcp-performance/'])expect((await request.get(path)).status()).toBe(404);
+});

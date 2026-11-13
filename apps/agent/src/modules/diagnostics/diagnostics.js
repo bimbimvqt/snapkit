@@ -3,8 +3,8 @@ import { computerInfo } from './computer.js';
 import { run, parseJsonOutput, executable } from '../../infrastructure/process/cli.js';
 import { storageVolumes } from './volumes.js';
 import { storage, refreshAndroidSDK } from '../../infrastructure/storage/device-storage.js';
-import { getPreferences } from '../../infrastructure/storage/preferences.js';
-import { clearSDKDiscovery } from '../../infrastructure/tooling/sdk-discovery.js';
+import { getPreferences, savePreferences } from '../../infrastructure/storage/preferences.js';
+import { clearSDKDiscovery, discoverSDKs } from '../../infrastructure/tooling/sdk-discovery.js';
 
 let cached, pending, cachedFramework, pendingFramework;
 export async function diagnostics({ fresh = false, framework = getPreferences().developerProfile?.framework || 'flutter' } = {}) {
@@ -20,7 +20,18 @@ export async function diagnostics({ fresh = false, framework = getPreferences().
   pending = collect(framework).then(result => { cached = result; return result; }).finally(() => { pending = null; });
   return pending;
 }
+// Called only by an explicit tools check, never during app initialization.
+export async function restoreSDKPreferences({ read = getPreferences, save = savePreferences, discover = discoverSDKs } = {}) {
+  const preferences = read();
+  if (preferences.flutterSDK && preferences.androidSDK) return false;
+  const found = discover({ includeExternal: true }), update = {};
+  for (const key of ['flutterSDK', 'androidSDK']) if (!preferences[key] && found[key]) update[key] = found[key];
+  if (!Object.keys(update).length) return false;
+  await save(update);
+  return true;
+}
 async function collect(framework) {
+  if (await restoreSDKPreferences()) { clearSDKDiscovery(); refreshAndroidSDK(); }
   const check = async (id, title, command, args, help, required = true) => {
     try {
       const result = await run(command, args, { timeout: 15000 });

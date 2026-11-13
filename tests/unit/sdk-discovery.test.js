@@ -27,3 +27,9 @@ test('default discovery never enumerates or probes unrequested mounted disks', (
   assert.equal(visited.some(value=>value.startsWith('/Volumes')),false);
   assert.equal(probe(['/Volumes/External SSD/flutter/bin/flutter']).flutterSDK,'/Volumes/External SSD/flutter');
 });
+test('explicit tools checks can discover external SDKs without enabling startup disk enumeration', () => {
+ const directories=value=>value==='/Volumes'?['/Volumes/External SSD']:[];
+ const options={platform:'darwin',home:'/Users/test',env:{},directories,isFile:value=>value==='/Volumes/External SSD/flutter/bin/flutter'};
+ assert.equal(discoverSDKs(options).flutterSDK,'');
+ assert.equal(discoverSDKs({...options,includeExternal:true}).flutterSDK,'/Volumes/External SSD/flutter');
+});

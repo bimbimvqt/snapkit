@@ -4,9 +4,10 @@ Snapkit keeps startup passive. Notifications are enabled only through the bell's
 notification settings. Device discovery starts when a device feature is opened
 or the user requests a scan; subsequent background scans keep that list current.
 Setup diagnostics run when the user opens Setup & tools or requests a check.
-SDK discovery uses known local paths and configured environment/PATH entries;
-it does not enumerate mounted disks. Select an external SDK folder explicitly
-in settings. Desktop folder selection uses Electron's native directory dialog;
+Startup SDK discovery uses known local paths and configured environment/PATH
+entries without enumerating mounted disks. An explicit tools check also searches
+known SDK layouts on mounted disks and saves valid SDK paths that have not yet
+been configured. Existing configured paths are preserved. Desktop folder selection uses Electron's native directory dialog;
 the local browser agent retains its explicit folder-picker fallback.
 
 Previously saved notification choices and SDK paths remain in place. A real

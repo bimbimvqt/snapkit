@@ -9,7 +9,7 @@ const canonical = value => { try { return realpathSync(value); } catch { return 
 export function clearSDKDiscovery() { cached = undefined; }
 
 // Probe known SDK layouts only. Never recursively crawl source, user documents or disks.
-export function discoverSDKs({ platform = process.platform, home = os.homedir(), env = process.env, mounts, isFile = file, directories = children, realpath = canonical } = {}) {
+export function discoverSDKs({ platform = process.platform, home = os.homedir(), env = process.env, mounts, includeExternal = false, isFile = file, directories = children, realpath = canonical } = {}) {
   const p = platform === 'win32' ? path.win32 : path.posix;
   const flutterName = platform === 'win32' ? 'flutter.bat' : 'flutter';
   const adbName = platform === 'win32' ? 'adb.exe' : 'adb';
@@ -25,7 +25,7 @@ export function discoverSDKs({ platform = process.platform, home = os.homedir(),
   if (platform === 'darwin') android.push(p.join(home, 'Library/Android/sdk'));
   if (platform === 'win32') android.push(p.join(env.LOCALAPPDATA || p.join(home, 'AppData/Local'), 'Android/Sdk'));
   // External disks are inspected only when explicitly supplied by the caller.
-  const volumes = mounts ?? [];
+  const volumes = mounts ?? (includeExternal ? (platform === 'darwin' ? directories('/Volumes') : platform === 'win32' ? 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => `${letter}:\\`) : [...directories('/media'), ...directories(p.join('/media', p.basename(home))), ...directories('/mnt'), ...directories(p.join('/run/media', p.basename(home)))]) : []);
   const roots = [home, ...volumes];
   const containers = ['', 'development', 'Development', 'Developer', 'dev', 'tools', 'Tools', 'sdk', 'SDKs', 'src', 'sdks'];
   for (const root of roots) {
