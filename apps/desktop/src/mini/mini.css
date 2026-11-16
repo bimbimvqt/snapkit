@@ -12,3 +12,5 @@ body{height:100vh;position:relative;min-height:0}nav{display:flex;gap:4px;paddin
 #mini-spaces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:100px;overflow:auto;gap:6px}#mini-spaces button{overflow-wrap:anywhere}
 
 .debug-toolbar{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--inner)}.debug-toolbar button{display:flex;align-items:center;justify-content:center;gap:7px;min-width:44px;min-height:40px;padding:8px;border:0;background:transparent}.debug-toolbar .debug-run{flex:1;justify-content:flex-start;color:var(--green);font-weight:600}.debug-toolbar #debug-reload{color:var(--green)}.debug-toolbar button:disabled{cursor:default}#debug-config{margin:-6px 0 0;font-size:11px;overflow-wrap:anywhere}
+
+#mini-build-section>summary{cursor:pointer;font-size:12px;min-height:36px;display:list-item;padding:8px 0;color:var(--muted)}#mini-build-section>summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}#mini-build-section[open]>.build{margin-top:8px}

@@ -292,7 +292,7 @@ Object.assign(window.SnapkitMessages.translations, {
   "Run. Reload. Tiếp tục sáng tạo.": "Run. Reload. Keep building.",
   "Bốn nút quen thuộc: Run, Hot reload, Hot restart và Stop. Điều khiển các phiên trên thiết bị đã chọn từ Snapkit hoặc widget nổi.": "Four familiar controls: Run, Hot reload, Hot restart and Stop. Control sessions on selected devices from Snapkit or its floating widget.",
   "F5 giữ cấu hình IDE. Run dùng cấu hình Snapkit. Luôn biết bạn đang chạy dev hay prod.": "F5 keeps your IDE profile. Run uses your Snapkit configuration. Know whether you are running dev or prod.",
-  "Cần Snapkit Desktop 0.2.0-beta.90 và Debug Sync 1.7 trở lên. Mở cùng project trong một cửa sổ IDE được tin cậy.": "Requires Snapkit Desktop 0.2.0-beta.90 and Debug Sync 1.7 or newer. Open the same project in one trusted IDE window.",
+  "Cần Snapkit Desktop 0.2.0-beta.91 và Debug Sync 1.7 trở lên. Mở cùng project trong một cửa sổ IDE được tin cậy.": "Requires Snapkit Desktop 0.2.0-beta.91 and Debug Sync 1.7 or newer. Open the same project in one trusted IDE window.",
   "Tải Debug Sync 1.7.1": "Download Debug Sync 1.7.1",
   "Lịch sử cập nhật extension": "Extension changelog",
   "Thanh Run, Hot reload, Hot restart và Stop trên Snapkit Mini": "Run, Hot reload, Hot restart and Stop controls in Snapkit Mini",

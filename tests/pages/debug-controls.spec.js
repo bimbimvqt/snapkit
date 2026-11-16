@@ -5,7 +5,7 @@ test('landing explains IDE versus Snapkit configuration and offers versioned ext
   const section=page.locator('#debug-controls');await section.scrollIntoViewIfNeeded();
   await expect(section.getByRole('heading')).toHaveText(heading);
   await expect(section).toContainText('Hot restart');await expect(section).toContainText('1.7');
-  await expect(section.locator('#extension-download')).toHaveAttribute('href',/v0\.2\.0-beta\.90\/snapkit-debug-sync\.vsix$/);
+  await expect(section.locator('#extension-download')).toHaveAttribute('href',/v0\.2\.0-beta\.91\/snapkit-debug-sync\.vsix$/);
   await expect.poll(()=>section.locator('img').evaluate(img=>img.naturalWidth)).toBeGreaterThan(0);
   for(const width of [375,768,1440]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
   await section.screenshot({path:'screenshots/landing-debug-controls-'+(route?'en':'vi')+'.png'});

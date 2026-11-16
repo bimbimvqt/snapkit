@@ -9,7 +9,7 @@ Debug Flutter and React Native on the devices selected in [Snapkit](https://snap
 - Keep the IDE's selected dev/prod profile when pressing F5.
 - Read extension setup instructions here and release notes in the Changelog tab.
 
-The new Snapkit and Mini controls require Snapkit Desktop **0.2.0-beta.90 or newer** and this extension **1.7 or newer**. Your IDE must be open with the same project in a trusted workspace. React Native continues to launch from the IDE.
+The new Snapkit and Mini controls require Snapkit Desktop **0.2.0-beta.91 or newer** and this extension **1.7 or newer**. Your IDE must be open with the same project in a trusted workspace. React Native continues to launch from the IDE.
 
 ## Install and connect
 
@@ -54,6 +54,6 @@ Select **Snapkit React Native** in Run and Debug, then press F5. Snapkit prepare
 
 **F5 trong IDE** dùng cấu hình dev/prod đang chọn trong IDE. **Run trên Snapkit hoặc widget Mini** dùng cấu hình dự án lưu trong Snapkit. Chọn thiết bị trước khi chạy; Hot reload, Hot restart và Stop chỉ điều khiển các phiên trên thiết bị đã chọn.
 
-Cần mở cùng dự án trong IDE, tin cậy workspace và tải lại cửa sổ IDE sau khi cập nhật extension. Bộ điều khiển mới cần Snapkit Desktop 0.2.0-beta.90 trở lên. Run trong Snapkit/Mini hiện dành cho Flutter; React Native tiếp tục chạy từ IDE.
+Cần mở cùng dự án trong IDE, tin cậy workspace và tải lại cửa sổ IDE sau khi cập nhật extension. Bộ điều khiển mới cần Snapkit Desktop 0.2.0-beta.91 trở lên. Run trong Snapkit/Mini hiện dành cho Flutter; React Native tiếp tục chạy từ IDE.
 
 [Website and downloads](https://snapkit.vn/) · [Report an issue](https://github.com/bimbimvqt/snapkit/issues)
