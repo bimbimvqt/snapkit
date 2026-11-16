@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1 — 2026-11-16
+
+- Update Details for the aligned debug toolbar and shared themed profile menu in Snapkit Desktop beta.94.
+- Document the removal of Quick setup from Devices. IDE launch behavior is unchanged.
+
 ## 1.8.0 — 2026-11-16
 
 - Choose an IDE debug profile or saved Snapkit configuration from Run configuration in Devices and Mini.

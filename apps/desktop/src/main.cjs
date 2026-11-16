@@ -224,7 +224,7 @@ async function start() {
       const asleep=await window.snapkitDesktop.kitAwake(false);
       await window.snapkitDesktop.kitFocus(null);
       const kit=typeof kitState.shortcut==='boolean' && !kitState.startupAvailable && awake.awake && !asleep.awake && !!document.querySelector('#kit-root h1');
-      return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('#setup-card'),languages:vietnamese && english};
+      return {everyday,kit,desktop:p.desktop,version:h.version,bridge:!!window.snapkitDesktop,ui:!!document.querySelector('.ide-selection .debug-actions')&&!document.querySelector('#setup-card'),languages:vietnamese && english};
     })()`);
     await mainWindow.webContents.executeJavaScript(`window.snapkitDesktop.focusAction({type:'theme:save',theme:{id:'custom-00000000-0000-4000-8000-000000000001',name:'Smoke sunset',scene:'gradient',accent:'#ff7799',background:'#552233'}})`);
     await mini.show();
@@ -272,7 +272,14 @@ async function start() {
       const state=await window.snapkitMini.state(),profiles=state.debugControls.profiles;
       const prod=profiles.find(p=>p.source==='ide'&&p.flavor==='prod');
       if(!prod)return false;
-      await window.snapkitMini.action('debug:profile:'+prod.id);
+      const source=document.getElementById('debug-run-profile'),trigger=document.getElementById('debug-run-profile-trigger');
+      if(!trigger||getComputedStyle(source).display!=='none')return false;
+      trigger.click();
+      const menu=document.querySelector('.choice-popup:popover-open');
+      if(!menu||trigger.getAttribute('aria-expanded')!=='true')return false;
+      const rect=menu.getBoundingClientRect();if(rect.left<0||rect.right>innerWidth||rect.top<0||rect.bottom>innerHeight)return false;
+      const index=[...source.options].findIndex(p=>p.value===prod.id);
+      document.querySelector('#debug-run-profile-listbox [data-index="'+index+'"]').click();
       for(let i=0;i<50;i++){const next=await window.snapkitMini.state();if(next.debugControls.profileId===prod.id&&document.getElementById('debug-run-profile').value===prod.id){await window.snapkitMini.action('debug:profile:workspace');return true;}await new Promise(r=>setTimeout(r,100));}
       return false;
     })()`);
@@ -343,6 +350,12 @@ async function start() {
           if(mode==='debug')await miniWindow.webContents.executeJavaScript(`(async()=>{const s=await window.snapkitMini.state(),dev=s.debugControls.profiles.find(p=>p.source==='ide'&&p.flavor==='dev');if(dev){await window.snapkitMini.action('debug:profile:'+dev.id);for(let i=0;i<40;i++){if((await window.snapkitMini.state()).debugControls.profileId===dev.id)break;await new Promise(r=>setTimeout(r,100));}}})()`);
           await new Promise(resolve=>setTimeout(resolve,200));
           fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-'+mode+'-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
+          if(mode==='debug'){
+            await miniWindow.webContents.executeJavaScript("document.getElementById('debug-run-profile-trigger').click()");
+            await new Promise(resolve=>setTimeout(resolve,150));
+            fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-menu-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
+            await miniWindow.webContents.executeJavaScript("document.getElementById('debug-run-profile-trigger').click()");
+          }
         }
         await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:focus')");
       }

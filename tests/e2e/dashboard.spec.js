@@ -220,7 +220,7 @@ test('pending boot stays disabled across a scan and cannot be submitted twice', 
 test('guided desktop dashboard explains setup, editor compatibility and the free beta without checkout', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await expect(page.locator('#setup-card')).toBeVisible();
+  await expect(page.locator('#setup-card')).toHaveCount(0);
   await page.getByRole('button', { name: 'Setup and tools' }).click();
   await expect(page.locator('.tool-check.ready')).toHaveCount(3);
   await expect(page.locator('[data-editor]')).toHaveCount(3);

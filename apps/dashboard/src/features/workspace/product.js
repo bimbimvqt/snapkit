@@ -1,5 +1,5 @@
 import {storageSize,volumeKind,storageRoles} from '../../../../../packages/domain/storage-view.js';
-import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, showWorkspace } from '../../legacy/device-controller.js';
+import { t, $, $$, escape, icon, icons, busy, api, toast, connection } from '../../legacy/device-controller.js';
 import macMiniImage from './assets/mac-mini.webp';
 import macStudioImage from './assets/mac-studio.webp';
 import macbookImage from './assets/macbook.webp';
@@ -28,23 +28,6 @@ function showProductPage(page, { discover = true } = {}) {
 }
 $$('[data-app-page]').forEach(button => button.addEventListener('click', () => showProductPage(button.dataset.appPage)));
 $$('[data-go]').forEach(button => button.addEventListener('click', () => showProductPage(button.dataset.go)));
-$('#journey-project').addEventListener('click', showWorkspace);
-$('#journey-device').addEventListener('click', () => { $('#add-device').click(); });
-let journeyInitialized = false, journeyHasState = !!state.scannedAt;
-$('#setup-card>summary').addEventListener('click', () => { journeyInitialized = true; });
-function updateJourney() {
-  $('#journey-workspace').textContent = state.settings.workspace ? state.settings.workspace.split(/[\\/]/).filter(Boolean).at(-1) : t(document.body.dataset.framework === 'react-native' ? "Connect a React Native project" : "Connect a Flutter project");
-  const online = state.devices.filter(device => device.state === 'online').length;
-  $('#journey-devices').textContent = online ? t("{0} device{1} ready to use", [online, online === 1 ? '' : 's']) : t("Create one or connect your phone");
-  $('#journey-project .step-number').classList.toggle('complete', !!state.settings.workspace);
-  $('#journey-device .step-number').classList.toggle('complete', online > 0);
-  $('#journey-progress').textContent = state.settings.workspace && online ? t('Project connected · {0} online', [online]) : t('Connect project → Start devices → Debug');
-  if (product && journeyHasState && !journeyInitialized) {
-    $('#setup-card').open = !product.preferences?.onboardingComplete && !(state.settings.workspace && online > 0);
-    journeyInitialized = true;
-  }
-}
-document.addEventListener('snapkit:state', () => { journeyHasState = true; updateJourney(); });
 function renderEditors() {
   const selected = productEditors.some(([id]) => id === product?.preferences?.editor) ? product.preferences.editor : 'vscode';
   $('#editor-options').innerHTML = productEditors.map(([id, name, detail, symbol]) => `<button type="button" class="editor-option ${selected === id ? 'chosen' : ''}" data-editor="${id}" aria-pressed="${selected === id}">${icon(symbol)}<strong>${escape(t(name))}</strong><small>${escape(t(detail))}</small>${selected === id ? icon('circle-check') : ''}</button>`).join('');
@@ -62,10 +45,6 @@ $('#editor-options').addEventListener('click', event => {
     toast(t("Editor preference saved"));
   });
 });
-$('#hide-welcome').addEventListener('click', event => busy(event.currentTarget, async () => {
-  const result = await api('/api/preferences', { onboardingComplete: true });
-  product.preferences = result.preferences; $('#setup-card').open = false; toast(t("You can reopen Quick setup anytime."));
-}));
 function updateSetupView() {
   const ready = !!product && !!toolState;
   const loading = !!toolPromise || productLoading;
@@ -125,8 +104,6 @@ function renderTools() {
       const ready = toolState.checks.filter(check => check.status === 'ready').length;
       const missing = toolState.checks.length - ready;
       $('#readiness-summary').textContent = t(missing ? '{0} ready · {1} need setup' : '{0} tools ready. Choose your project and devices.', missing ? [ready, missing] : [ready]);
-      $('#journey-tools').textContent = t("{0} of {1} tools ready", [ready, toolState.checks.length]);
-      $('[data-go="setup"] .step-number').classList.toggle('complete', toolState.ready);
       $('#storage-locations').innerHTML = Object.entries(toolState.storage || {}).filter(([,value]) => value).map(([name,value]) => `<dt>${escape({ root: t("Snapkit settings"), android: t("Android devices"), ios: t("iOS devices") }[name] || name)}</dt><dd>${escape(value)}</dd>`).join('');
       icons();
 }
@@ -172,7 +149,7 @@ async function loadProduct() {
 
     $('#pref-flutter').value = product.preferences?.flutterSDK || '';
     $('#pref-android').value = product.preferences?.androidSDK || '';
-    renderEditors(); updateJourney();
+    renderEditors();
   } catch { if (!product) toolError = 'Could not load setup information.'; }
   finally { productLoading = false; updateSetupView(); }
 }
@@ -180,7 +157,7 @@ document.addEventListener('snapkit:state', () => { if (!product && (!window.SNAP
 loadProduct();
 
 document.addEventListener('snapkit:language', () => {
-  renderEditors(); updateJourney();
+  renderEditors();
   $('#breadcrumb-page').textContent = t({ profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Debug Console', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
   updateSetupView();
@@ -190,7 +167,7 @@ window.snapkitDesktop?.setLanguage?.(window.SnapkitI18n.language).catch(() => {}
 document.addEventListener('snapkit:navigate', event => showProductPage(event.detail));
 export { activePage, showProductPage };
 
-document.addEventListener('snapkit:profile', () => { invalidateTools(); updateJourney(); renderEditors(); renderFrameworkGuidance(); if (activePage === 'setup') void checkTools(); });
+document.addEventListener('snapkit:profile', () => { invalidateTools(); renderEditors(); renderFrameworkGuidance(); if (activePage === 'setup') void checkTools(); });
 
 const frameworkGuidance = [
   [

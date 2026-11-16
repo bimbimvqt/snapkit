@@ -82,7 +82,7 @@ function activate(context) {
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Snapkit Debug Sync 1.8.0 ready. IDE Flutter profiles are preserved by default.');
+  output.appendLine('Snapkit Debug Sync 1.8.1 ready. IDE Flutter profiles are preserved by default.');
 }
 
 module.exports = { activate, createRestartSync };

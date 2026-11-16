@@ -44,6 +44,9 @@ test('Run configuration offers dev/prod, keeps device selection, synchronizes su
  const prod=catalog.profiles.find(p=>p.flavor==='prod'),dev=catalog.profiles.find(p=>p.flavor==='dev');
  const {choose}=await import('./choices.js');
  try{
+  await expect(page.locator('#setup-card')).toHaveCount(0);
+  await expect(page.locator('#debug-run-profile')).toBeHidden();
+  await expect(page.locator('#debug-run-profile-trigger')).toBeVisible();
   await expect(page.locator('#debug-run-profile option')).toHaveCount(catalog.profiles.length);
   for(const profile of [prod,dev]){
    await choose(page,'debug-run-profile',profile.id);
@@ -52,7 +55,16 @@ test('Run configuration offers dev/prod, keeps device selection, synchronizes su
    expect((await page.request.get('/api/state').then(r=>r.json())).settings.targetIds).toEqual(initial.settings.targetIds);
   }
   await page.reload();await expect(page.locator('#debug-run-profile')).toHaveValue(dev.id);
-  await page.setViewportSize({width:375,height:812});expect(await page.locator('.ide-selection').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  for(const width of [375,768,1024,1440]){
+   await page.setViewportSize({width,height:1000});
+   expect(await page.locator('.ide-selection').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+   await page.locator('#debug-run-profile-trigger').click();
+   const popup=page.locator('.debug-profile-field .choice-popup');await expect(popup).toBeVisible();
+   const rect=await popup.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
+   await page.keyboard.press('Escape');await expect(popup).toBeHidden();
+   await page.screenshot({path:'/tmp/snapkit94-debug-toolbar-'+width+'.png',fullPage:true});
+  }
+  await page.setViewportSize({width:375,height:812});
   await page.screenshot({path:'/tmp/snapkit93-run-profile-mobile.png',fullPage:true});
  }finally{await page.request.post('/api/ide/profiles/select',{headers:{'X-Snapkit-Token':initial.token},data:{expectedWorkspace:initial.settings.workspace,id:'workspace'}});}
 });

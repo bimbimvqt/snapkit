@@ -15,4 +15,8 @@ body{height:100vh;position:relative;min-height:0}nav{display:flex;gap:4px;paddin
 
 #mini-build-section>summary{cursor:pointer;font-size:12px;min-height:36px;display:list-item;padding:8px 0;color:var(--muted)}#mini-build-section>summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}#mini-build-section[open]>.build{margin-top:8px}
 
-.debug-profile-field{display:grid;gap:6px;font-size:11px;color:var(--muted)}#debug-run-profile{width:100%;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--inner);color:var(--text);padding:8px 10px;font:inherit;font-size:12px}#debug-run-profile:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+:root{--font:system-ui,-apple-system,'Segoe UI',sans-serif;--bg:var(--inner);--border:var(--line);--surface-hover:var(--inner)}
+.debug-profile-field{display:grid;gap:6px;min-width:0;font-size:11px;color:var(--muted)}
+.debug-profile-field .choice-trigger{min-height:44px;border-radius:10px;background:var(--inner);font-size:12px}
+.choice-popup{font-size:12px}.choice-popup .choice-option{min-height:44px}
