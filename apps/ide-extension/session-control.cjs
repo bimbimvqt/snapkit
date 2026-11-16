@@ -1,6 +1,8 @@
 'use strict';
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
+const { realpath } = require('node:fs/promises');
+const canonical = async p => { const root = await realpath(p); return process.platform === 'win32' ? root.toLowerCase() : root; };
 function agentRequest(base, pathname, body, token) {
   const url = new URL(base);
   if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) return Promise.reject(new Error('Snapkit agent must be a loopback HTTP address'));
@@ -18,8 +20,9 @@ function agentRequest(base, pathname, body, token) {
 }
 function createSessionControl(vscode, { request = agentRequest, report = () => {} } = {}) {
   const ownerId = randomUUID(), sessions = new Map(), stopping = new Set();
+  const launches = new Map(), actions = new Set();
   let timer, pending = false, dirty = false, disposed = false, credentials = null;
-  const schedule = () => { if (!disposed && sessions.size) { clearTimeout(timer); timer = setTimeout(tick, 1000); timer.unref?.(); } };
+  const schedule = () => { if (!disposed && (sessions.size || vscode.workspace.workspaceFolders?.length)) { clearTimeout(timer); timer = setTimeout(tick, 1000); timer.unref?.(); } };
   async function tick() {
     if (pending || disposed) return;
     pending = true; dirty = false;
@@ -31,7 +34,37 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         credentials = { base, token: state.token };
       }
       const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug',...(s.configuration.__snapkitTeamSession?{teamSessionId:s.configuration.__snapkitTeamSession}:{}) }));
-      const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed }, credentials.token);
+      const folders = vscode.workspace.isTrusted ? vscode.workspace.workspaceFolders || [] : [];
+      const roots = await Promise.all(folders.map(async folder => ({ folder, root: await canonical(folder.uri.fsPath).catch(() => '') })));
+      const launchResults = [...launches].filter(([, result]) => result.status).map(([id, result]) => ({ id, ...result }));
+      const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed,
+        workspaces: roots.map(item => item.root).filter(Boolean), launchResults, actionResults: [...actions] }, credentials.token);
+      for (const { id } of launchResults) launches.delete(id);
+      const activeActions = new Set((result.actions || []).map(action => action.id));
+      for (const id of actions) if (!activeActions.has(id)) actions.delete(id);
+      for (const command of result.launches || []) {
+        if (launches.has(command.id)) continue;
+        const entry = roots.find(item => item.root === command.plan?.workspace);
+        if (!entry || !vscode.workspace.isTrusted) continue;
+        launches.set(command.id, {});
+        // Launching/building may take minutes. Keep heartbeats and Stop working.
+        void (async () => {
+          try {
+            if (command.plan.status !== 'ready' || command.plan.framework === 'react-native') throw Error('Invalid Flutter launch');
+            const started = await vscode.debug.startDebugging(entry.folder, { name: 'Snapkit Debug', type: 'dart', request: 'launch', __snapkitLaunchPlan: command.plan });
+            launches.set(command.id, { status: started ? 'started' : 'failed', error: started ? '' : 'IDE cancelled debug. Check the Debug Console.' });
+          } catch (error) { launches.set(command.id, { status: 'failed', error: error.message }); }
+          if (!disposed) void tick();
+        })();
+      }
+      for (const action of result.actions || []) {
+        if (actions.has(action.id)) continue;
+        actions.add(action.id);
+        const session = sessions.get(action.sessionId);
+        if (!session || session.type !== 'dart' || !['hotReload', 'hotRestart'].includes(action.command)) continue;
+        try { await session.customRequest(action.command, { reason: 'manual' }); report(`${action.command}: ${session.name}`); }
+        catch (error) { report(error.message); void vscode.window?.showErrorMessage?.(`Snapkit: ${error.message}`); }
+      }
       for (const id of result.stopSessionIds || []) {
         const session = sessions.get(id);
         if (!session || stopping.has(id)) continue;
@@ -50,6 +83,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
     },
     terminated(session) { if (!sessions.has(session.id)) return; sessions.delete(session.id); stopping.delete(session.id); clearTimeout(timer); dirty = true; void tick(); },
     tick,
+    connect() { void tick(); },
     dispose() { disposed = true; clearTimeout(timer); sessions.clear(); },
   };
 }

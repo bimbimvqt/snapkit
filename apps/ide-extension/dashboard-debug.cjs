@@ -10,7 +10,7 @@ async function canonicalWorkspace(value) {
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
-function getPlan(base) {
+function getPlan(base, { configurationSource } = {}) {
   const url = new URL(base);
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)
       || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
@@ -18,7 +18,9 @@ function getPlan(base) {
   }
   return new Promise((resolve, reject) => {
     // Native extension host HTTP: no browser CORS changes or stored bearer tokens.
-    const request = http.get(new URL('/api/ide/plan', url), { timeout: 120000 }, response => {
+    const endpoint = new URL('/api/ide/plan', url);
+    if (configurationSource === 'ide') endpoint.searchParams.set('configurationSource', 'ide');
+    const request = http.get(endpoint, { timeout: 120000 }, response => {
       let body = '';
       response.setEncoding('utf8');
       response.on('data', chunk => {
@@ -55,8 +57,9 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       if (!normal(config)) return groups.has(config.__snapkitGroup) ? config : undefined;
       const settings = vscode.workspace.getConfiguration('snapkit', folder?.uri);
       const native = ['reactnative', 'reactnativedirect'].includes(config.type);
+      const configurationSource = native || config.__snapkitLaunchPlan ? 'dashboard' : settings.get('flutterLaunchConfiguration', 'ide');
       const program = String(config.program || '').replaceAll('\\', '/');
-      if (!folder || !vscode.workspace.isTrusted || !settings.get('useDashboardTargets', true)
+      if (!folder || !vscode.workspace.isTrusted || (!config.__snapkitLaunchPlan && !settings.get('useDashboardTargets', true))
           || (config.type && !['dart', 'reactnative', 'reactnativedirect'].includes(config.type)) || (config.request && config.request !== 'launch')
           || config.noDebug || (config.flutterMode && config.flutterMode !== 'debug')
           || config.testName || config.testSuite || config.runTestsOnDevice
@@ -65,11 +68,11 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       try {
         root = await canonical(folder.uri.fsPath);
         if (!await (native ? reactNativeProject(root) : flutterProject(root))) return config;
-        plan = await readPlan(settings.get('agentUrl', 'http://127.0.0.1:4310'));
-        if (plan.protocol !== 1 || !plan.workspace || root !== await canonical(plan.workspace) || plan.status === 'inactive') return config;
+        plan = config.__snapkitLaunchPlan || await readPlan(settings.get('agentUrl', 'http://127.0.0.1:4310'), { configurationSource });
+        if (plan.protocol !== 1 || !plan.workspace || root !== await canonical(plan.workspace) || plan.status === 'inactive') return config.__snapkitLaunchPlan ? undefined : config;
       } catch {
         report('Snapkit unavailable; using the original IDE debug configuration.');
-        return config;
+        return config.__snapkitLaunchPlan ? undefined : config;
       }
       if ((plan.framework === 'react-native') !== native) return config;
       if (token?.isCancellationRequested) return undefined;
@@ -94,8 +97,16 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       const group = { id: randomUUID(), root, folder, sessions: new Map(), queue: [], stopping: false };
       const configs = plan.configurations.map(c => {
         if (native) return member({ ...config, ...c, type: config.type }, group);
-        const combined = { ...config, name: c.name, type: 'dart', request: 'launch', flutterMode: 'debug',
-          ...(c.__snapkitTeamSession?{__snapkitTeamSession:c.__snapkitTeamSession}:{}),program: c.program, cwd: c.cwd, deviceId: c.deviceId, args: [], toolArgs: c.toolArgs };
+        // The IDE owns the selected profile. Dashboard contributes device selection
+        // unless the user explicitly opts into its build configuration (or Teams).
+        const useDashboard = configurationSource === 'dashboard' || !!plan.team;
+        const combined = { ...config, name: config.name ? `${config.name} · ${c.name}` : c.name,
+          type: 'dart', request: 'launch', flutterMode: 'debug', deviceId: c.deviceId,
+          cwd: config.cwd || c.cwd,
+          ...(c.__snapkitTeamSession ? { __snapkitTeamSession: c.__snapkitTeamSession } : {}),
+          ...(useDashboard ? { program: c.program, cwd: c.cwd, args: [], toolArgs: c.toolArgs } : {}),
+        };
+        delete combined.__snapkitLaunchPlan;
         delete combined.dartCodeDebugSessionID;
         return member(combined, group);
       });
@@ -104,7 +115,7 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       group.expiry = setTimeout(() => { if (!group.sessions.size) groups.delete(group.id); }, 120000);
       group.expiry.unref?.();
       groups.set(group.id, group);
-      report(`Dashboard selected ${configs.length} device(s); launching concurrently in memory. Project files are unchanged.`);
+      report(`Dashboard selected ${configs.length} device(s); launching concurrently in memory. Flutter configuration source: ${plan.team ? 'Teams' : configurationSource}. Project files are unchanged.`);
       return configs[0];
     },
   };

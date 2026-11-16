@@ -287,3 +287,19 @@ Object.assign(window.SnapkitMessages.translations,{
  "Ba chế độ. Một widget nhỏ. Tập trung, theo dõi debug và dùng tiện ích ngay trong tầm tay.":"Three modes. One small widget. Focus, follow debugging and reach your everyday tools.","Tập trung":"Focus","Tiện ích":"Utilities","Chọn ảnh widget":"Widget preview","Menu bar trên Mac. System tray trên Windows.":"Mac menu bar. Windows system tray.",
  "Đến lượt bạn. Báo ngay.":"Your turn. Stay notified.","Nhắc cấp quyền lần đầu. Âm báo tuỳ chọn.":"A first-launch permission prompt. Optional notification sound.","Bảng thông báo Snapkit với dữ liệu minh hoạ":"Snapkit notification panel with sample data","Các chế độ Snapkit Mini trong ứng dụng với dữ liệu minh hoạ":"Snapkit Mini modes captured in the app with sample data"
 });
+
+Object.assign(window.SnapkitMessages.translations, {
+  "Run. Reload. Tiếp tục sáng tạo.": "Run. Reload. Keep building.",
+  "Bốn nút quen thuộc: Run, Hot reload, Hot restart và Stop. Điều khiển các phiên trên thiết bị đã chọn từ Snapkit hoặc widget nổi.": "Four familiar controls: Run, Hot reload, Hot restart and Stop. Control sessions on selected devices from Snapkit or its floating widget.",
+  "F5 giữ cấu hình IDE. Run dùng cấu hình Snapkit. Luôn biết bạn đang chạy dev hay prod.": "F5 keeps your IDE profile. Run uses your Snapkit configuration. Know whether you are running dev or prod.",
+  "Cần Snapkit Desktop 0.2.0-beta.90 và Debug Sync 1.7 trở lên. Mở cùng project trong một cửa sổ IDE được tin cậy.": "Requires Snapkit Desktop 0.2.0-beta.90 and Debug Sync 1.7 or newer. Open the same project in one trusted IDE window.",
+  "Tải Debug Sync 1.7.1": "Download Debug Sync 1.7.1",
+  "Lịch sử cập nhật extension": "Extension changelog",
+  "Thanh Run, Hot reload, Hot restart và Stop trên Snapkit Mini": "Run, Hot reload, Hot restart and Stop controls in Snapkit Mini",
+  "Giao diện thật · dữ liệu minh hoạ.": "Actual interface · sample data.",
+  "F5 từ IDE, hoặc Run ngay trên Snapkit. Kiểm tra Flutter trên nhiều màn hình với cấu hình bạn chọn.": "Press F5 in your IDE, or Run from Snapkit. Check Flutter on multiple screens with the configuration you choose.",
+  "Ba chế độ. Một widget nhỏ. Run, Hot reload, Hot restart và Stop cho Flutter ngay trong tầm tay.": "Three modes. One small widget. Run, Hot reload, Hot restart and Stop for Flutter, within reach.",
+  "F5 dùng profile dev/prod đang chọn trong IDE. Run trên Snapkit hoặc Mini dùng cấu hình lưu trong Snapkit. Breakpoint và Debug Console vẫn ở IDE của bạn.": "F5 uses the dev/prod profile selected in your IDE. Run in Snapkit or Mini uses the configuration saved in Snapkit. Breakpoints and the Debug Console remain in your IDE.",
+  "IDE profile → F5 · Snapkit profile → Run": "IDE profile → F5 · Snapkit profile → Run",
+  "Bạn có thể Run, Hot reload, Hot restart và Stop Flutter từ Snapkit hoặc widget Mini. Cần mở cùng project trong IDE với Debug Sync 1.7 trở lên; IDE vẫn quản lý debugger. F5 dùng profile IDE, Run trong Snapkit dùng cấu hình Snapkit. React Native tiếp tục chạy từ IDE với Metro và Hermes.": "Run, Hot reload, Hot restart and Stop Flutter from Snapkit or Mini. Open the same project in an IDE with Debug Sync 1.7 or newer; the IDE manages the debugger. F5 uses the IDE profile, while Snapkit Run uses Snapkit settings. React Native continues to launch from the IDE with Metro and Hermes."
+});

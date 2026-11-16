@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
+import http from 'node:http';
 import path from 'node:path';
 import { mergeDevices, parseIni } from '../../apps/agent/src/domain/device-catalog.js';
 import { parseJsonOutput } from '../../apps/agent/src/infrastructure/process/cli.js';
@@ -9,7 +10,7 @@ import { launchPlan, stripLegacyTargets, validateWorkspace, validateBuild, works
 import { deleteDevice } from '../../apps/agent/src/modules/devices/device-control.js';
 import { createRequire } from 'node:module';
 const { createRestartSync } = createRequire(import.meta.url)('../../apps/ide-extension/extension.cjs');
-const { createDashboardDebug } = createRequire(import.meta.url)('../../apps/ide-extension/dashboard-debug.cjs');
+const { createDashboardDebug, getPlan } = createRequire(import.meta.url)('../../apps/ide-extension/dashboard-debug.cjs');
 
 test('native IDE debugging falls back unchanged offline and launches Dashboard groups only for the matching enabled workspace', async () => {
   const root = path.resolve('flutter-project');
@@ -52,8 +53,9 @@ test('native IDE debugging falls back unchanged offline and launches Dashboard g
     status = 'ready';
     const first = await resolve(original);
     assert.equal(first.deviceId, '1');
-    assert.equal(first.program, path.join(root, 'lib/main_dev.dart'));
-    assert.deepEqual(first.args, []);
+    assert.equal(first.program, original.program);
+    assert.deepEqual(first.args, original.args);
+    assert.equal(first.toolArgs, undefined);
     assert.equal(JSON.stringify(original), before);
     const source = { id: 'source', configuration: first };
     await sync.started(source);
@@ -81,6 +83,71 @@ test('native IDE debugging falls back unchanged offline and launches Dashboard g
     assert(stops.includes('next'));
     assert(messages.some(message => message.includes('group has been stopped')));
   } finally { sync.dispose(); }
+});
+
+test('IDE configuration source reaches the local agent without changing the default plan request', async () => {
+  const requests = [];
+  const server = http.createServer((req, res) => {
+    requests.push(req.url);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ protocol: 1, status: 'inactive' }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    await getPlan(base, { configurationSource: 'ide' });
+    await getPlan(base, { configurationSource: 'dashboard' });
+    await getPlan(base);
+    assert.deepEqual(requests, ['/api/ide/plan?configurationSource=ide', '/api/ide/plan', '/api/ide/plan']);
+    await assert.rejects(getPlan('https://example.com'), /loopback/);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('Flutter IDE dev/prod profiles and custom Dashboard settings stay independent on every selected device', async () => {
+  const root = path.resolve('flutter-project');
+  const folder = { uri: { fsPath: root } };
+  for (const source of ['ide', 'dashboard']) {
+    for (const flavor of ['dev', 'prod']) {
+      for (const team of [false, true]) {
+        const opposite = flavor === 'dev' ? 'prod' : 'dev';
+        const profile = { type: 'dart', request: 'launch', name: `Merchant ${flavor}`,
+          program: `lib/main_${flavor}.dart`, cwd: root,
+          args: ['--flavor', flavor, `--dart-define-from-file=../defines.${flavor}.json`],
+          toolArgs: ['--dart-define', `ENV=${flavor}`], env: { APP_ENV: flavor } };
+        const before = structuredClone(profile);
+        const launches = [];
+        const plan = { protocol: 1, status: 'ready', workspace: root,
+          ...(team ? { team: { taskId: 'task' } } : {}),
+          configurations: [1, 2].map(id => ({ name: `Device ${id}`, type: 'dart', request: 'launch',
+            flutterMode: 'debug', cwd: root, deviceId: String(id),
+            program: path.join(root, `lib/main_${opposite}.dart`),
+            toolArgs: ['--flavor', opposite, '--dart-define-from-file', `../defines.${opposite}.json`],
+            ...(team ? { __snapkitTeamSession: 'team-session' } : {}) })) };
+        const vscode = {
+          workspace: { isTrusted: true, getConfiguration: () => ({ get: (key, fallback) => key === 'flutterLaunchConfiguration' ? source : fallback }) },
+          window: { showErrorMessage() {}, showWarningMessage() {} },
+          debug: { startDebugging: async (_folder, config) => { launches.push(config); return true; }, stopDebugging: async () => {} },
+        };
+        const sync = createDashboardDebug(vscode, { canonical: async p => p, flutterProject: async () => true,
+          readPlan: async (_url, options) => { assert.equal(options.configurationSource, source); return plan; } });
+        try {
+          const first = await sync.provider.resolveDebugConfiguration(folder, profile);
+          await sync.started({ id: 'first', configuration: first });
+          assert.equal(launches.length, 1);
+          for (const config of [first, ...launches]) {
+            const dashboard = source === 'dashboard' || team;
+            assert.equal(config.program, dashboard ? plan.configurations[0].program : profile.program);
+            assert.deepEqual(config.args, dashboard ? [] : profile.args);
+            assert.deepEqual(config.toolArgs, dashboard ? plan.configurations[0].toolArgs : profile.toolArgs);
+            assert.deepEqual(config.env, profile.env);
+            assert.equal(config.__snapkitTeamSession, team ? 'team-session' : undefined);
+          }
+          assert.deepEqual([first.deviceId, launches[0].deviceId], ['1', '2']);
+          assert.deepEqual(profile, before);
+        } finally { sync.dispose(); }
+      }
+    }
+  }
 });
 
 test('Dashboard launches all peers while earlier launches are pending and stops late sessions after failure', async () => {

@@ -16,6 +16,7 @@ let compact = localStorage.getItem('snapkit-view') === 'compact';
 let state = { devices: [], settings: /** @type {import('../features/workspace/types.ts').WorkspaceSettings} */ ({ targetIds: [] }), warnings: [], jobs: [] };
 let filter = 'all', search = '', onlyOnline = false;
 let refreshing = false;
+const debugPending = new Set();
 /** @type {import('../shared/api/client.ts').AgentConnection | null} */
 let connection = null;
 let remotePoll = null, remotePolling = false;
@@ -104,7 +105,14 @@ function render() {
   $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Device status checked every 2s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
   $('#ide-use-dashboard').disabled = targetSaving;
-  $('#ide-summary').textContent = state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Press F5 in your editor", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
+  $('#ide-summary').textContent = debugPending.has('run') ? t('Starting debug in your IDE…') : state.settings.ideEnabled === false ? t("Dashboard targets paused · IDE uses your normal debug configuration.") : targetSaving ? t("Saving device selection…") : unavailable.length ? t("{0} selected · {1} unavailable. Uncheck unavailable devices before debugging.", [selected.length, unavailable.length]) : selected.length ? t("{0} device(s) selected · Press F5 in your editor or Run here", [selected.length]) : t("Select one or more started devices, then run Debug in your editor.");
+  const activeDebug = (state.debugSessions || []).some(session => devices.some(d => selected.includes(d.id) && [d.id, d.flutterId].includes(session.deviceId)));
+  const debugReadOnly = !!connection || !!window.SNAPKIT_CONTROLLER || !!window.SNAPKIT_PREVIEW;
+  $('#debug-run').disabled = debugPending.size > 0 || targetSaving || debugReadOnly || !workspace || !selected.length || !!unavailable.length || activeDebug || state.settings.framework === 'react-native';
+  for (const key of ['reload', 'restart', 'stop']) $('#debug-' + key).disabled = (key === 'stop' ? debugPending.has('stop') : debugPending.size > 0) || debugReadOnly || !activeDebug || (key !== 'stop' && state.settings.framework === 'react-native');
+  $('.debug-toolbar').setAttribute('aria-busy', String(debugPending.size > 0));
+  $('#debug-profile-summary').textContent = state.settings.framework === 'react-native' ? 'React Native' : t('Snapkit configuration: {0} · {1}', [state.settings.flavor || t('Default flavor'), state.settings.target || 'lib/main.dart']);
+  $('#debug-run').title = t('Run using the project configuration saved in Snapkit');
   renderWarnings(); renderProvisionJobs(); icons();
   if (window.SNAPKIT_CONTROLLER) renderConnection();
   document.dispatchEvent(new Event('snapkit:state'));
@@ -215,6 +223,27 @@ $('#workspace-form').addEventListener('submit', e => {
     try { const result = await api('/api/workspace', { path: $('#workspace-path').value.trim(), framework: detectedFramework, flavor: $('#workspace-flavor').value.trim(), target: $('#workspace-target').value.trim(), defineFile: $('#workspace-defines').value.trim() }); state.settings = { ...state.settings, ...result.settings }; await loadState(); $('#workspace-dialog').close(); toast(result.message); }
     catch (error) { $('#workspace-error').textContent = t(error.message); }
   });
+});
+for (const name of ['run', 'reload', 'restart', 'stop']) $('#debug-' + name).addEventListener('click', async () => {
+  if (debugPending.has(name) || (debugPending.size && name !== 'stop')) return;
+  debugPending.add(name); render();
+  const expectedWorkspace = state.settings.workspace;
+  try {
+    if (name === 'run') {
+      let job = await api('/api/ide/launch', { expectedWorkspace });
+      $('#ide-summary').textContent = t('Starting debug in your IDE…');
+      while (job.status === 'queued') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        job = await api('/api/ide/launch/' + encodeURIComponent(job.id));
+      }
+      if (job.status !== 'started') throw new Error(job.error);
+      toast('Debug started in your IDE');
+    } else {
+      await api('/api/ide/control', { expectedWorkspace, command: { reload: 'hotReload', restart: 'hotRestart', stop: 'stop' }[name] });
+      toast('Debug command sent to your IDE');
+    }
+  } catch (error) { toast(error.message, true); }
+  finally { debugPending.delete(name); await loadState().catch(() => {}); render(); }
 });
 ['#settings-button', '#ide-setup'].forEach(id => $(id).addEventListener('click', showWorkspace));
 ['#help-button'].forEach(id => $(id).addEventListener('click', () => showProductPage('guide')));

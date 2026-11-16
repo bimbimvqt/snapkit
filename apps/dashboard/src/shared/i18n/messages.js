@@ -1196,3 +1196,22 @@ Object.assign(window.SnapkitMessages.translations,{'Sound volume':'Âm lượng 
 Object.assign(window.SnapkitMessages.translations,{'Text converted':'Đã chuyển đổi văn bản','Image converted':'Đã chuyển đổi ảnh','QR code generated':'Đã tạo mã QR','Download started':'Đã bắt đầu tải xuống'});
 
 Object.assign(window.SnapkitMessages.translations,{"Profile avatar":"Ảnh đại diện","Upload photo":"Tải ảnh lên","Avatar library":"Thư viện avatar","Use initials":"Dùng chữ cái","Upload avatar image":"Tải ảnh đại diện","PNG, JPG or WebP · Up to 5 MB · Saved with your profile.":"PNG, JPG hoặc WebP · Tối đa 5 MB · Cập nhật khi lưu hồ sơ.","Avatar collection":"Bộ avatar","Portraits":"Chân dung","Robots":"Robot","Surprise me":"Chọn ngẫu nhiên","Choose an avatar":"Chọn avatar","Avatar {0}":"Avatar {0}","Processing image…":"Đang xử lý ảnh…","Choose a PNG, JPG or WebP image up to 5 MB.":"Chọn ảnh PNG, JPG hoặc WebP tối đa 5 MB.","Could not read this image. Choose another one.":"Không đọc được ảnh này. Hãy chọn ảnh khác.","This image is too large. Choose a smaller one.":"Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn.","Choose a valid avatar image or preset.":"Chọn ảnh đại diện hoặc avatar hợp lệ."});
+
+Object.assign(window.SnapkitMessages.translations, {
+ 'Run debug':'Chạy debug','Debug controls':'Điều khiển debug',
+ 'Run using the project configuration saved in Snapkit':'Chạy theo cấu hình dự án lưu trong Snapkit',
+ 'Starting debug in your IDE…':'Đang khởi chạy debug trong IDE…',
+ 'Debug started in your IDE':'Đã khởi chạy debug trong IDE',
+ 'Debug command sent to your IDE':'Đã gửi lệnh debug đến IDE',
+ 'Open this project in your IDE with Snapkit Debug Sync 1.7 or newer, then reload the IDE window.':'Mở dự án này trong IDE với Snapkit Debug Sync 1.7 trở lên, rồi tải lại cửa sổ IDE.',
+ 'No active debug sessions on the selected devices.':'Chưa có phiên debug trên thiết bị đã chọn.',
+ 'Stop debug on the selected devices before starting again.':'Dừng debug trên thiết bị đã chọn trước khi chạy lại.',
+ 'Workspace changed. Review your project before debugging.':'Không gian làm việc đã thay đổi. Kiểm tra lại dự án trước khi debug.',
+ 'Debug launch is unavailable in demo mode.':'Chạy debug chỉ khả dụng với dự án thực tế.',
+ 'Debug is already starting for this project.':'Dự án này đang khởi chạy debug.',
+ 'This project is open in multiple IDE windows. Keep one connected window to start debug.':'Dự án đang mở trong nhiều cửa sổ IDE. Giữ một cửa sổ kết nối để chạy debug.'
+});
+
+Object.assign(window.SnapkitMessages.translations,{'Snapkit configuration: {0} · {1}':'Cấu hình Snapkit: {0} · {1}'});
+
+Object.assign(window.SnapkitMessages.translations,{'{0} device(s) selected · Press F5 in your editor or Run here':'Đã chọn {0} thiết bị · Chạy tại đây hoặc nhấn F5 trong IDE'});

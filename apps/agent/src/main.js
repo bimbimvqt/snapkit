@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { DebugLaunches } from './modules/ide/debug-launches.js';
 import { IDESessions } from './modules/ide/ide-sessions.js';
 import { deviceStatus } from './modules/devices/device-status.js';
 import { discover } from './modules/devices/discovery.js';
@@ -79,6 +80,7 @@ let scanning = null;
 let discoveryEnabled = false;
 const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
+const debugLaunches = new DebugLaunches();
 let debugRevision = 0;
 const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list(), debugRevision: ++debugRevision }) });
 provisioner.on('jobs', jobs => emit('jobs', jobs));
@@ -399,21 +401,56 @@ app.post('/api/ide/mode', async (req, res) => {
     res.json({ settings, message: settings.ideEnabled ? 'IDE uses Dashboard targets when Snapkit is available' : 'IDE uses its normal debug configuration' });
   } finally { savingIDE = false; }
 });
-app.get('/api/ide/plan', async (_req, res) => {
+app.get('/api/ide/plan', async (req, res) => {
   // Demo state is never used to launch real IDE sessions.
   if (demo) return res.json({ protocol: 1, status: 'inactive', workspace: '', configurations: [] });
   const teamPlan=await teamRouter.teamRuntime.plan();if(teamPlan)return res.json(teamPlan);
   if (!snapshot.scannedAt && settings.ideEnabled !== false && settings.workspace && settings.targetIds?.length) await scan();
   let plan = launchPlan(settings, snapshot.devices);
   if (plan.status === 'ready') {
-    try { await validateBuild(await validateWorkspace(settings.workspace), settings); }
+    try {
+      const workspace = await validateWorkspace(settings.workspace);
+      // IDE profiles are validated by the Dart extension, independently of the
+      // optional build settings saved in Snapkit. Teams are handled above.
+      if (req.query.configurationSource !== 'ide' || settings.framework === 'react-native') await validateBuild(workspace, settings);
+    }
     catch (e) { plan = { ...plan, status: 'invalid', configurations: [], reason: e.message }; }
   }
   res.json(plan);
 });
 app.post('/api/ide/sessions', (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'IDE session reports require the local extension' });
-  res.json(ideSessions.exchange(req.body));
+  const sessions = ideSessions.exchange(req.body);
+  res.json({ ...sessions, launches: debugLaunches.exchange(req.body.ownerId, req.body.workspaces, req.body.launchResults) });
+});
+app.post('/api/ide/launch', async (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Start debug from the local Snapkit app.' });
+  if (req.body.expectedWorkspace !== settings.workspace) throw new Error('Workspace changed. Review your project before debugging.');
+  if (demo) throw new Error('Debug launch is unavailable in demo mode.');
+  if (savingIDE || kitRouter.busy()) throw new Error('Wait for project setup to finish before starting debug.');
+  if (teamRouter.teamRuntime.active()) throw new Error('Use your prepared Teams session to debug this project.');
+  const launchSettings = structuredClone(settings);
+  const workspace = await validateWorkspace(launchSettings.workspace);
+  if (launchSettings.framework === 'react-native') throw new Error('Start React Native debug from your IDE.');
+  const build = await validateBuild(workspace, launchSettings);
+  if (settings.workspace !== launchSettings.workspace || savingIDE || kitRouter.busy()) throw new Error('Workspace changed. Review your project before debugging.');
+  const plan = launchPlan({ ...launchSettings, ...build, workspace, ideEnabled: true }, snapshot.devices);
+  if (plan.status !== 'ready') throw new Error(plan.reason || 'Select at least one started device before debugging.');
+  if (ideSessions.list().some(session => plan.configurations.some(c => c.deviceId === session.deviceId))) throw new Error('Stop debug on the selected devices before starting again.');
+  res.json(debugLaunches.start(plan));
+});
+app.post('/api/ide/control', (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Control debug from the local Snapkit app.' });
+  if (req.body.expectedWorkspace !== settings.workspace) throw new Error('Workspace changed. Review your project before debugging.');
+  const ids = settings.targetIds.flatMap(id => { const d = snapshot.devices.find(d => d.id === id); return d ? [d.id, d.flutterId].filter(Boolean) : []; });
+  if (!['hotReload', 'hotRestart', 'stop'].includes(req.body.command)) throw new Error('Invalid debug action');
+  const count = req.body.command === 'stop' ? ideSessions.requestStop(ids) : ideSessions.requestAction(ids, req.body.command);
+  if (!count) throw new Error('No active debug sessions on the selected devices.');
+  res.json({ count });
+});
+app.get('/api/ide/launch/:id', (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Debug launch status requires the local app.' });
+  res.json(debugLaunches.status(req.params.id));
 });
 app.post('/api/devices/:id/stop-debug', (req, res) => {
   const d = device(req.params.id);

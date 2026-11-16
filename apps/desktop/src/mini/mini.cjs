@@ -2,14 +2,14 @@
 const path=require('node:path');
 const fs=require('node:fs');
 const {pathToFileURL}=require('node:url');
-const {debugSummary}=require('./data.cjs');
+const {debugSummary,debugControls}=require('./data.cjs');
 const {key,profileFor,buildView}=require('./build.cjs');
 const {completionTracker,saveArtifact}=require('./artifacts.cjs');
 async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMain,fromApp,getWindow,language,setDeadline,nativeTheme,origin,history,kit,Notification,dialog,shell}){
  const completions=completionTracker(),notifications=new Set();let monitoring=false;
  let refreshTimer=null,refreshing=false,debugRefreshing=false,lastBounds=null,nextTask=0,nextDebug=0;
  let window=null,tray=null,compact=false,pinned=true,task=null,focus={remaining:1500,deadline:null};
- let mode='focus',debug=null;const contentHeights={};
+ let mode='focus',debug=null,debugLaunch=null,debugWorkspace=null;const contentHeights={};
  let buildState=null,catalog=null,releases=null,catalogWorkspace=null,nextCatalog=0,starting=false;let selection={platform:'android',environment:'dev'},mappings={};
  const preferences=path.join(app.getPath('userData'),'mini.json');
  try{const saved=JSON.parse(fs.readFileSync(preferences,'utf8'));if(['focus','debug','utility'].includes(saved.mode))mode=saved.mode;if(saved.mappings&&typeof saved.mappings==='object'&&!Array.isArray(saved.mappings))mappings=saved.mappings;}catch{}
@@ -20,7 +20,7 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
  const showMain=()=>{const main=getWindow();if(main&&!main.isDestroyed()){if(main.isMinimized())main.restore();main.show();main.focus();}};
  const {activeTheme,themeTokens}=await import('../../../../packages/domain/personal-themes.js');
  let experience=null;
- const snapshot=()=>{const clipboard=history.state();return {focus,experience,theme:experience?activeTheme(experience):null,tokens:experience?themeTokens(activeTheme(experience),!nativeTheme.shouldUseDarkColors):{},task,compact,pinned,mode,debug,quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
+ const snapshot=()=>{const clipboard=history.state();return {focus,experience,theme:experience?activeTheme(experience):null,tokens:experience?themeTokens(activeTheme(experience),!nativeTheme.shouldUseDarkColors):{},task,compact,pinned,mode,debug,debugControls:debugControls(buildState,debugLaunch),quickBuild:buildSnapshot(),utility:mode==='utility'?{enabled:clipboard.enabled,item:clipboard.enabled&&clipboard.items[0]?{id:clipboard.items[0].id,text:clipboard.items[0].text.slice(0,500)}:null,count:clipboard.enabled?clipboard.items.length:0,awake:kit.state().awake,error:!!clipboard.error}:null,language:vi()?'vi':'en',dark:nativeTheme.shouldUseDarkColors};};
  const publish=()=>{if(window&&!window.isDestroyed())window.webContents.send('snapkit:mini-state',snapshot());};
  const focusStore=await require('../kit/focus-store.cjs').createFocusStore({app,setDeadline,onChange:value=>{experience=value;focus=value.timer;publish();getWindow()?.webContents.send('snapkit:focus-experience',value);getWindow()?.webContents.send('snapkit:mini-focus',focus);}});
  experience=focusStore.state();focus=experience.timer;
@@ -51,9 +51,11 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
   const workspace=buildState.settings?.workspace||'';
   if(workspace!==catalogWorkspace){catalog=null;catalogWorkspace=workspace;nextCatalog=0;}
   if(workspace&&!buildState.authRequired&&Date.now()>=nextCatalog){nextCatalog=Date.now()+15000;try{catalog=await get('/api/releases/catalog');if(catalog.workspace!==workspace)catalog=null;}catch{catalog=null;}}
+  if(debugWorkspace!==workspace){debugWorkspace=workspace;debugLaunch=null;}
+  if(debugLaunch?.status==='queued')debugLaunch=await get('/api/ide/launch/'+encodeURIComponent(debugLaunch.id));
   debug=debugSummary(buildState,releases);
  }catch{buildState=null;catalog=null;releases=null;debug={devices:[],deviceCount:0,sessions:0,build:null,unavailable:true,releaseUnavailable:true};}finally{debugRefreshing=false;publish();}}
- async function post(route,body,state){const response=await fetch(origin+route,{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':state.token},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('Build unavailable');return response.json();}
+ async function post(route,body,state){const response=await fetch(origin+route,{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':state.token},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});if(!response.ok){const error=await response.json().catch(()=>({}));throw Error(error.error||'Request unavailable');}return response.json();}
  async function startBuild(){
   if(starting)throw Error('Build busy');const expected=buildState?.settings?.workspace;const chosen={...selection};starting=true;publish();
   try{const state=await get('/api/state');if(!expected||state.settings?.workspace!==expected||state.authRequired)throw Error('Workspace changed');const fresh=await get('/api/releases/catalog'),jobs=await get('/api/releases');if(fresh.workspace!==expected)throw Error('Workspace changed');const view=buildView(state,fresh,jobs,chosen,mappings);if(!view.canBuild)throw Error('Build unavailable');const profile=profileFor(fresh,chosen.platform,chosen.environment,mappings[key(expected)]?.[chosen.platform+':'+chosen.environment]);
@@ -89,6 +91,13 @@ async function installMini({app,BrowserWindow,Tray,Menu,nativeImage,screen,ipcMa
   else if(['build:android','build:ios','build:dev','build:prod'].includes(action)){if(starting)throw Error('Build busy');const value=action.slice(6);if(['android','ios'].includes(value))selection.platform=value;else selection.environment=value;}
   else if(typeof action==='string'&&/^build:profile:[a-f0-9]{24}$/.test(action)){if(starting)throw Error('Build busy');const view=buildSnapshot(),id=action.slice(14);if(!buildState?.settings?.workspace||!view.profiles.some(p=>p.id===id))throw Error('Invalid profile');const project=key(buildState.settings.workspace);mappings[project]={...mappings[project],[selection.platform+':'+selection.environment]:id};savePreferences();}
   else if(typeof action==='string'&&/^build:download:[a-f0-9-]{36}:[a-f0-9-]{36}$/.test(action)){const [, ,jobId,artifactId]=action.split(':');await downloadArtifact(jobId,artifactId);}
+  else if(['debug:run','debug:reload','debug:restart','debug:stop'].includes(action)){
+   const expectedWorkspace=buildState?.settings?.workspace,state=await get('/api/state');
+   if(!expectedWorkspace||state.settings?.workspace!==expectedWorkspace||state.authRequired)throw Error('Workspace changed. Review your project before debugging.');
+   if(action==='debug:run'){if(debugLaunch?.status==='queued')throw Error('Debug is already starting for this project.');debugLaunch=await post('/api/ide/launch',{expectedWorkspace},state);}
+   else await post('/api/ide/control',{expectedWorkspace,command:{'debug:reload':'hotReload','debug:restart':'hotRestart','debug:stop':'stop'}[action]},state);
+   await refreshDebug();
+  }
   else if(action==='build:start'){await startBuild();}
   else if(action==='build:cancel'){if(!buildSnapshot().canCancel)throw Error('No active build');const expected=buildState.settings.workspace,state=await get('/api/state'),jobs=await get('/api/releases');if(state.settings?.workspace!==expected||jobs.active?.workspace!==expected)throw Error('Workspace changed');await post('/api/releases/'+encodeURIComponent(jobs.active.id)+'/cancel',{},state);await refreshDebug();}
   else if(action==='focus'){focusStore.action({type:'toggle'});}

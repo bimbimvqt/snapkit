@@ -2,7 +2,7 @@
   "name": "snapkit-debug-sync",
   "displayName": "Snapkit Debug Sync",
   "description": "Debug Dashboard-selected Flutter and React Native devices without modifying project files; fall back to normal IDE debugging offline.",
-  "version": "1.6.0",
+  "version": "1.7.1",
   "publisher": "snapkit-local",
   "engines": {
     "vscode": "^1.85.0"
@@ -38,6 +38,17 @@
           "default": true,
           "scope": "application",
           "description": "Use Dashboard targets for native Run/Debug when the local agent is available and the project matches. Otherwise use the normal IDE configuration."
+        },
+        "snapkit.flutterLaunchConfiguration": {
+          "type": "string",
+          "enum": ["ide", "dashboard"],
+          "enumDescriptions": [
+            "Keep the selected IDE profile's entrypoint, flavor, Dart defines and arguments. Snapkit supplies selected devices only.",
+            "Use the entrypoint, flavor and Dart defines saved in Snapkit project settings for all selected devices."
+          ],
+          "default": "ide",
+          "scope": "resource",
+          "description": "Choose the Flutter launch configuration when using Dashboard targets. Applies to the next debug run. Active Teams sessions use the configuration prepared in Teams."
         },
         "snapkit.agentUrl": {
           "type": "string",

@@ -160,3 +160,12 @@ test('Run Release API accepts only discovered physical devices and keeps launch 
   assert.equal((await post(`/api/releases/${job.id}/upload`,{confirm:job.id})).status,400);
   await post(`/api/releases/${job.id}/delete`,{});
 });
+
+test('local debug controls require the mutation token, current workspace, and a real IDE session', async () => {
+ const current=await fetch(base+'/api/state').then(r=>r.json());
+ assert.equal((await post('/api/ide/launch',{expectedWorkspace:current.settings.workspace},'bad-token')).status,403);
+ assert.equal((await post('/api/ide/control',{expectedWorkspace:current.settings.workspace,command:'hotReload'},'bad-token')).status,403);
+ assert.equal((await post('/api/ide/launch',{expectedWorkspace:'/wrong-project'})).status,400);
+ const launch=await post('/api/ide/launch',{expectedWorkspace:current.settings.workspace});assert.equal(launch.status,400);assert.match((await launch.json()).error,/demo/);
+ const control=await post('/api/ide/control',{expectedWorkspace:current.settings.workspace,command:'hotReload'});assert.equal(control.status,400);assert.match((await control.json()).error,/No active/);
+});
