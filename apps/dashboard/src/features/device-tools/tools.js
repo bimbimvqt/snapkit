@@ -3,7 +3,7 @@ import { activePage, showProductPage } from '../workspace/product.js';
 import { t, $, $$, escape, icon, icons, busy, api, toast, state, connection, render, showWorkspace } from '../../legacy/device-controller.js';
 /* Project tools use the authenticated local agent, including paired website sessions. */
 let deviceToolsState = { sets: [], jobs: [], captures: [], recordings: [] }, toolsLoading = false;
-let editingSetId = '', currentLogStatus = 'stopped';
+let editingSetId = '', currentLogStatus = 'waiting';
 let logLines = [], logCursor = 0, logDeviceId = '', logClearedAt = 0, logPolling = false;
 const mediaURLs = new Map();
 let thumbnailEpoch = 0, thumbnailActive = 0, thumbnailQueue = [], thumbnailController = new AbortController();
@@ -12,7 +12,7 @@ const thumbnailObserver = new IntersectionObserver(entries => { for (const entry
 const toolText = value => escape(t(value));
 function supportedDevices() { return state.devices.filter(d => d.state === 'online' && (d.platform === 'android' || (d.group === 'ios' && (state.platform === 'darwin' || state.demo || window.SNAPKIT_PREVIEW)))); }
 function renderToolDevices() {
-  const fingerprint = JSON.stringify([state.devices.map(d => [d.id, d.name, d.state]), state.settings.workspace, window.SnapkitI18n.language]); if (renderToolDevices.last === fingerprint) return; renderToolDevices.last = fingerprint;
+  const fingerprint = JSON.stringify([state.devices.map(d => [d.id, d.name, d.state, d.flutterId]), state.settings.workspace, state.debugSessions, window.SnapkitI18n.language]); if (renderToolDevices.last === fingerprint) return; renderToolDevices.last = fingerprint;
   if (renderToolDevices.workspace !== state.settings.workspace) { editingSetId = ''; $('#set-name').value = ''; $$('#set-devices input').forEach(input => { input.checked = false; }); deviceToolsState = { sets: [], jobs: [], captures: [], recordings: [] }; releaseMedia(); renderSets(); renderCaptures(); updateSetEditor(); renderToolDevices.workspace = state.settings.workspace; }
   const devices = supportedDevices();
   for (const select of $$('.tool-device-picker')) {
@@ -21,6 +21,12 @@ function renderToolDevices() {
     if (devices.some(d => d.id === chosen)) select.value = chosen;
   }
   $$('.tool-project').forEach(node => { node.textContent = state.settings.workspace || t('Choose a project to save device sets and captures.'); });
+  const logSelect = $('#log-device'), selectedLogDevice = logSelect.value;
+  const logDevices = new Map(state.devices.map(d => [d.flutterId || d.id, d.name]));
+  for (const session of state.debugSessions || []) if (!logDevices.has(session.deviceId)) logDevices.set(session.deviceId, session.name);
+  logSelect.innerHTML = `<option value="">${toolText('All debug devices')}</option>` + [...logDevices].map(([id, name]) => `<option value="${escape(id)}">${escape(name)}</option>`).join('');
+  if (selectedLogDevice && !logDevices.has(selectedLogDevice)) { const option = new Option(selectedLogDevice, selectedLogDevice); logSelect.add(option); }
+  if (selectedLogDevice) logSelect.value = selectedLogDevice;
   updateLogControls();
   const picked = new Set($$('#set-devices input:checked').map(x => x.value));
   $('#set-devices').innerHTML = `<legend>${toolText('Devices in this set')}</legend>` + (state.devices.length ? state.devices.map(d => `<label><input type="checkbox" value="${escape(d.id)}" ${picked.has(d.id) ? 'checked' : ''}>${escape(d.name)} <small>· ${toolText(d.state === 'online' ? 'Online' : 'Offline')}</small></label>`).join('') : `<p>${toolText('Add or connect a device first.')}</p>`);
@@ -164,44 +170,40 @@ $('#panel-sets').addEventListener('click', event => {
   });
 });
 function updateLogControls() {
-  $('#log-stop').disabled = currentLogStatus !== 'running' || $('#log-stop').hasAttribute('aria-busy');
-  $('#log-start').disabled = !$('#log-device').value || $('#log-start').hasAttribute('aria-busy');
   $('#capture-shot').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-shot').hasAttribute('aria-busy');
   $('#capture-record').disabled = !$('#capture-device').value || !state.settings.workspace || $('#capture-record').hasAttribute('aria-busy') || deviceToolsState.recordings.some(x => x.deviceId === $('#capture-device').value);
 }
 let pausedLogLines = null, logGeneration = 0, lastLogContent = null;
 function filteredLogLines() { return filterLogs(pausedLogLines || logLines, {text: $('#log-search').value, level: $('#log-level').value, after: logClearedAt}); }
-function visibleLogText() { return filteredLogLines().map(line => line.text).join('\n'); }
+function visibleLogText() { return filteredLogLines().map(line => line.text).join(''); }
 function renderLogLines() {
   const output = $('#log-output'), lines = filteredLogLines();
   const content = JSON.stringify([lines.map(line => [line.id, line.text]), !!pausedLogLines, window.SnapkitI18n.language]);
   if (content === lastLogContent) return;
   lastLogContent = content;
   const fragment = document.createDocumentFragment();
-  for (const line of lines) { const node = document.createElement('span'); node.className = 'log-line log-' + logLevel(line.text); node.textContent = line.text; fragment.append(node); }
+  for (const line of lines) { const node = document.createElement('span'); node.className = 'log-line log-' + (line.category === 'stderr' ? 'error' : logLevel(line.text)); node.textContent = line.text; fragment.append(node); }
   output.replaceChildren(fragment);
   $('#log-count').textContent = t('{0} visible lines', [lines.length]) + (pausedLogLines ? ' · ' + t('View paused') : '');
   $('#log-copy').disabled = !lines.length; $('#log-export').disabled = !lines.length;
   if ($('#log-follow').checked) output.scrollTop = output.scrollHeight;
 }
 async function pollLogs() {
-  if (!logDeviceId || logPolling || activePage !== 'logs' || document.hidden) return;
+  if (logPolling || activePage !== 'logs' || document.hidden) return;
   logPolling = true;
-  try { const generation = logGeneration, id = logDeviceId, result = await api(`/api/tools/logs/${encodeURIComponent(id)}?after=${logCursor}`); if (id !== logDeviceId || generation !== logGeneration) return;
+  try { const generation = logGeneration, id = logDeviceId, result = await api(`/api/ide/console?deviceId=${encodeURIComponent(id)}&after=${logCursor}`); if (id !== logDeviceId || generation !== logGeneration) return;
+    if (result.next - 1 < logCursor) { logCursor = 0; logClearedAt = 0; logLines = []; pausedLogLines = null; renderLogLines(); return; }
     logCursor = Math.max(logCursor, result.next - 1); logLines = [...logLines, ...result.lines].slice(-1000);
-    $('#log-status').textContent = t(result.status === 'running' ? 'Streaming' : result.status === 'failed' ? 'Failed' : 'Stopped');
-    $('#log-detail').textContent = result.detail || (result.truncated ? t('Older lines were discarded to keep the viewer responsive.') : '');
+    $('#log-status').textContent = t(result.status === 'running' ? 'Debugging' : 'No active debug session');
+    $('#log-detail').textContent = result.status === 'running' ? t('Output from the IDE Debug Console.') : t('Start debugging in your IDE or press Run in Snapkit. Output will appear here.');
     currentLogStatus = result.status; updateLogControls(); if ($('#log-follow').checked) renderLogLines();
   } catch (e) { $('#log-detail').textContent = e.message; } finally { logPolling = false; updateLogControls(); }
 }
-$('#log-start').addEventListener('click', event => busy(event.currentTarget, async () => {
-  const id = $('#log-device').value; if (!id) throw new Error(t('No supported device online'));
-  if (logDeviceId && logDeviceId !== id) await api(`/api/tools/logs/${encodeURIComponent(logDeviceId)}/stop`, {});
-  await api(`/api/tools/logs/${encodeURIComponent(id)}/start`, {}); logGeneration++; logDeviceId = id; logLines = []; pausedLogLines = null; $('#log-follow').checked = true; logCursor = 0; logClearedAt = 0; renderLogLines(); await pollLogs();
-}));
-$('#log-stop').addEventListener('click', event => { busy(event.currentTarget, async () => { if (logDeviceId) await api(`/api/tools/logs/${encodeURIComponent(logDeviceId)}/stop`, {}); currentLogStatus = 'stopped'; await pollLogs(); }).finally(updateLogControls); });
 $('#capture-device').addEventListener('change', updateLogControls);
-$('#log-device').addEventListener('change', () => { updateLogControls(); $('#log-detail').textContent = t('Press Start logs to switch to the selected device.'); });
+$('#log-device').addEventListener('change', () => {
+  logGeneration++; logDeviceId = $('#log-device').value; logLines = []; pausedLogLines = null;
+  logCursor = 0; logClearedAt = 0; $('#log-follow').checked = true; renderLogLines(); void pollLogs();
+});
 $('#log-search').addEventListener('input', renderLogLines); $('#log-level').addEventListener('change', renderLogLines); $('#log-follow').addEventListener('change', () => { pausedLogLines = $('#log-follow').checked ? null : [...logLines]; renderLogLines(); });
 $('#log-clear').addEventListener('click', () => { logClearedAt = pausedLogLines ? (pausedLogLines.at(-1)?.id || logClearedAt) : logCursor; renderLogLines(); });
 $('#log-copy').addEventListener('click', event => busy(event.currentTarget, async () => { await navigator.clipboard.writeText(visibleLogText()); toast('Visible logs copied'); }));
@@ -228,24 +230,23 @@ $('#panel-captures').addEventListener('click', event => {
 $('#devices-grid').addEventListener('click', event => {
   const button = event.target.closest('[data-tool-action]'); if (!button) return;
   const id = button.closest('[data-device]').dataset.device;
-  if (button.dataset.toolAction === 'logs') { showProductPage('logs'); $('#log-device').value = id; $('#log-start').click(); }
+  if (button.dataset.toolAction === 'logs') { showProductPage('logs'); $('#log-device').value = state.devices.find(d => d.id === id)?.flutterId || id; $('#log-device').dispatchEvent(new Event('change')); }
   else { showProductPage('captures'); $('#capture-device').value = id; busy(button, () => captureAction(button.dataset.toolAction === 'record' ? 'record' : 'screenshot', id)); }
 });
 function updateSetEditor() { $('#set-editor-title').textContent = t(editingSetId ? 'Edit device set' : 'Create a device set'); $('#set-save').textContent = t(editingSetId ? 'Save changes' : 'Save device set'); $('#set-cancel').hidden = !editingSetId; }
 $('#set-cancel').addEventListener('click', () => { editingSetId = ''; $('#set-name').value = ''; $$('#set-devices input').forEach(input => { input.checked = false; }); updateSetEditor(); $('#set-name').focus(); });
 $$('[data-open-project]').forEach(button => button.addEventListener('click', showWorkspace));
-document.addEventListener('snapkit:page', event => { if (['sets', 'logs', 'captures'].includes(event.detail)) { renderToolDevices(); refreshDeviceTools().catch(error => toast(error.message, true)); } if (event.detail !== 'captures') releaseMedia(); });
+document.addEventListener('snapkit:page', event => { if (['sets', 'logs', 'captures'].includes(event.detail)) { renderToolDevices(); refreshDeviceTools().catch(error => toast(error.message, true)); } if (event.detail === 'logs') void pollLogs(); if (event.detail !== 'captures') releaseMedia(); });
 let logWorkspace = '';
 document.addEventListener('snapkit:state', () => {
   const context = JSON.stringify([state.settings.spaceId, state.settings.workspace]);
   if (context !== logWorkspace) {
-    const previous = logDeviceId; logGeneration++; logDeviceId = ''; logLines = []; pausedLogLines = null; logCursor = 0; logClearedAt = 0; currentLogStatus = 'stopped'; logWorkspace = context;
-    $('#log-follow').checked = true; $('#log-status').textContent = t('Stopped'); $('#log-detail').textContent = ''; renderLogLines();
-    if (previous) void api(`/api/tools/logs/${encodeURIComponent(previous)}/stop`, {}).catch(() => {});
+    $('#log-device').value = ''; logGeneration++; logDeviceId = ''; logLines = []; pausedLogLines = null; logCursor = 0; logClearedAt = 0; currentLogStatus = 'waiting'; logWorkspace = context;
+    $('#log-follow').checked = true; $('#log-status').textContent = t('No active debug session'); $('#log-detail').textContent = ''; renderLogLines();
   }
   renderToolDevices(); renderSets();
 });
-document.addEventListener('snapkit:language', () => { $('#log-status').textContent = t(currentLogStatus === 'running' ? 'Streaming' : currentLogStatus === 'failed' ? 'Failed' : 'Stopped'); renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
+document.addEventListener('snapkit:language', () => { $('#log-status').textContent = t(currentLogStatus === 'running' ? 'Debugging' : 'No active debug session'); renderToolDevices(); renderSets(); renderCaptures(); renderLogLines(); updateSetEditor(); });
 setInterval(() => { if (!document.hidden && ['sets', 'captures'].includes(activePage)) refreshDeviceTools().catch(() => {}); if (activePage === 'logs') pollLogs(); }, 1500);
 
 export {};

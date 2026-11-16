@@ -10,5 +10,5 @@ export function logLevel(text) {
 export function filterLogs(lines, {text = '', level = 'all', after = 0} = {}) {
   const query = text.toLocaleLowerCase();
   return lines.filter(line => line.id > after && (!query || line.text.toLocaleLowerCase().includes(query)) &&
-    (level === 'all' || (level === 'warning' ? logLevel(line.text) !== 'info' : logLevel(line.text) === 'error')));
+    (level === 'all' || (level === 'warning' ? (line.category === 'stderr' || logLevel(line.text) !== 'info') : (line.category === 'stderr' || logLevel(line.text) === 'error'))));
 }

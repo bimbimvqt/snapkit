@@ -36,16 +36,22 @@ test('device sets start offline members, then explicitly select ready devices fo
 
   page.once('dialog', dialog => dialog.accept()); await set.locator('[data-set-delete]').click(); await expect(set).toHaveCount(0);
 });
-test('device card logs filter and export, screenshots preview and download within current project', async ({ page }) => {
+test('device card Debug Console filters and exports, screenshots preview and download within current project', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message)); await page.goto('/?lang=en');
+  let running = true;
+  await page.route(/\/api\/ide\/console\?/, route => {
+    const after = Number(new URL(route.request().url()).searchParams.get('after'));
+    return route.fulfill({json:{status:running?'running':'waiting',next:3,lines:[{id:1,text:'App debug output\n'},{id:2,text:'Sample warning\n'}].filter(line=>line.id>after)}});
+  });
   await page.locator('[data-device="demo-android-1"] [data-tool-action="logs"]').click();
-  await expect(page.locator('#log-output')).toContainText('Sample system log');
-  await choose(page, 'log-level', 'warning'); await expect(page.locator('#log-output')).not.toContainText('Sample system log'); await expect(page.locator('#log-output')).toContainText('Sample warning');
+  await expect(page.locator('#log-output')).toContainText('App debug output');
+  await choose(page, 'log-level', 'warning'); await expect(page.locator('#log-output')).not.toContainText('App debug output'); await expect(page.locator('#log-output')).toContainText('Sample warning');
   await page.screenshot({ path: '/tmp/snapkit-logs-beta14.png', fullPage: true, animations: 'disabled' });
   const download = page.waitForEvent('download'); await page.locator('#log-export').click(); expect((await download).suggestedFilename()).toMatch(/Snapkit-logs.*\.txt/);
-  await page.locator('#log-stop').click(); await expect(page.locator('#log-status')).toHaveText('Stopped'); await expect(page.locator('#log-stop')).toBeDisabled();
+  running = false; await expect(page.locator('#log-status')).toHaveText('No active debug session');
+  await expect(page.locator('#log-start')).toHaveCount(0); await expect(page.locator('#log-stop')).toHaveCount(0);
   await page.evaluate(() => window.SnapkitI18n.setLanguage('vi'));
-  await expect(page.locator('#log-status')).toHaveText('Đã dừng');
+  await expect(page.locator('#log-status')).toHaveText('Chưa có phiên debug');
   await page.setViewportSize({width:1200,height:900});
   await page.locator('#panel-logs .tool-card').screenshot({path:'/tmp/snapkit-log-layout-dark-vi.png',animations:'disabled'});
   await page.setViewportSize({width:375,height:812});

@@ -99,13 +99,14 @@ test('per-device shutdown preserves registration and debug-stop requires a live 
   assert.deepEqual(commands.stopSessionIds, ['session1']);
   await post('/api/ide/sessions', { ownerId: 'test-ide', sessions: [] });
 });
-test('tools enforce mutation token and artifact project scope while exposing system logs by exact device', async () => {
+test('tools enforce mutation token and artifact project scope without exposing device system logs', async () => {
   assert.equal((await post('/api/tools/sets/save', { name: 'Bad', deviceIds: ['demo-ios-1'] }, 'invalid')).status, 403);
   const set = await post('/api/tools/sets/save', { name: 'My devices', deviceIds: ['demo-ios-1'] }).then(r => r.json());
   assert.ok(set.id);
-  assert.equal((await post('/api/tools/logs/demo-ios-1/start', {})).status, 200);
-  const logs = await fetch(base + '/api/tools/logs/demo-ios-1').then(r => r.json()); assert.ok(logs.lines.length);
-  assert.equal((await post('/api/tools/logs/demo-ios-1/stop', {})).status, 200);
+  assert.equal((await post('/api/tools/logs/demo-ios-1/start', {})).status, 404);
+  assert.equal((await fetch(base + '/api/tools/logs/demo-ios-1')).status, 404);
+  const console = await fetch(base + '/api/ide/console').then(r => r.json());
+  assert.deepEqual(console.lines, []); assert.equal(console.status, 'waiting');
   const image = await post('/api/tools/captures/demo-ios-1/screenshot', {}).then(r => r.json());
   const file = await fetch(base + `/api/tools/captures/${image.id}/file`); assert.equal(file.status, 200); assert.match(file.headers.get('content-type'), /image\/png/);
   const original = await fetch(base + '/api/state').then(r => r.json());
@@ -168,4 +169,31 @@ test('local debug controls require the mutation token, current workspace, and a 
  assert.equal((await post('/api/ide/launch',{expectedWorkspace:'/wrong-project'})).status,400);
  const launch=await post('/api/ide/launch',{expectedWorkspace:current.settings.workspace});assert.equal(launch.status,400);assert.match((await launch.json()).error,/demo/);
  const control=await post('/api/ide/control',{expectedWorkspace:current.settings.workspace,command:'hotReload'});assert.equal(control.status,400);assert.match((await control.json()).error,/No active/);
+});
+
+test('Debug Console receives authenticated IDE output, scopes projects/devices and retains finished output', async () => {
+  const original = await fetch(base + '/api/state').then(r => r.json());
+  const { realpath } = await import('node:fs/promises');
+  const workspace = await realpath(process.cwd());
+  const consoleSession = { id: 'console-session', name: 'Flutter dev', deviceId: 'demo-ios-1', workspace };
+  const report = { ownerId:'console-ide', sessions:[consoleSession], consoleSessions:[consoleSession], consoleOutput:[{sequence:1,sessionId:consoleSession.id,category:'stdout',text:'flutter: real debug output\n'}] };
+  try {
+    await post('/api/workspace', {path:workspace});
+    assert.equal((await post('/api/ide/sessions', report, 'wrong')).status, 403);
+    assert.equal((await post('/api/ide/sessions', report)).status, 200);
+    await post('/api/ide/sessions', report);
+    const read = async query => fetch(base + '/api/ide/console' + query).then(r=>r.json());
+    let result = await read('?deviceId=demo-ios-1');
+    assert.equal(result.status, 'running'); assert.equal(result.lines.length, 1);
+    assert.equal(result.lines[0].text, 'flutter: real debug output\n');
+    assert.deepEqual((await read('?deviceId=other')).lines, []);
+    assert.deepEqual((await read('?after='+result.lines[0].id)).lines, []);
+    await post('/api/ide/sessions', {...report,sessions:[],consoleOutput:[{...report.consoleOutput[0],sequence:2,text:'debug ended\n'}]});
+    result = await read(''); assert.equal(result.status,'waiting'); assert.equal(result.lines.length,2);
+    await post('/api/workspace', {path:'/another/project'});
+    assert.deepEqual((await read('')).lines, []);
+  } finally {
+    await post('/api/ide/sessions', {ownerId:'console-ide',sessions:[]});
+    await post('/api/workspace', {path:original.settings.workspace});
+  }
 });

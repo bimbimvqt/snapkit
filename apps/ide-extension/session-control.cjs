@@ -2,7 +2,7 @@
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const { realpath } = require('node:fs/promises');
-const canonical = async p => { const root = await realpath(p); return process.platform === 'win32' ? root.toLowerCase() : root; };
+const canonical = async p => { if (!p) return ''; const root = await realpath(p); return process.platform === 'win32' ? root.toLowerCase() : root; };
 function agentRequest(base, pathname, body, token) {
   const url = new URL(base);
   if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) return Promise.reject(new Error('Snapkit agent must be a loopback HTTP address'));
@@ -20,7 +20,8 @@ function agentRequest(base, pathname, body, token) {
 }
 function createSessionControl(vscode, { request = agentRequest, report = () => {} } = {}) {
   const ownerId = randomUUID(), sessions = new Map(), stopping = new Set();
-  const launches = new Map(), actions = new Set();
+  const launches = new Map(), actions = new Set(), outputSessions = new Map();
+  let outputSequence = 0, outputQueue = [];
   let timer, pending = false, dirty = false, disposed = false, credentials = null;
   const schedule = () => { if (!disposed && (sessions.size || vscode.workspace.workspaceFolders?.length)) { clearTimeout(timer); timer = setTimeout(tick, 1000); timer.unref?.(); } };
   async function tick() {
@@ -33,12 +34,17 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         if (typeof state.token !== 'string') throw new Error('No local session token');
         credentials = { base, token: state.token };
       }
-      const listed = [...sessions.values()].map(s => ({ id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug',...(s.configuration.__snapkitTeamSession?{teamSessionId:s.configuration.__snapkitTeamSession}:{}) }));
+      const describe = async s => ({ workspace: await canonical(s.workspaceFolder?.uri.fsPath || s.configuration.cwd || (vscode.workspace.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : '') || '').catch(() => ''), id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug',...(s.configuration.__snapkitTeamSession?{teamSessionId:s.configuration.__snapkitTeamSession}:{}) });
+      const listed = await Promise.all([...sessions.values()].map(describe));
       const folders = vscode.workspace.isTrusted ? vscode.workspace.workspaceFolders || [] : [];
       const roots = await Promise.all(folders.map(async folder => ({ folder, root: await canonical(folder.uri.fsPath).catch(() => '') })));
       const launchResults = [...launches].filter(([, result]) => result.status).map(([id, result]) => ({ id, ...result }));
+      const outputBatch = vscode.workspace.isTrusted ? outputQueue.slice(0, 16) : [];
+      const consoleSessions = await Promise.all([...new Set(outputBatch.map(entry => entry.sessionId))].map(id => describe(outputSessions.get(id))));
       const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed,
-        workspaces: roots.map(item => item.root).filter(Boolean), launchResults, actionResults: [...actions] }, credentials.token);
+        workspaces: roots.map(item => item.root).filter(Boolean), consoleOutput: outputBatch, consoleSessions, launchResults, actionResults: [...actions] }, credentials.token);
+      if (Number.isSafeInteger(result.consoleAck)) outputQueue = outputQueue.filter(entry => entry.sequence > result.consoleAck);
+      for (const id of outputSessions.keys()) if (!outputQueue.some(entry => entry.sessionId === id)) outputSessions.delete(id);
       for (const { id } of launchResults) launches.delete(id);
       const activeActions = new Set((result.actions || []).map(action => action.id));
       for (const id of actions) if (!activeActions.has(id)) actions.delete(id);
@@ -76,15 +82,34 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
     } catch { credentials = null; /* Losing the agent never interrupts debugging. */ }
     finally { pending = false; if (dirty && !disposed) queueMicrotask(tick); else schedule(); }
   }
-  return {
+  const thisControl = {
     started(session) {
       if (!vscode.workspace.isTrusted || !(['dart', 'reactnative', 'reactnativedirect'].includes(session.type) || (session.type === 'pwa-node' && session.configuration.__snapkitNativeGroup)) || session.configuration.noDebug || typeof session.configuration.deviceId !== 'string' || !session.configuration.deviceId) return;
       sessions.set(session.id, session); dirty = true; void tick();
     },
     terminated(session) { if (!sessions.has(session.id)) return; sessions.delete(session.id); stopping.delete(session.id); clearTimeout(timer); dirty = true; void tick(); },
+    createDebugAdapterTracker(session) {
+      return {
+        onWillStartSession() { thisControl.started(session); },
+        onDidSendMessage(message) {
+          if (message.type !== 'event' || message.event !== 'output' || !sessions.has(session.id) || !vscode.workspace.isTrusted) return;
+          const { output, category = 'console' } = message.body || {};
+          if (typeof output !== 'string' || !output || !['console', 'stdout', 'stderr', 'important'].includes(category)) return;
+          // Bound both individual events and the offline queue. Adapter telemetry
+          // and input requests are never forwarded to the console.
+          outputSessions.set(session.id, session);
+          for (let offset = 0; offset < Math.min(output.length, 65536); offset += 2048) {
+            outputQueue.push({ sequence: ++outputSequence, sessionId: session.id, category, text: output.slice(offset, offset + 2048) });
+          }
+          outputQueue = outputQueue.slice(-256);
+          for (const id of outputSessions.keys()) if (!outputQueue.some(entry => entry.sessionId === id)) outputSessions.delete(id);
+        },
+      };
+    },
     tick,
     connect() { void tick(); },
-    dispose() { disposed = true; clearTimeout(timer); sessions.clear(); },
+    dispose() { disposed = true; clearTimeout(timer); sessions.clear(); outputQueue = []; outputSessions.clear(); },
   };
+  return thisControl;
 }
 module.exports = { createSessionControl, agentRequest };

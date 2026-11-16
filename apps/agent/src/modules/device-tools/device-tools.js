@@ -10,7 +10,7 @@ export function toolsSupported(d, platform = process.platform) {
 }
 export function toolTarget(d) {
   if (d.state !== 'online') throw new Error('Start or connect this device first.');
-  if (!toolsSupported(d)) throw new Error('Use Xcode or QuickTime for physical iPhone logs and captures.');
+  if (!toolsSupported(d)) throw new Error('Use Xcode or QuickTime for physical iPhone captures.');
   const id = d.platform === 'android' ? d.flutterId : d.id;
   if (!id || !/^[a-zA-Z0-9._:\[\]%-]+$/.test(id) || id.startsWith('-')) throw new Error('Refresh devices to obtain a valid device connection.');
   return id;
@@ -18,8 +18,7 @@ export function toolTarget(d) {
 export class DeviceTools {
   constructor({ demo = false, root = path.join(demo ? path.join(os.tmpdir(), `snapkit-demo-${process.pid}`) : dataRoot, 'device-tools'), execute = run, spawn = launch } = {}) {
     this.demo = demo; this.root = root; this.execute = execute; this.spawn = spawn;
-    this.sets = []; this.captures = []; this.streams = new Map(); this.recordings = new Map(); this.jobs = new Map(); this.shots = 0; this.closed = false; this.writing = Promise.resolve();
-    this.timer = setInterval(() => { for (const s of this.streams.values()) if (Date.now() - s.touched > 60000) this.stopLog(s.deviceId); }, 10000); this.timer.unref();
+    this.sets = []; this.captures = []; this.recordings = new Map(); this.jobs = new Map(); this.shots = 0; this.closed = false; this.writing = Promise.resolve();
   }
   async restore() {
     if (this.demo) return;
@@ -75,21 +74,6 @@ export class DeviceTools {
     }
     return target;
   }
-  async startLog(d) {
-    const target = this.demo ? d.id : await this.target(d);
-    const existing = this.streams.get(d.id); if (existing?.status === 'running') { existing.touched = Date.now(); return this.log(d.id); }
-    if ([...this.streams.values()].filter(s => s.status === 'running').length >= 4) throw new Error('Stop another log stream first (maximum 4).');
-    if (this.streams.size >= 8) { const stale = [...this.streams.values()].find(s => s.status !== 'running'); if (stale) this.streams.delete(stale.deviceId); }
-    const s = { deviceId: d.id, status: 'running', lines: [], next: 1, touched: Date.now() }; this.streams.set(d.id, s);
-    const append = text => { for (const line of text.split(/\r?\n/)) if (line) { const text = line.slice(0, 4000); s.lines.push({ id: s.next++, text }); s.bytes = (s.bytes || 0) + text.length * 2; while (s.lines.length > 1000 || s.bytes > 1024 * 1024) s.bytes -= s.lines.shift().text.length * 2; } };
-    if (this.demo) { append('I Snapkit: Sample system log · device connected\nW Snapkit: Sample warning'); return this.log(d.id); }
-    const child = this.spawn(d.platform === 'android' ? 'adb' : 'xcrun', d.platform === 'android' ? ['-s', target, 'logcat', '-v', 'threadtime', '-T', '100'] : ['simctl', 'spawn', target, 'log', 'stream', '--style', 'compact', '--level', 'info'], { stdio: ['ignore', 'pipe', 'pipe'] }); s.child = child;
-    child.stdout.setEncoding('utf8');
-    let partial = ''; child.stdout.on('data', chunk => { partial += chunk.toString(); const end = partial.lastIndexOf('\n'); if (end >= 0) { append(partial.slice(0, end)); partial = partial.slice(end + 1); } if (partial.length > 4000) { append(partial); partial = ''; } });
-    child.stderr.on('data', chunk => { s.detail = chunk.toString().slice(-2000); }); child.on('error', e => { s.status = 'failed'; s.detail = e.message; }); child.on('close', () => { if (partial) append(partial); if (s.status === 'running') s.status = 'stopped'; }); return this.log(d.id);
-  }
-  log(id, after = 0) { const s = this.streams.get(id); if (!s) return { deviceId: id, status: 'stopped', lines: [], next: 1 }; s.touched = Date.now(); return { deviceId: id, status: s.status, detail: s.detail, lines: s.lines.filter(x => x.id > after), next: s.next, truncated: after > 0 && s.lines[0]?.id > after + 1 }; }
-  stopLog(id) { const s = this.streams.get(id); if (s) { s.status = 'stopped'; s.child?.kill('SIGTERM'); } }
   async checkSpace() {
     if (this.captures.length >= 2000) throw new Error('Delete older captures before saving more (maximum 2,000).');
     await mkdir(this.root, { recursive: true });
@@ -140,5 +124,5 @@ export class DeviceTools {
     else item.child.kill('SIGINT'); item.status = 'processing';
   }
   async deleteCapture(workspace, id) { if (this.recordings.has(id)) throw new Error('Stop the recording and wait for it to finish first.'); const item = this.captures.find(x => x.id === id && x.project === this.project(workspace)); if (!item) throw new Error('Capture not found.'); await unlink(this.file(item)).catch(e => { if (e.code !== 'ENOENT') throw e; }); this.captures = this.captures.filter(x => x !== item); await this.save(); }
-  async close() { this.closed = true; for (const id of this.streams.keys()) this.stopLog(id); await Promise.allSettled([...this.recordings.keys()].map(id => this.stopRecord(id))); if (this.recordings.size) { let timer; await Promise.race([Promise.allSettled([...this.recordings.values()].map(x => x.finish)), new Promise(r => { timer = setTimeout(r, 8000); })]); clearTimeout(timer); } }
+  async close() { this.closed = true; await Promise.allSettled([...this.recordings.keys()].map(id => this.stopRecord(id))); if (this.recordings.size) { let timer; await Promise.race([Promise.allSettled([...this.recordings.values()].map(x => x.finish)), new Promise(r => { timer = setTimeout(r, 8000); })]); clearTimeout(timer); } }
 }

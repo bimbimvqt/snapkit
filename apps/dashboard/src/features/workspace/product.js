@@ -18,7 +18,7 @@ function showProductPage(page, { discover = true } = {}) {
   activePage = page;
   $$('.app-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== `panel-${page}`));
   $$('[data-app-page]').forEach(button => { button.classList.toggle('active', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices'))); button.setAttribute('aria-current', (button.dataset.appPage === page || (page === 'backend' && button.dataset.appPage === 'devices')) ? 'page' : 'false'); });
-  $('#breadcrumb-page').textContent = { profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Device logs"), captures: t("Captures"), plan: t("Your plan") }[page];
+  $('#breadcrumb-page').textContent = { profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: t('Updates'), releases: t("Build & release"), devices: t("Devices"), setup: t("Setup & tools"), preferences: t("Preferences"), guide: t("Quick start guide"), sets: t("Device sets"), logs: t("Debug Console"), captures: t("Captures"), plan: t("Your plan") }[page];
   if (page === 'preferences' && !toolState) void checkTools();
   if (page === 'setup') { if (!product) void loadProduct(); if (!toolState) void checkTools(); updateSetupView(); }
   document.dispatchEvent(new CustomEvent('snapkit:page', { detail: page }));
@@ -181,7 +181,7 @@ loadProduct();
 
 document.addEventListener('snapkit:language', () => {
   renderEditors(); updateJourney();
-  $('#breadcrumb-page').textContent = t({ profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Device logs', captures: 'Captures' }[activePage]);
+  $('#breadcrumb-page').textContent = t({ profile: t('My profile'), kit: t('Snapkit Kit'), backend: 'Backend', updates: 'Updates', releases: 'Build & release', devices: 'Devices', setup: 'Setup & tools', preferences: 'Preferences', plan: 'Your plan', guide: 'Quick start guide', sets: 'Device sets', logs: 'Debug Console', captures: 'Captures' }[activePage]);
   if (toolState) renderTools();
   updateSetupView();
 });
@@ -225,13 +225,13 @@ const frameworkGuidance = [
   ],
   [
     "#guide-logs > p",
-    "Select an online Android device or iOS Simulator, then start logs. Search by app name, package or message and filter warnings/errors. Pause following to read a line, or export the visible filtered log.",
-    "Select an online Android device or iOS Simulator to read system logs. Filter by app name or message and export what you need."
+    "Start debugging in your IDE or press Run in Snapkit. Debug Console shows output from sessions for this project. Search, filter, copy or export the output.",
+    "Start a React Native debug session in your IDE. Debug Console shows output sent by the connected debug adapter."
   ],
   [
     "#guide-logs > .tool-note",
-    "These are system logs, not the Flutter Debug Console. Keep the IDE open for Dart print output. Snapkit retains the latest 1,000 lines per stream and stops streams without a viewer after one minute.",
-    "Keep your editor and Metro open for JavaScript output. Snapkit shows device system logs; Fast Refresh stays in React Native/Metro."
+    "Requires Snapkit Debug Sync 1.7.2 or newer. Output is kept in memory, with the latest 1,000 lines available. No device system logs are collected.",
+    "Keep your IDE connected with Snapkit Debug Sync 1.7.2 or newer. Fast Refresh stays in React Native/Metro."
   ],
   [
     "#panel-setup .extension-card .interface-details-body > p:last-child",

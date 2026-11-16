@@ -47,13 +47,11 @@ test('save and activate run profiles and display Doctor retry errors', async ({p
 test('paused log view keeps export snapshot, classifies severity, and renders messages as text', async ({page}) => {
   await page.goto('/');
   let next = 0;
-  await page.route('**/api/tools/logs/*/start', route=>route.fulfill({json:{ok:true}}));
-  await page.route(/\/api\/tools\/logs\/[^/]+\?after=/, route=> {
+  await page.route(/\/api\/ide\/console\?/, route=> {
     next++;
-    route.fulfill({json:{status:'running',next:next+1,lines:next<=2?[{id:next,text:next===1?'E/App: <script>literal</script>':'W/App: warning '+next}]:[]}});
+    route.fulfill({json:{status:'running',next:next+1,lines:next<=2?[{id:next,text:next===1?'E/App: <script>literal</script>\n':'W/App: warning '+next+'\n'}]:[]}});
   });
   await page.locator('[data-app-page="logs"]').first().click();
-  await page.locator('#log-start').click();
   await expect(page.locator('#log-output')).toContainText('<script>literal</script>');
   await expect(page.locator('#log-output script')).toHaveCount(0);
   await expect(page.locator('#log-output .log-error')).toHaveCount(1);
@@ -65,7 +63,7 @@ test('paused log view keeps export snapshot, classifies severity, and renders me
   await page.locator('#log-export').click();
   const file = await download; const stream = await file.createReadStream();
   const chunks=[]; for await (const chunk of stream) chunks.push(chunk);
-  expect(Buffer.concat(chunks).toString()).toBe(frozen.trimEnd());
+  expect(Buffer.concat(chunks).toString()).toBe(frozen);
   await page.locator('#log-follow').check();
   await expect(page.locator('#log-output')).toContainText('warning');
   await expect.poll(()=>next).toBeGreaterThan(2);
@@ -96,4 +94,20 @@ test('developer tools translate, fit a small light window, and expose keyboard a
   await page.locator('[aria-labelledby="doctor-title"]').screenshot({path:'/tmp/snapkit-project-doctor-light-vi.png'});
   await page.setViewportSize({width:812,height:375});
   expect(await page.locator('#panel-setup').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+});
+
+test('Debug Console waits for debug and never starts a device log process', async ({page}) => {
+  const deviceLogRequests = [];
+  page.on('request', request => {if (request.url().includes('/api/tools/logs/')) deviceLogRequests.push(request.url());});
+  await page.goto('/?lang=vi');
+  await page.locator('[data-app-page="logs"]').first().click();
+  await expect(page.locator('#panel-logs h1')).toHaveText('Debug Console');
+  await expect(page.locator('#log-status')).toHaveText('Chưa có phiên debug');
+  await expect(page.locator('#log-output .log-line')).toHaveCount(0);
+  await expect(page.locator('#log-detail')).toContainText('Bắt đầu debug');
+  await expect(page.locator('#log-start')).toHaveCount(0);
+  await page.setViewportSize({width:375,height:812});
+  expect(await page.locator('#panel-logs').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:'/tmp/snapkit-debug-console-waiting-vi.png',animations:'disabled'});
+  expect(deviceLogRequests).toEqual([]);
 });

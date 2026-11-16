@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.2 — 2026-11-16
+
+- Mirror Flutter and React Native debug adapter output in the Snapkit Debug Console.
+- Forward console, stdout, stderr and important output only from trusted supported debug sessions.
+- Bound offline output queues and retry batches with acknowledgements to avoid duplicated output.
+- Keep output scoped to the current project and device, including final output from ended sessions.
+
 ## 1.7.1 — 2026-11-16
 
 - Package the extension README as the IDE Details page and this document as the Changelog tab.

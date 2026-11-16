@@ -1215,3 +1215,21 @@ Object.assign(window.SnapkitMessages.translations, {
 Object.assign(window.SnapkitMessages.translations,{'Snapkit configuration: {0} · {1}':'Cấu hình Snapkit: {0} · {1}'});
 
 Object.assign(window.SnapkitMessages.translations,{'{0} device(s) selected · Press F5 in your editor or Run here':'Đã chọn {0} thiết bị · Chạy tại đây hoặc nhấn F5 trong IDE'});
+
+Object.assign(window.SnapkitMessages.translations, {
+  "Debug Console": "Debug Console",
+  "Debug Console output": "Đầu ra Debug Console",
+  "All debug devices": "Tất cả thiết bị debug",
+  "Debugging": "Đang debug",
+  "No active debug session": "Chưa có phiên debug",
+  "Output from the IDE Debug Console.": "Đầu ra từ Debug Console của IDE.",
+  "Start debugging in your IDE or press Run in Snapkit. Output will appear here.": "Bắt đầu debug trong IDE hoặc nhấn Run trong Snapkit. Đầu ra sẽ hiển thị tại đây.",
+  "Output from IDE debug sessions for this project. Keeps the latest 1,000 lines in memory.": "Đầu ra từ các phiên debug IDE của dự án này. Giữ 1.000 dòng mới nhất trong bộ nhớ.",
+  "Start debugging in your IDE or press Run in Snapkit. Debug Console shows output from sessions for this project. Search, filter, copy or export the output.": "Bắt đầu debug trong IDE hoặc nhấn Run trong Snapkit. Debug Console hiển thị đầu ra của dự án này. Có thể tìm, lọc, sao chép hoặc xuất nội dung.",
+  "Start a React Native debug session in your IDE. Debug Console shows output sent by the connected debug adapter.": "Bắt đầu debug React Native trong IDE. Debug Console hiển thị đầu ra từ debug adapter đã kết nối.",
+  "Requires Snapkit Debug Sync 1.7.2 or newer. Output is kept in memory, with the latest 1,000 lines available. No device system logs are collected.": "Cần Snapkit Debug Sync 1.7.2 trở lên. Đầu ra được giữ trong bộ nhớ với tối đa 1.000 dòng mới nhất. Không thu log hệ thống thiết bị.",
+  "Keep your IDE connected with Snapkit Debug Sync 1.7.2 or newer. Fast Refresh stays in React Native/Metro.": "Giữ IDE kết nối với Snapkit Debug Sync 1.7.2 trở lên. Fast Refresh vẫn hoạt động trong React Native/Metro."
+});
+Object.assign(window.SnapkitMessages.translations, {'06 · Debug Console':'06 · Debug Console','Physical iPhone capture requires Xcode or QuickTime.':'Chụp màn hình iPhone thật cần Xcode hoặc QuickTime.'});
+
+Object.assign(window.SnapkitMessages.translations, {'Open Debug Console':'Mở Debug Console','Recordings are limited to 3 minutes, with at most two running at once. Physical iPhone capture requires Xcode or QuickTime. Recordings do not include audio; protected screens may appear blank.':'Bản ghi tối đa 3 phút, tối đa hai bản ghi cùng lúc. Chụp màn hình iPhone thật cần Xcode hoặc QuickTime. Bản ghi không có âm thanh; màn hình được bảo vệ có thể trống.'});

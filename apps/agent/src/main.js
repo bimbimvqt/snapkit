@@ -8,11 +8,12 @@ import { selectIDETargets } from './application/select-ide-targets.js';
 import { DeviceTools } from './modules/device-tools/device-tools.js';
 import { LocalAccount } from './modules/accounts/local-account.js';
 import { randomBytes } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { DebugLaunches } from './modules/ide/debug-launches.js';
+import { DebugConsole } from './modules/ide/debug-console.js';
 import { IDESessions } from './modules/ide/ide-sessions.js';
 import { deviceStatus } from './modules/devices/device-status.js';
 import { discover } from './modules/devices/discovery.js';
@@ -82,6 +83,7 @@ const locks = new Set();
 function emit(type, value) { for (const res of clients) res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`); }
 const debugLaunches = new DebugLaunches();
 let debugRevision = 0;
+const debugConsole = new DebugConsole();
 const ideSessions = new IDESessions({ changed: () => emit('debug', { debugSessions: ideSessions.list(), debugRevision: ++debugRevision }) });
 provisioner.on('jobs', jobs => emit('jobs', jobs));
 provisioner.on('completed', () => scan().catch(e => console.error(e.message)));
@@ -142,6 +144,7 @@ app.use((req, res, next) => {
 // Project icons are normalized raster images; keep their larger body budget scoped to Teams.
 app.use('/api/teams', express.json({ limit: '128kb' }));
 app.use('/api/account/profile', express.json({ limit: '128kb' }));
+app.use('/api/ide/sessions', express.json({ limit: '1mb' }));
 app.use(express.json({ limit: '16kb' }));
 app.get('/api/auth/status', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Open the local app to sign in.' });
@@ -240,9 +243,6 @@ app.post('/api/tools/sets/:id/start', (req, res) => res.json(deviceTools.startSe
   boot: async d => { if (demo) { d.state = 'online'; d.flutterId ||= d.id; emit('devices', snapshot); } else await bootDevice(d); },
   refresh: async () => { if (demo) return; const updates = await deviceStatus(snapshot.devices); for (const d of snapshot.devices) if (updates.has(d.id)) Object.assign(d, updates.get(d.id)); emit('devices', snapshot); }
 })));
-app.post('/api/tools/logs/:id/start', async (req, res) => res.json(await deviceTools.startLog(device(req.params.id))));
-app.post('/api/tools/logs/:id/stop', (req, res) => { deviceTools.stopLog(req.params.id); res.json({ ok: true }); });
-app.get('/api/tools/logs/:id', (req, res) => res.json(deviceTools.log(req.params.id, Math.max(0, Number(req.query.after) || 0))));
 app.post('/api/tools/captures/:id/screenshot', async (req, res) => res.json(await deviceTools.capture(requireWorkspace(), device(req.params.id))));
 app.post('/api/tools/captures/:id/record', async (req, res) => res.json(await deviceTools.record(requireWorkspace(), device(req.params.id))));
 app.post('/api/tools/recordings/:id/stop', async (req, res) => { await deviceTools.stopRecord(req.params.id); res.json({ ok: true }); });
@@ -420,8 +420,19 @@ app.get('/api/ide/plan', async (req, res) => {
 });
 app.post('/api/ide/sessions', (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'IDE session reports require the local extension' });
+  const previous = ideSessions.owners.get(req.body.ownerId)?.sessions || [];
   const sessions = ideSessions.exchange(req.body);
-  res.json({ ...sessions, launches: debugLaunches.exchange(req.body.ownerId, req.body.workspaces, req.body.launchResults) });
+  const current = ideSessions.owners.get(req.body.ownerId)?.sessions || [];
+  const consoleAck = debugConsole.exchange(req.body.ownerId, req.body.consoleOutput, req.body.consoleSessions || [...current, ...previous].filter(s => s.workspace));
+  res.json({ ...sessions, consoleAck, launches: debugLaunches.exchange(req.body.ownerId, req.body.workspaces, req.body.launchResults) });
+});
+app.get('/api/ide/console', async (req, res) => {
+  const workspace = await realpath(settings.workspace || '.').catch(() => '');
+  const deviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : '';
+  const result = debugConsole.read(settings.workspace ? workspace : '', deviceId, Number(req.query.after) || 0);
+  const sameWorkspace = value => process.platform === 'win32' ? value?.toLowerCase() === workspace.toLowerCase() : value === workspace;
+  const sessions = ideSessions.list().filter(s => sameWorkspace(s.workspace) && (!deviceId || s.deviceId === deviceId));
+  res.json({ ...result, sessions, status: sessions.length ? 'running' : 'waiting' });
 });
 app.post('/api/ide/launch', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Start debug from the local Snapkit app.' });

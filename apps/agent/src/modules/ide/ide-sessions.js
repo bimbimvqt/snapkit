@@ -23,7 +23,8 @@ export class IDESessions {
     for (const id of actionResults) actions.delete(id);
     const stops = this.owners.get(ownerId)?.stops || new Set();
     if(sessions.some(s=>s.teamSessionId!==undefined&&!/^[a-f0-9-]{36}$/.test(s.teamSessionId)))throw new Error('Invalid Teams session reference');
-    const clean = sessions.map(({ id, deviceId, name,teamSessionId }) => ({ id, deviceId, name,...(teamSessionId?{teamSessionId}:{}) }));
+    if (sessions.some(s => s.workspace !== undefined && (typeof s.workspace !== 'string' || s.workspace.length > 4096))) throw new Error('Invalid IDE workspace');
+    const clean = sessions.map(({ id, deviceId, name,teamSessionId, workspace }) => ({ id, deviceId, name,...(workspace ? { workspace } : {}),...(teamSessionId?{teamSessionId}:{}) }));
     for (const id of stops) if (!clean.some(s => s.id === id)) stops.delete(id);
     if (clean.length) this.owners.set(ownerId, { sessions: clean, stops, actions, seen: this.now() });
     else this.owners.delete(ownerId);
