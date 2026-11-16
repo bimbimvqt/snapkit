@@ -269,7 +269,8 @@ void loadReviews();
 function updateVisualImages() {
   const suffix = window.SnapkitI18n.language === 'vi' ? '-vi' : '';
   for (const image of document.querySelectorAll('[data-visual-image]')) {
-    const source = `assets/visual/${image.dataset.visualImage}${suffix}.webp?v=20261113-cleanup83`;
+    const stamp = image.dataset.visualImage === 'kit-mini-debug' ? '20261116-debug91' : '20261113-cleanup83';
+    const source = `assets/visual/${image.dataset.visualImage}${suffix}.webp?v=${stamp}`;
     if (image.getAttribute('src') !== source) image.src = source;
   }
 }

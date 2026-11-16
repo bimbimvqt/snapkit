@@ -10,8 +10,8 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const DAY = 86400000;
 const safeUser = user => ({ id: user.id, name: user.name, email: user.email, picture: user.picture, avatar: user.avatar || null, bio: user.bio || '', jobTitle: user.jobTitle || '', role: user.role, disabled: user.disabled, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt });
 export const defaultContent = () => ({ revision: 0, registrationOpen: true, recommendedVersion: '', announcement: { en: '', vi: '' }, landing: {
-  en: { headline: 'Debug multiple devices. From your favorite editor.', description: 'Select your devices, press F5 and test your app across screens.' },
-  vi: { headline: 'Debug nhiều thiết bị. Ngay từ editor của bạn.', description: 'Chọn thiết bị, bấm F5 và kiểm tra ứng dụng trên nhiều màn hình.' }
+  en: { headline: 'Debug multiple devices. From your favorite editor.', description: 'Press F5 in your IDE, or Run from Snapkit. Check Flutter on multiple screens with the configuration you choose.' },
+  vi: { headline: 'Debug nhiều thiết bị. Ngay từ editor của bạn.', description: 'F5 từ IDE, hoặc Run ngay trên Snapkit. Kiểm tra Flutter trên nhiều màn hình với cấu hình bạn chọn.' }
 } });
 // Upgrade only untouched historical landing copy; preserve every custom edit.
 export function refreshDefaultLanding(content) {
@@ -19,10 +19,12 @@ export function refreshDefaultLanding(content) {
     en: { headline: 'Every device. One place to build.', description: 'Prepare your devices in a few clicks. Focus on your next great app.' },
     vi: { headline: 'Mọi thiết bị. Một nơi điều khiển.', description: 'Chuẩn bị thiết bị trong vài thao tác. Tập trung làm nên ứng dụng tiếp theo của bạn.' }
   };
+  const previousDescription = { en: 'Select your devices, press F5 and test your app across screens.', vi: 'Chọn thiết bị, bấm F5 và kiểm tra ứng dụng trên nhiều màn hình.' };
   const next = structuredClone(content), defaults = defaultContent();
   let changed = false;
   for (const lang of ['en', 'vi']) for (const field of ['headline', 'description']) {
-    if (next.landing?.[lang]?.[field] === legacy[lang][field]) {
+    const current = next.landing?.[lang]?.[field];
+    if (current !== defaults.landing[lang][field] && (current === legacy[lang][field] || field === 'description' && current === previousDescription[lang])) {
       next.landing[lang][field] = defaults.landing[lang][field]; changed = true;
     }
   }
