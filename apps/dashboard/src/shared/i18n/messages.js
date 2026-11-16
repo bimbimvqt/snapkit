@@ -2,6 +2,7 @@
 window.SnapkitMessages = {
   "source": "en",
   "translations": {
+    "You completed {0} minutes of focus. Time for a break.": "Bạn đã hoàn thành {0} phút tập trung. Nghỉ một chút nhé.",
     "Gradient": "Chuyển sắc",
     "Volume": "Âm lượng",
     "Could not play this audio. Try again or choose another space.": "Chưa phát được âm thanh. Thử lại hoặc chọn không gian khác.",

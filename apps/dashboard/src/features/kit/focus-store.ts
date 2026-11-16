@@ -9,10 +9,14 @@ let state:FocusExperience=restoreFocus(read(key)||{...initialFocus(),timer:read(
 let ready=!native,error='';
 const emit=()=>{state={...state};listeners.forEach(fn=>fn());};
 function persist(value:FocusExperience){localStorage.setItem(key,JSON.stringify(value));localStorage.setItem(timerKey,JSON.stringify(value.timer));}
-function accept(value:FocusExperience){state=restoreFocus(value);error='';emit();}
+function accept(value:FocusExperience,announce=true){
+ const next=restoreFocus(value),completed=announce&&state.timer.deadline!==null&&next.timer.deadline===null&&next.timer.remaining===0;
+ state=next;error='';emit();
+ if(completed)document.dispatchEvent(new CustomEvent('snapkit:toast',{detail:{message:window.SnapkitI18n.t('You completed {0} minutes of focus. Time for a break.',[state.sessionSeconds/60])}}));
+}
 if(native){
  desktop?.onFocusExperience?.(accept);
- void desktop!.focusExperience!(state.timer).then(value=>{ready=true;accept(value);}).catch(()=>{error='Could not load your garden. Reopen Focus Kit to retry.';ready=true;emit();});
+ void desktop!.focusExperience!(state.timer).then(value=>{ready=true;accept(value,false);}).catch(()=>{error='Could not load your garden. Reopen Focus Kit to retry.';ready=true;emit();});
 }else{
  desktop?.onMiniFocus?.(timer=>{const next={...state,timer};try{persist(next);accept(next);}catch{error='Could not save your garden on this computer.';emit();}});
  window.addEventListener('storage',event=>{if(event.key===key)accept(restoreFocus(read(key)));});

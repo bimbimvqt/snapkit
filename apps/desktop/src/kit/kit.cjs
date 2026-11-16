@@ -1,7 +1,8 @@
 'use strict';
 const path=require('node:path');
 function installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerSaveBlocker,fromApp,getWindow,origin,language}){
- let awake=null,focusTimer=null;
+ let awake=null,focusTimer=null,focusDeadline=null,focusSeconds=null;
+ const notifications=new Set();
  async function request(route,body){const state=await fetch(origin+'/api/state').then(r=>r.json());const response=await fetch(origin+'/api/kit'+route,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':state.token},...(body===undefined?{}:{body:JSON.stringify(body)})});const result=await response.json();if(!response.ok)throw Error(result.error||'Kit operation failed');return result;}
  const valid=event=>{if(!fromApp(event))throw Error('Invalid caller');};
  const showCommands=()=>{const window=getWindow();if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.show();window.focus();window.webContents.send('snapkit:kit-command');}};
@@ -15,9 +16,24 @@ function installKit({app,ipcMain,dialog,shell,globalShortcut,Notification,powerS
  ipcMain.handle('snapkit:kit-drop',async(event,paths)=>{valid(event);if(!Array.isArray(paths)||paths.length>5||paths.some(p=>typeof p!=='string'||!path.isAbsolute(p)))throw Error('Choose up to 5 files');return request('/files',{paths});});
  ipcMain.handle('snapkit:kit-reveal',async(event,id)=>{valid(event);if(typeof id!=='string'||!/^[a-z0-9-]{36}$/i.test(id))throw Error('Invalid file');const result=await request('/files/'+encodeURIComponent(id)+'/path');shell.showItemInFolder(result.path);return true;});
  ipcMain.handle('snapkit:kit-folder',async(event,name)=>{valid(event);if(!['build','.dart_tool/flutter_build','node_modules/.cache'].includes(name))throw Error('Invalid folder');const state=await fetch(origin+'/api/state').then(r=>r.json());if(!state.settings.workspace)throw Error('Connect a project first');const root=await require('node:fs/promises').realpath(state.settings.workspace),folder=await require('node:fs/promises').realpath(path.join(root,name));if(path.relative(root,folder).startsWith('..')||path.isAbsolute(path.relative(root,folder)))throw Error('Folder is outside your project');shell.showItemInFolder(folder);return true;});
- const setFocusDeadline=deadline=>{if(deadline!==null&&(!Number.isFinite(deadline)||deadline<Date.now()-1000||deadline>Date.now()+86400000))throw Error('Invalid focus time');if(focusTimer)clearTimeout(focusTimer);focusTimer=null;if(deadline!==null)focusTimer=setTimeout(()=>{focusTimer=null;if(Notification.isSupported())new Notification({title:'Snapkit',body:language()==='vi'?'Đã hoàn thành phiên tập trung. Nghỉ một chút nhé.':'Your focus session is complete. Time for a break.',silent:false}).show();},Math.max(0,deadline-Date.now()));return true;};
+ const notifyFocusComplete=()=>{
+  if(!Notification.isSupported())return false;
+  const vi=language()==='vi',minutes=Number.isFinite(focusSeconds)?focusSeconds/60:null;
+  const notification=new Notification({title:vi?'Đã hoàn thành phiên tập trung':'Focus session complete',body:minutes?(vi?`Bạn đã hoàn thành ${minutes} phút tập trung. Nghỉ một chút nhé.`:`You completed ${minutes} minutes of focus. Time for a break.`):(vi?'Phiên tập trung đã kết thúc. Nghỉ một chút nhé.':'Your focus session has ended. Time for a break.'),silent:false});
+  notifications.add(notification);notification.on('close',()=>notifications.delete(notification));
+  notification.on('click',()=>{const window=getWindow();if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.show();window.focus();window.webContents.send('snapkit:mini-navigate',{page:'kit',tool:'focus'});}});
+  notification.show();return true;
+ };
+ const setFocusDeadline=(deadline,seconds)=>{
+  if(deadline!==null&&(!Number.isFinite(deadline)||deadline<Date.now()-1000||deadline>Date.now()+86400000))throw Error('Invalid focus time');
+  // The store may settle first after a delayed event loop or system wake.
+  if(focusDeadline!==null&&focusDeadline<=Date.now())notifyFocusComplete();
+  if(focusTimer)clearTimeout(focusTimer);focusTimer=null;focusDeadline=deadline;focusSeconds=seconds;
+  if(deadline!==null)focusTimer=setTimeout(()=>{focusTimer=null;focusDeadline=null;notifyFocusComplete();},Math.max(0,deadline-Date.now()));
+  return true;
+ };
  ipcMain.handle('snapkit:kit-focus',(event,deadline)=>{valid(event);return setFocusDeadline(deadline);});
- ipcMain.handle('snapkit:kit-notify',event=>{valid(event);if(Notification.isSupported()){new Notification({title:'Snapkit',body:language()==='vi'?'Đã hoàn thành phiên tập trung. Nghỉ một chút nhé.':'Your focus session is complete. Time for a break.',silent:false}).show();}return true;});
+ ipcMain.handle('snapkit:kit-notify',event=>{valid(event);return notifyFocusComplete();});
  app.once('will-quit',()=>{if(focusTimer)clearTimeout(focusTimer);globalShortcut.unregister('CommandOrControl+Shift+Space');if(awake!==null)powerSaveBlocker.stop(awake);});
  return {setFocusDeadline,state,setAwake};
 }
