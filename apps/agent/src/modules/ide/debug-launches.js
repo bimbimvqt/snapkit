@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 // Only a trusted extension with the matching project open can consume a launch.
 export class DebugLaunches {
   constructor({ now = Date.now } = {}) { this.now = now; this.clients = new Map(); this.jobs = new Map(); }
-  exchange(ownerId, workspaces = [], results = []) {
+  exchange(ownerId, workspaces = [], results = [], capabilities = []) {
     if (!Array.isArray(workspaces) || workspaces.length > 32 || workspaces.some(p => typeof p !== 'string' || !p || p.length > 4096)
         || !Array.isArray(results) || results.length > 32) throw new Error('Invalid debug launch report');
+    if (!Array.isArray(capabilities) || capabilities.length > 8 || capabilities.some(c => typeof c !== 'string' || c.length > 64)) throw new Error('Invalid IDE capabilities');
     this.prune();
     if (!this.clients.has(ownerId) && this.clients.size >= 32) throw new Error('Too many IDE clients');
-    this.clients.set(ownerId, { workspaces, seen: this.now() });
+    this.clients.set(ownerId, { workspaces, capabilities, seen: this.now() });
     for (const result of results) {
       const job = this.jobs.get(result?.id);
       if (job?.ownerId === ownerId && job.status === 'queued' && ['started', 'failed'].includes(result.status)) {
@@ -32,6 +33,7 @@ export class DebugLaunches {
     const owners = [...this.clients].filter(([, client]) => client.workspaces.includes(plan.workspace));
     if (!owners.length) throw new Error('Open this project in your IDE with Snapkit Debug Sync 1.7 or newer, then reload the IDE window.');
     if (owners.length > 1) throw new Error('This project is open in multiple IDE windows. Keep one connected window to start debug.');
+    if (plan.ideProfile && !owners[0][1].capabilities.includes('ide-profiles')) throw new Error('Update Snapkit Debug Sync to 1.8.0 or newer and reload your IDE window to use IDE run profiles.');
     const job = { id: randomUUID(), ownerId: owners[0][0], plan: structuredClone(plan), status: 'queued', at: this.now() };
     this.jobs.set(job.id, job); return this.status(job.id);
   }

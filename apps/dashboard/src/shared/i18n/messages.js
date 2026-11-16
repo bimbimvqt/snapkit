@@ -1233,3 +1233,11 @@ Object.assign(window.SnapkitMessages.translations, {
 Object.assign(window.SnapkitMessages.translations, {'06 · Debug Console':'06 · Debug Console','Physical iPhone capture requires Xcode or QuickTime.':'Chụp màn hình iPhone thật cần Xcode hoặc QuickTime.'});
 
 Object.assign(window.SnapkitMessages.translations, {'Open Debug Console':'Mở Debug Console','Recordings are limited to 3 minutes, with at most two running at once. Physical iPhone capture requires Xcode or QuickTime. Recordings do not include audio; protected screens may appear blank.':'Bản ghi tối đa 3 phút, tối đa hai bản ghi cùng lúc. Chụp màn hình iPhone thật cần Xcode hoặc QuickTime. Bản ghi không có âm thanh; màn hình được bảo vệ có thể trống.'});
+
+Object.assign(window.SnapkitMessages.translations, {
+ 'Run configuration':'Cấu hình chạy', 'Snapkit project settings':'Cấu hình dự án Snapkit',
+ 'Selected configuration unavailable':'Cấu hình không còn khả dụng', 'Run with the selected configuration':'Chạy với cấu hình đã chọn',
+ 'Debug configuration is unavailable. Refresh the profiles and choose again.':'Cấu hình chạy không còn khả dụng. Làm mới danh sách và chọn lại.',
+ 'Debug configuration changed. Review your selection before running.':'Cấu hình chạy đã thay đổi. Kiểm tra lựa chọn trước khi chạy.',
+ 'Update Snapkit Debug Sync to 1.8.0 or newer and reload your IDE window to use IDE run profiles.':'Cập nhật Snapkit Debug Sync lên 1.8.0 trở lên và tải lại cửa sổ IDE để dùng profile IDE.'
+});

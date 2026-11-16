@@ -2,7 +2,13 @@
 
 Debug Flutter and React Native on the devices selected in [Snapkit](https://snapkit.vn/), from VS Code, Cursor or Antigravity. Project source and `launch.json` stay on your computer and are not rewritten.
 
-## What's new in 1.7.2
+## What's new in 1.8.0
+
+- Choose dev, prod, staging or any project debug profile next to Run in Devices and Mini.
+- Choose IDE profiles or saved Snapkit profiles without changing your device selection.
+- IDE profiles preserve their entrypoint, flavor, arguments, defines and environment.
+
+### Debug Console update (1.7.2)
 
 - Mirror IDE debug adapter output in Snapkit Debug Console, scoped to the project and selected device.
 - Receive output only during debug sessions; device system logs are no longer collected.
@@ -15,7 +21,7 @@ Debug Flutter and React Native on the devices selected in [Snapkit](https://snap
 - Keep the IDE's selected dev/prod profile when pressing F5.
 - Read extension setup instructions here and release notes in the Changelog tab.
 
-The new Snapkit and Mini controls require Snapkit Desktop **0.2.0-beta.92 or newer** and this extension **1.7 or newer**. Your IDE must be open with the same project in a trusted workspace. React Native continues to launch from the IDE.
+The new Snapkit and Mini controls require Snapkit Desktop **0.2.0-beta.93 or newer** and this extension **1.8 or newer**. Your IDE must be open with the same project in a trusted workspace. React Native continues to launch from the IDE.
 
 ## Install and connect
 
@@ -24,12 +30,18 @@ The new Snapkit and Mini controls require Snapkit Desktop **0.2.0-beta.92 or new
 3. For Flutter, also install Dart and Flutter extensions. For React Native, install Node.js and the project's native Android/iOS tools.
 4. Open the same project in Snapkit and your IDE. Start devices, then select the devices you want to debug in Snapkit.
 
+## Choose dev, prod or another configuration
+
+In **Devices** or the floating **Mini → Debug**, choose **Run configuration** above Run. IDE choices come from this project’s debug profiles; saved Snapkit profiles appear alongside the current project settings. The flavor is shown before the profile name. This choice is shared between Devices and Mini and remembered per workspace. Device selection stays unchanged. Changes apply to your next Run; stop existing sessions before running again. Missing, deleted or ambiguous profiles never fall back to another environment.
+
+F5 continues using the profile selected in your IDE. The Snapkit selector applies to Run in Snapkit and Mini.
+
 ## Two ways to start Flutter debug
 
 | Where you press Run | Configuration used |
 | --- | --- |
 | IDE Run/Debug or F5 | The selected IDE profile, including entrypoint, flavor, Dart defines, arguments and environment. Snapkit supplies device selection. |
-| Snapkit or Mini Run | The project configuration saved in Snapkit. The command is passed to the connected IDE; its Debug Console and breakpoints remain available. |
+| Snapkit or Mini Run | The profile chosen in **Run configuration** in Snapkit or Mini: an IDE debug profile, a saved Snapkit profile, or the current Snapkit project settings. IDE profiles keep their full IDE configuration. |
 
 To use Snapkit's project settings when pressing F5 too, set `snapkit.flutterLaunchConfiguration` to `dashboard` in the IDE settings. Its default value is `ide`. These settings apply to the next launch; running sessions are not reconfigured. Prepared Teams sessions use the configuration prepared in Teams.
 
@@ -64,6 +76,6 @@ Select **Snapkit React Native** in Run and Debug, then press F5. Snapkit prepare
 
 **F5 trong IDE** dùng cấu hình dev/prod đang chọn trong IDE. **Run trên Snapkit hoặc widget Mini** dùng cấu hình dự án lưu trong Snapkit. Chọn thiết bị trước khi chạy; Hot reload, Hot restart và Stop chỉ điều khiển các phiên trên thiết bị đã chọn.
 
-Cần mở cùng dự án trong IDE, tin cậy workspace và tải lại cửa sổ IDE sau khi cập nhật extension. Bộ điều khiển mới cần Snapkit Desktop 0.2.0-beta.92 trở lên. Run trong Snapkit/Mini hiện dành cho Flutter; React Native tiếp tục chạy từ IDE.
+Cần mở cùng dự án trong IDE, tin cậy workspace và tải lại cửa sổ IDE sau khi cập nhật extension. Bộ điều khiển mới cần Snapkit Desktop 0.2.0-beta.93 trở lên. Run trong Snapkit/Mini hiện dành cho Flutter; React Native tiếp tục chạy từ IDE.
 
 [Website and downloads](https://snapkit.vn/) · [Report an issue](https://github.com/bimbimvqt/snapkit/issues)

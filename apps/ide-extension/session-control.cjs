@@ -42,7 +42,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
       const outputBatch = vscode.workspace.isTrusted ? outputQueue.slice(0, 16) : [];
       const consoleSessions = await Promise.all([...new Set(outputBatch.map(entry => entry.sessionId))].map(id => describe(outputSessions.get(id))));
       const result = await request(base, '/api/ide/sessions', { ownerId, sessions: listed,
-        workspaces: roots.map(item => item.root).filter(Boolean), consoleOutput: outputBatch, consoleSessions, launchResults, actionResults: [...actions] }, credentials.token);
+        workspaces: roots.map(item => item.root).filter(Boolean), consoleOutput: outputBatch, consoleSessions, capabilities: ['ide-profiles'], launchResults, actionResults: [...actions] }, credentials.token);
       if (Number.isSafeInteger(result.consoleAck)) outputQueue = outputQueue.filter(entry => entry.sequence > result.consoleAck);
       for (const id of outputSessions.keys()) if (!outputQueue.some(entry => entry.sessionId === id)) outputSessions.delete(id);
       for (const { id } of launchResults) launches.delete(id);
@@ -57,7 +57,14 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         void (async () => {
           try {
             if (command.plan.status !== 'ready' || command.plan.framework === 'react-native') throw Error('Invalid Flutter launch');
-            const started = await vscode.debug.startDebugging(entry.folder, { name: 'Snapkit Debug', type: 'dart', request: 'launch', __snapkitLaunchPlan: command.plan });
+            let configuration = { name: 'Snapkit Debug', type: 'dart', request: 'launch' };
+            if (command.plan.ideProfile) {
+              const configs = vscode.workspace.getConfiguration('launch', entry.folder.uri).get('configurations', []);
+              const matching = configs.filter(c => c.name === command.plan.ideProfile.name && c.type === 'dart' && c.request === 'launch');
+              if (matching.length !== 1 || matching[0].noDebug || (matching[0].flutterMode && matching[0].flutterMode !== 'debug') || matching[0].__snapkitGroup) throw Error('The selected IDE debug profile is missing or ambiguous. Refresh profiles in Snapkit.');
+              configuration = { ...matching[0] };
+            }
+            const started = await vscode.debug.startDebugging(entry.folder, { ...configuration, __snapkitLaunchPlan: command.plan });
             launches.set(command.id, { status: started ? 'started' : 'failed', error: started ? '' : 'IDE cancelled debug. Check the Debug Console.' });
           } catch (error) { launches.set(command.id, { status: 'failed', error: error.message }); }
           if (!disposed) void tick();

@@ -50,6 +50,7 @@ async function api(url, data, quiet = false) {
     if (url === '/api/apple/detected') return { teams: [] };
     if (url === '/api/releases') return { jobs: [], busy: false, uploadConfigured: false, demo: true };
     if (url === '/api/releases/catalog') return { workspace: state.settings.workspace, platform: 'darwin', android: true, ios: true, flavors: [], profiles: [{ name: 'Workspace settings', flavor: '', target: 'lib/main.dart', defineFile: '' }], version: '1.0.0+1' };
+    if (url === '/api/ide/profiles') return {workspace: state.settings.workspace, selectedId: 'workspace', profiles: [{id:'workspace',source:'workspace',name:'Snapkit project settings',flavor:'dev',target:'lib/main_dev.dart'}]};
     if (url === '/api/run-profiles') return { profiles: [] };
     if (url === '/api/workspace/doctor') return { ready: true, checkedAt: Date.now(), checks: [{id:'preview', title:'Sample project',status:'ready',detail:'Demo only. Open your project in Snapkit Desktop to check its configuration.'}] };
     if (url.startsWith('/api/ide/console?')) return { status: 'waiting', sessions: [], lines: [], next: 1 };
@@ -231,7 +232,7 @@ for (const name of ['run', 'reload', 'restart', 'stop']) $('#debug-' + name).add
   const expectedWorkspace = state.settings.workspace;
   try {
     if (name === 'run') {
-      let job = await api('/api/ide/launch', { expectedWorkspace });
+      let job = await api('/api/ide/launch', { expectedWorkspace, expectedProfileId: state.settings.debugProfileId || 'workspace' });
       $('#ide-summary').textContent = t('Starting debug in your IDE…');
       while (job.status === 'queued') {
         await new Promise(resolve => setTimeout(resolve, 1000));

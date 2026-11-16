@@ -1,4 +1,4 @@
-import { t, $, escape, busy, api, state, loadState, toast, showWorkspace, connection } from '../../legacy/device-controller.js';
+import { t, $, escape, busy, api, state, loadState, toast, showWorkspace, connection, render as renderDevices } from '../../legacy/device-controller.js';
 import './developer-tools.css';
 
 let context = '', epoch = 0, profiles = [], doctor = null, profilesContent = '', doctorContent = '';
@@ -74,3 +74,49 @@ document.addEventListener('snapkit:state', sync);
 document.addEventListener('snapkit:page', event => { if (event.detail === 'devices') void refreshProfiles(); });
 document.addEventListener('snapkit:language', render);
 sync();
+
+// The Run selector is shared with Mini through the local agent's workspace settings.
+let debugCatalog = null, debugCatalogKey = '', debugCatalogLoading = false, debugSelecting = false;
+const debugContext = () => JSON.stringify([state.settings.spaceId, state.settings.workspace, state.settings.debugProfileId, state.settings.flavor, state.settings.target, state.settings.defineFile]);
+function renderDebugProfiles() {
+  const select = $('#debug-run-profile'), selectedId = state.settings.debugProfileId || 'workspace';
+  const profiles = debugCatalog?.workspace === state.settings.workspace && debugCatalogKey === debugContext() ? debugCatalog.profiles.map(p => p.source === 'workspace' ? {...p, flavor:state.settings.flavor || '', target:state.settings.target || 'lib/main.dart', defineFile:state.settings.defineFile || ''} : p) : [];
+  const options = profiles.length ? profiles : [{id:'workspace',name:'Snapkit project settings',source:'workspace'}];
+  const content = JSON.stringify([options, selectedId, window.SnapkitI18n.language]);
+  if (select.dataset.content !== content) {
+    select.dataset.content = content;
+    select.replaceChildren(...options.map(profile => new Option((profile.source === 'ide' ? 'IDE · ' : profile.source === 'saved' ? 'Snapkit · ' : '') + (profile.flavor ? profile.flavor + ' · ' : '') + t(profile.name), profile.id)));
+    if (!options.some(p => p.id === selectedId)) select.add(new Option(t('Selected configuration unavailable'), selectedId));
+    select.value = selectedId;
+  }
+  select.disabled = debugSelecting || !state.settings.workspace || state.settings.framework === 'react-native' || !!connection || !!window.SNAPKIT_CONTROLLER || !!window.SNAPKIT_PREVIEW;
+  select.setAttribute('aria-busy', String(debugSelecting));
+  const selected = profiles.find(p => p.id === selectedId);
+  if (selected) $('#debug-profile-summary').textContent = [selected.source === 'ide' ? 'IDE · ' + selected.name : t(selected.name), selected.flavor || t('Default flavor'), selected.target].filter(Boolean).join(' · ');
+  if (debugCatalog && debugCatalogKey === debugContext() && !selected) { $('#debug-profile-summary').textContent = t('Selected configuration unavailable'); $('#debug-run').disabled = true; }
+  if (debugSelecting) $('#debug-run').disabled = true;
+  $('#debug-run').title = t('Run with the selected configuration');
+}
+async function refreshDebugProfiles() {
+  if (debugCatalogLoading || !state.settings.workspace) return;
+  debugCatalogLoading = true;
+  const key = debugContext();
+  try {
+    const result = await api('/api/ide/profiles');
+    if (key === debugContext()) { debugCatalog = result; debugCatalogKey = key; renderDebugProfiles(); }
+  } catch { if (key === debugContext()) { debugCatalog = null; debugCatalogKey = key; } }
+  finally { debugCatalogLoading = false; }
+}
+$('#debug-run-profile').addEventListener('change', async event => {
+  if (debugSelecting) return;
+  const expectedWorkspace = state.settings.workspace, id = event.target.value;
+  debugSelecting = true; renderDevices();
+  try {
+    const result = await api('/api/ide/profiles/select', { expectedWorkspace, id });
+    if (expectedWorkspace === state.settings.workspace) { state.settings = result.settings; debugCatalog = result; debugCatalogKey = debugContext(); }
+  } catch (error) { toast(error.message, true); }
+  finally { debugSelecting = false; await loadState().catch(() => {}); renderDevices(); }
+});
+document.addEventListener('snapkit:state', () => { renderDebugProfiles(); if (debugCatalogKey !== debugContext()) void refreshDebugProfiles(); });
+document.addEventListener('snapkit:language', renderDebugProfiles);
+setInterval(() => { if (!document.hidden && !$('#panel-devices').classList.contains('hidden')) void refreshDebugProfiles(); }, 15000);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 — 2026-11-16
+
+- Choose an IDE debug profile or saved Snapkit configuration from Run configuration in Devices and Mini.
+- Preserve the chosen IDE profile’s arguments, defines, environment and entrypoint across selected devices.
+- Advertise IDE profile support so older bridges cannot silently launch the wrong configuration.
+- Fail clearly when the selected IDE profile is missing or ambiguous.
+
 ## 1.7.2 — 2026-11-16
 
 - Mirror Flutter and React Native debug adapter output in the Snapkit Debug Console.

@@ -70,3 +70,32 @@ test('Run from Snapkit uses its captured build profile even when IDE settings pr
   await debug.started({id:'first',configuration:first});assert.equal(launches.length,1);assert.equal(launches[0].program,first.program);
  }finally{debug.dispose();}
 });
+
+test('named IDE Run profile keeps all launch arguments and environment when Snapkit fans out selected devices',async()=>{
+ const {createDashboardDebug}=createRequire(import.meta.url)('../../apps/ide-extension/dashboard-debug.cjs');
+ const root=path.resolve('flutter-project'),launches=[];
+ const plan={protocol:1,status:'ready',workspace:root,ideProfile:{name:'Dev'},configurations:[1,2].map(id=>({type:'dart',request:'launch',flutterMode:'debug',name:'Device '+id,cwd:root,deviceId:String(id),program:path.join(root,'lib/main.dart'),toolArgs:['--flavor','prod']}))};
+ const vscode={workspace:{isTrusted:true,getConfiguration:()=>({get:(_key,fallback)=>fallback})},window:{showErrorMessage(){},showWarningMessage(){}},debug:{startDebugging:async(_folder,config)=>{launches.push(config);return true;},stopDebugging:async()=>{}}};
+ const debug=createDashboardDebug(vscode,{canonical:async p=>p,flutterProject:async()=>true});
+ try{
+  const original={type:'dart',request:'launch',name:'Dev',program:'lib/main_dev.dart',args:['--flavor','dev','--dart-define=ENV=dev'],toolArgs:['--verbose'],env:{LOCAL_ENV:'dev'},__snapkitLaunchPlan:plan};
+  const first=await debug.provider.resolveDebugConfiguration({uri:{fsPath:root}},original);
+  for(const key of ['program','args','toolArgs','env'])assert.deepEqual(first[key],original[key]);
+  await debug.started({id:'first',configuration:first});assert.equal(launches.length,1);
+  for(const key of ['program','args','toolArgs','env'])assert.deepEqual(launches[0][key],original[key]);
+ }finally{debug.dispose();}
+});
+
+test('bridge loads exactly the named trusted IDE profile and fails clearly when it no longer exists',async()=>{
+ const root=await realpath(process.cwd()),configs=[{type:'dart',request:'launch',name:'Dev',program:'lib/main_dev.dart',env:{LOCAL_ENV:'dev'},args:['--flavor','dev']}],launched=[],reports=[];
+ let command={id:'chosen',plan:{workspace:root,status:'ready',ideProfile:{name:'Dev'}}};
+ const vscode={workspace:{isTrusted:true,workspaceFolders:[{uri:{fsPath:root}}],getConfiguration:section=>({get:(key,fallback)=>section==='launch'&&key==='configurations'?configs:fallback})},debug:{startDebugging:async(_folder,config)=>{launched.push(config);return true;}}};
+ const control=createSessionControl(vscode,{request:async(_base,route,body)=>{if(route==='/api/state')return {token:'test'};reports.push(body);return {launches:[command]};}});
+ try{
+  await control.tick();await new Promise(resolve=>setImmediate(resolve));assert.equal(launched[0].program,'lib/main_dev.dart');assert.deepEqual(launched[0].env,{LOCAL_ENV:'dev'});
+  configs.splice(0);command={...command,id:'deleted'};await control.tick();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(launched.length,1);
+  for(let i=0;i<50&&!reports.flatMap(r=>r.launchResults).some(r=>r.id==='deleted'&&r.status==='failed');i++){await control.tick();await new Promise(resolve=>setTimeout(resolve,10));}
+  assert.ok(reports.flatMap(r=>r.launchResults).some(r=>r.id==='deleted'&&r.status==='failed'));
+ }finally{control.dispose();}
+});

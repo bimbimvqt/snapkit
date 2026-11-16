@@ -1,11 +1,12 @@
 'use strict';
 // Only allow fields intended for the widget across its isolated preload bridge.
-function debugControls(state, launch) {
+function debugControls(state, launch, catalog) {
  const settings=state?.settings||{},ids=settings.targetIds||[];
  const devices=(state?.devices||[]).filter(d=>ids.includes(d.id));
  const active=(state?.debugSessions||[]).filter(s=>devices.some(d=>[d.id,d.flutterId].includes(s.deviceId)));
+ const selectedProfile=catalog?.selected?.source==='workspace'?{...catalog.selected,flavor:settings.flavor||'',target:settings.target||'lib/main.dart'}:catalog?.selected;
  const flutter=settings.framework!=='react-native'&&settings.framework!=='backend';
- return {selected:ids.length,active:active.length,canRun:!state?.authRequired&&flutter&&!!settings.workspace&&ids.length>0&&devices.length===ids.length&&devices.every(d=>d.state==='online'&&d.flutterId)&&!active.length&&launch?.status!=='queued',canControl:!state?.authRequired&&active.length>0,flutter,flavor:settings.flavor||'',target:settings.target||'lib/main.dart',launch:launch?{status:launch.status,error:launch.error||''}:null};
+ return {selected:ids.length,active:active.length,canRun:!state?.authRequired&&flutter&&!!settings.workspace&&ids.length>0&&devices.length===ids.length&&devices.every(d=>d.state==='online'&&d.flutterId)&&!active.length&&launch?.status!=='queued'&&(catalog===undefined||!!selectedProfile),canControl:!state?.authRequired&&active.length>0,flutter,profiles:catalog?.profiles||[],profileId:catalog?.selectedId||settings.debugProfileId||'workspace',profileName:selectedProfile?.name||'',source:selectedProfile?.source||'',flavor:selectedProfile?.flavor??settings.flavor??'',target:selectedProfile?.target||settings.target||'lib/main.dart',launch:launch?{status:launch.status,error:launch.error||''}:null};
 }
 function debugSummary(state,releases){
  const sessions=Array.isArray(state.debugSessions)?state.debugSessions:[];

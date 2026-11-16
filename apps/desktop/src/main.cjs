@@ -268,6 +268,15 @@ async function start() {
     })()`);
     await miniWindow.webContents.executeJavaScript("window.snapkitMini.action('mode:debug')");
     for(let attempt=0;attempt<40;attempt++){if(await miniWindow.webContents.executeJavaScript("window.snapkitMini.state().then(s=>s.quickBuild.canBuild)"))break;await new Promise(resolve=>setTimeout(resolve,100));}
+    const runProfileCheck=await miniWindow.webContents.executeJavaScript(`(async()=>{
+      const state=await window.snapkitMini.state(),profiles=state.debugControls.profiles;
+      const prod=profiles.find(p=>p.source==='ide'&&p.flavor==='prod');
+      if(!prod)return false;
+      await window.snapkitMini.action('debug:profile:'+prod.id);
+      for(let i=0;i<50;i++){const next=await window.snapkitMini.state();if(next.debugControls.profileId===prod.id&&document.getElementById('debug-run-profile').value===prod.id){await window.snapkitMini.action('debug:profile:workspace');return true;}await new Promise(r=>setTimeout(r,100));}
+      return false;
+    })()`);
+    if(!runProfileCheck)throw Error('Mini Run configuration selection failed');
     const beforeBuild=await fetch(origin+'/api/state').then(r=>r.json());
     const staleBuild=await fetch(origin+'/api/releases/build',{method:'POST',headers:{'Content-Type':'application/json','X-Snapkit-Token':beforeBuild.token},body:JSON.stringify({expectedWorkspace:'stale-workspace',format:'apk'})});
     result.miniDiagnostics={initial:miniResult,stages:[]};
@@ -331,6 +340,7 @@ async function start() {
         await new Promise(resolve=>setTimeout(resolve,120));
         for(const mode of ['focus','utility','debug']){
           await miniWindow.webContents.executeJavaScript(`window.snapkitMini.action('mode:${mode}')`);
+          if(mode==='debug')await miniWindow.webContents.executeJavaScript(`(async()=>{const s=await window.snapkitMini.state(),dev=s.debugControls.profiles.find(p=>p.source==='ide'&&p.flavor==='dev');if(dev){await window.snapkitMini.action('debug:profile:'+dev.id);for(let i=0;i<40;i++){if((await window.snapkitMini.state()).debugControls.profileId===dev.id)break;await new Promise(r=>setTimeout(r,100));}}})()`);
           await new Promise(resolve=>setTimeout(resolve,200));
           fs.writeFileSync(process.env.SNAPKIT_MINI_SCREENSHOT.replace('.png','-'+mode+'-'+language+'.png'),(await miniWindow.webContents.capturePage()).toPNG());
         }

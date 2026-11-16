@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 const types = ['flutter', 'react-native', 'backend'];
-const setup = settings => ({ workspace: settings.workspace || '', framework: settings.framework || 'flutter', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '', targetIds: [...(settings.targetIds || [])], selectedSetId: settings.selectedSetId || '', ideEnabled: settings.ideEnabled !== false });
+const setup = settings => ({ debugProfileId: settings.debugProfileId || 'workspace', workspace: settings.workspace || '', framework: settings.framework || 'flutter', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '', targetIds: [...(settings.targetIds || [])], selectedSetId: settings.selectedSetId || '', ideEnabled: settings.ideEnabled !== false });
 // Explicit workspace IDs are independent of project paths. Existing project
 // settings remain the legacy workspace until the user first creates/switches one.
 export class WorkspaceSpaces {
@@ -28,7 +28,7 @@ export class WorkspaceSpaces {
     const entry = this.entries.find(s => s.id === id);
     if (!entry) throw Error('Workspace not found');
     this.remember(settings);
-    return {...settings, ...entry.setup, framework: entry.type, spaceId: entry.id, spaceName: entry.name};
+    return {...settings, ...entry.setup, debugProfileId: entry.setup.debugProfileId || 'workspace', framework: entry.type, spaceId: entry.id, spaceName: entry.name};
   }
   get(id) {return this.entries.find(s => s.id === id);}
 }

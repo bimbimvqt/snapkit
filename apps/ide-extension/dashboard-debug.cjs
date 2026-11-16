@@ -57,7 +57,7 @@ function createDashboardDebug(vscode, { readPlan = getPlan, canonical = canonica
       if (!normal(config)) return groups.has(config.__snapkitGroup) ? config : undefined;
       const settings = vscode.workspace.getConfiguration('snapkit', folder?.uri);
       const native = ['reactnative', 'reactnativedirect'].includes(config.type);
-      const configurationSource = native || config.__snapkitLaunchPlan ? 'dashboard' : settings.get('flutterLaunchConfiguration', 'ide');
+      const configurationSource = config.__snapkitLaunchPlan?.ideProfile ? 'ide' : native || config.__snapkitLaunchPlan ? 'dashboard' : settings.get('flutterLaunchConfiguration', 'ide');
       const program = String(config.program || '').replaceAll('\\', '/');
       if (!folder || !vscode.workspace.isTrusted || (!config.__snapkitLaunchPlan && !settings.get('useDashboardTargets', true))
           || (config.type && !['dart', 'reactnative', 'reactnativedirect'].includes(config.type)) || (config.request && config.request !== 'launch')

@@ -197,3 +197,23 @@ test('Debug Console receives authenticated IDE output, scopes projects/devices a
     await post('/api/workspace', {path:original.settings.workspace});
   }
 });
+
+test('Run profile selection is authenticated, shared with Mini, and preserves selected devices and project settings',async()=>{
+ const before=await fetch(base+'/api/state').then(r=>r.json());
+ try{
+  const catalog=await fetch(base+'/api/ide/profiles').then(r=>r.json());
+  const prod=catalog.profiles.find(p=>p.flavor==='prod');assert.ok(prod);
+  assert.equal((await post('/api/ide/profiles/select',{expectedWorkspace:before.settings.workspace,id:prod.id},'wrong')).status,403);
+  assert.equal((await post('/api/ide/profiles/select',{expectedWorkspace:'/wrong',id:prod.id})).status,400);
+  assert.equal((await post('/api/ide/profiles/select',{expectedWorkspace:before.settings.workspace,id:'missing'})).status,400);
+  const selected=await post('/api/ide/profiles/select',{expectedWorkspace:before.settings.workspace,id:prod.id}).then(r=>r.json());
+  assert.equal(selected.settings.debugProfileId,prod.id);assert.deepEqual(selected.settings.targetIds,before.settings.targetIds);
+  assert.equal(selected.settings.flavor,before.settings.flavor);assert.equal(selected.settings.target,before.settings.target);
+  assert.equal((await fetch(base+'/api/ide/profiles').then(r=>r.json())).selected.flavor,'prod');
+  await post('/api/workspace',{path:'/other/project'});
+  assert.equal((await fetch(base+'/api/ide/profiles').then(r=>r.json())).selectedId,'workspace');
+ }finally{
+  await post('/api/workspace',{path:before.settings.workspace});
+  await post('/api/ide/profiles/select',{expectedWorkspace:before.settings.workspace,id:'workspace'});
+ }
+});

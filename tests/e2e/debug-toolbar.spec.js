@@ -35,3 +35,24 @@ test('debug launch errors are shown and the Run button recovers',async({page})=>
  await page.locator('#debug-run').click();await expect(page.locator('#toast-region')).toContainText('Snapkit Debug Sync 1.7');
  await expect(page.locator('#debug-run')).toBeEnabled();
 });
+
+test('Run configuration offers dev/prod, keeps device selection, synchronizes summary and survives reload',async({page})=>{
+ await page.goto('/?lang=vi');
+ await expect(page.locator('body')).toHaveAttribute('data-ui-ready','true');
+ const initial=await page.request.get('/api/state').then(r=>r.json());
+ const catalog=await page.request.get('/api/ide/profiles').then(r=>r.json());
+ const prod=catalog.profiles.find(p=>p.flavor==='prod'),dev=catalog.profiles.find(p=>p.flavor==='dev');
+ const {choose}=await import('./choices.js');
+ try{
+  await expect(page.locator('#debug-run-profile option')).toHaveCount(catalog.profiles.length);
+  for(const profile of [prod,dev]){
+   await choose(page,'debug-run-profile',profile.id);
+   await expect(page.locator('#debug-profile-summary')).toContainText(profile.flavor+' · '+profile.target);
+   await expect.poll(async()=>(await page.request.get('/api/state').then(r=>r.json())).settings.debugProfileId).toBe(profile.id);
+   expect((await page.request.get('/api/state').then(r=>r.json())).settings.targetIds).toEqual(initial.settings.targetIds);
+  }
+  await page.reload();await expect(page.locator('#debug-run-profile')).toHaveValue(dev.id);
+  await page.setViewportSize({width:375,height:812});expect(await page.locator('.ide-selection').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:'/tmp/snapkit93-run-profile-mobile.png',fullPage:true});
+ }finally{await page.request.post('/api/ide/profiles/select',{headers:{'X-Snapkit-Token':initial.token},data:{expectedWorkspace:initial.settings.workspace,id:'workspace'}});}
+});

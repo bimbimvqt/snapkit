@@ -12,6 +12,7 @@ import { readFile, writeFile, mkdir, rename, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { debugProfiles } from './modules/ide/debug-profiles.js';
 import { DebugLaunches } from './modules/ide/debug-launches.js';
 import { DebugConsole } from './modules/ide/debug-console.js';
 import { IDESessions } from './modules/ide/ide-sessions.js';
@@ -68,7 +69,7 @@ try {
 function rememberWorkspace() {
   if (settings.workspace) workspaceSetups[settings.workspace] = {
     framework: settings.framework || 'flutter', flavor: settings.flavor || '', target: settings.target || 'lib/main.dart', defineFile: settings.defineFile || '',
-    selectedSetId: settings.selectedSetId || '', targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
+    debugProfileId: settings.debugProfileId || 'workspace', selectedSetId: settings.selectedSetId || '', targetIds: [...settings.targetIds], ideEnabled: settings.ideEnabled !== false,
   };
 }
 rememberWorkspace();
@@ -331,7 +332,7 @@ app.post('/api/run-profiles/:action', async (req, res) => {
       const build = demo ? {framework: profile.framework, flavor: profile.flavor, target: profile.target, defineFile: profile.defineFile} : await validateBuild(await validateWorkspace(workspace), profile);
       if (build.framework !== profile.framework || (settings.spaceId && spaces.get(settings.spaceId)?.type !== build.framework)) throw Error('The project does not match this run profile');
       const targets = readyTargets(profile.targetIds, snapshot.devices);
-      settings = {...settings, ...build, targetIds: targets.map(d => d.id), selectedSetId: '', ideEnabled: profile.ideEnabled};
+      settings = {...settings, ...build, targetIds: targets.map(d => d.id), selectedSetId: '', debugProfileId: 'workspace', ideEnabled: profile.ideEnabled};
       await persist(); emit('settings', settings);
     }
     res.json({profiles: runProfiles.list(settings), settings});
@@ -371,7 +372,8 @@ app.post('/api/workspace', async (req, res) => {
     const targetIds = workspace === settings.workspace ? settings.targetIds : previous?.targetIds || [];
     const ideEnabled = workspace === settings.workspace ? settings.ideEnabled !== false : previous?.ideEnabled !== false;
     const selectedSetId = workspace === settings.workspace ? settings.selectedSetId || '' : previous?.selectedSetId || '';
-    settings = { ...settings, ...build, workspace, targetIds, ideEnabled, selectedSetId };
+    const debugProfileId = workspace === settings.workspace ? settings.debugProfileId || 'workspace' : previous?.debugProfileId || 'workspace';
+    settings = { ...settings, ...build, workspace, targetIds, ideEnabled, selectedSetId, debugProfileId };
     await persist(); emit('settings', settings); res.json({ settings, message: demo ? 'Demo IDE setup saved' : 'Antigravity debug setup saved. Select devices, then press F5 in your IDE.' });
   } finally { savingIDE = false; }
 });
@@ -424,7 +426,7 @@ app.post('/api/ide/sessions', (req, res) => {
   const sessions = ideSessions.exchange(req.body);
   const current = ideSessions.owners.get(req.body.ownerId)?.sessions || [];
   const consoleAck = debugConsole.exchange(req.body.ownerId, req.body.consoleOutput, req.body.consoleSessions || [...current, ...previous].filter(s => s.workspace));
-  res.json({ ...sessions, consoleAck, launches: debugLaunches.exchange(req.body.ownerId, req.body.workspaces, req.body.launchResults) });
+  res.json({ ...sessions, consoleAck, launches: debugLaunches.exchange(req.body.ownerId, req.body.workspaces, req.body.launchResults, req.body.capabilities) });
 });
 app.get('/api/ide/console', async (req, res) => {
   const workspace = await realpath(settings.workspace || '.').catch(() => '');
@@ -434,18 +436,48 @@ app.get('/api/ide/console', async (req, res) => {
   const sessions = ideSessions.list().filter(s => sameWorkspace(s.workspace) && (!deviceId || s.deviceId === deviceId));
   res.json({ ...result, sessions, status: sessions.length ? 'running' : 'waiting' });
 });
+async function runProfileCatalog(snapshotSettings = settings) {
+  return debugProfiles(snapshotSettings, runProfiles.list(snapshotSettings), demo ? { readProfiles: async () => ({ profiles: [
+    { name: 'Development', flavor: 'dev', target: 'lib/main_dev.dart', defineFile: '' },
+    { name: 'Production', flavor: 'prod', target: 'lib/main_prod.dart', defineFile: '' }
+  ] }) } : {});
+}
+app.get('/api/ide/profiles', async (_req, res) => {
+  const current = structuredClone(settings);
+  res.json(await runProfileCatalog(current));
+});
+app.post('/api/ide/profiles/select', async (req, res) => {
+  if (req.remoteToken) return res.status(403).json({ error: 'Choose the debug configuration in the local Snapkit app.' });
+  if (savingIDE || kitRouter.busy()) throw Error('Wait for project setup to finish before changing debug configuration.');
+  if (teamRouter.teamRuntime.active()) throw Error('Use your prepared Teams session to debug this project.');
+  if (req.body.expectedWorkspace !== settings.workspace) throw Error('Workspace changed. Review your project before debugging.');
+  savingIDE = true;
+  const before = structuredClone(settings);
+  try {
+    const catalog = await runProfileCatalog();
+    if (!catalog.profiles.some(p => p.id === req.body.id)) throw Error('Debug configuration is unavailable. Refresh the profiles and choose again.');
+    settings.debugProfileId = req.body.id;
+    await persist(); emit('settings', settings);
+    res.json({ ...catalog, selectedId: req.body.id, selected: catalog.profiles.find(p => p.id === req.body.id), settings });
+  } catch (error) { settings = before; throw error; }
+  finally { savingIDE = false; }
+});
 app.post('/api/ide/launch', async (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Start debug from the local Snapkit app.' });
   if (req.body.expectedWorkspace !== settings.workspace) throw new Error('Workspace changed. Review your project before debugging.');
   if (demo) throw new Error('Debug launch is unavailable in demo mode.');
   if (savingIDE || kitRouter.busy()) throw new Error('Wait for project setup to finish before starting debug.');
   if (teamRouter.teamRuntime.active()) throw new Error('Use your prepared Teams session to debug this project.');
+  if (req.body.expectedProfileId !== undefined && req.body.expectedProfileId !== (settings.debugProfileId || 'workspace')) throw Error('Debug configuration changed. Review your selection before running.');
   const launchSettings = structuredClone(settings);
   const workspace = await validateWorkspace(launchSettings.workspace);
   if (launchSettings.framework === 'react-native') throw new Error('Start React Native debug from your IDE.');
-  const build = await validateBuild(workspace, launchSettings);
-  if (settings.workspace !== launchSettings.workspace || savingIDE || kitRouter.busy()) throw new Error('Workspace changed. Review your project before debugging.');
+  const catalog = await runProfileCatalog(launchSettings), profile = catalog.selected;
+  if (!profile) throw Error('Debug configuration is unavailable. Refresh the profiles and choose again.');
+  const build = profile.source === 'ide' ? profile : await validateBuild(workspace, profile);
+  if (settings.workspace !== launchSettings.workspace || (settings.debugProfileId || 'workspace') !== (launchSettings.debugProfileId || 'workspace') || savingIDE || kitRouter.busy()) throw new Error('Workspace changed. Review your project before debugging.');
   const plan = launchPlan({ ...launchSettings, ...build, workspace, ideEnabled: true }, snapshot.devices);
+  if (profile.source === 'ide') plan.ideProfile = { name: profile.name };
   if (plan.status !== 'ready') throw new Error(plan.reason || 'Select at least one started device before debugging.');
   if (ideSessions.list().some(session => plan.configurations.some(c => c.deviceId === session.deviceId))) throw new Error('Stop debug on the selected devices before starting again.');
   res.json(debugLaunches.start(plan));
