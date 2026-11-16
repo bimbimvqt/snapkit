@@ -52,6 +52,7 @@ async function api(url, data, quiet = false) {
     if (url === '/api/releases/catalog') return { workspace: state.settings.workspace, platform: 'darwin', android: true, ios: true, flavors: [], profiles: [{ name: 'Workspace settings', flavor: '', target: 'lib/main.dart', defineFile: '' }], version: '1.0.0+1' };
     if (url === '/api/run-profiles') return { profiles: [] };
     if (url === '/api/workspace/doctor') return { ready: true, checkedAt: Date.now(), checks: [{id:'preview', title:'Sample project',status:'ready',detail:'Demo only. Open your project in Snapkit Desktop to check its configuration.'}] };
+    if (url.startsWith('/api/ide/console?')) return { status: 'waiting', sessions: [], lines: [], next: 1 };
     if (url === '/api/tools') return { sets: [], captures: [], recordings: [], jobs: [], demo: true };
     if (url === '/api/state') return structuredClone(window.SNAPKIT_PREVIEW.state);
     if (url === '/api/product') return { version: __APP_VERSION__, channel: 'beta', preferences: { onboardingComplete: false, editor: 'vscode' }, billing: { phase: 'free-beta', checkoutEnabled: false } };
