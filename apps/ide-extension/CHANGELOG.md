@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.0 — 2026-11-20
+
+- Inspect Flutter widgets by tapping a device running a connected Flutter Debug session.
+- See the widget creation location and enclosing function when available, and jump to project source in the IDE without modifying the app.
+
 ## 1.8.1 — 2026-11-16
 
 - Update Details for the aligned debug toolbar and shared themed profile menu in Snapkit Desktop beta.94.

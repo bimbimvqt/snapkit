@@ -491,6 +491,15 @@ app.post('/api/ide/control', (req, res) => {
   if (!count) throw new Error('No active debug sessions on the selected devices.');
   res.json({ count });
 });
+app.post('/api/devices/:id/inspect-ui', async (req, res) => {
+  if (demo || req.remoteToken) return res.status(403).json({ error: 'Inspect UI is available in the local app only.' });
+  const { command, sessionId, expectedWorkspace } = req.body;
+  if (!settings.workspace || expectedWorkspace !== settings.workspace) throw Error('Workspace changed. Review your project before debugging.');
+  const root = await realpath(expectedWorkspace);
+  if (expectedWorkspace !== settings.workspace) throw Error('Workspace changed. Review your project before debugging.');
+  const target = device(req.params.id);
+  res.json(ideSessions.inspect([target.id, target.flutterId].filter(Boolean), process.platform === 'win32' ? root.toLowerCase() : root, command, sessionId));
+});
 app.get('/api/ide/launch/:id', (req, res) => {
   if (req.remoteToken) return res.status(403).json({ error: 'Debug launch status requires the local app.' });
   res.json(debugLaunches.status(req.params.id));

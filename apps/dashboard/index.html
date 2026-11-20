@@ -212,6 +212,15 @@
     <form id="pairing-form" class="hidden"><p>Run <code>npm start</code> on this computer. Open the local Dashboard → Connect website to get a code. Allow local network access if your browser asks.</p><label for="agent-url">Local server</label><input id="agent-url" value="http://127.0.0.1:4310" required><label for="agent-code">Pairing code</label><input id="agent-code" placeholder="ABCD-EF01-2345" autocomplete="off" spellcheck="false" required><div class="dialog-footer"><button class="button" type="button" id="disconnect-agent">Disconnect</button><button class="button primary" type="submit" id="pairing-submit">Connect local server</button></div><a class="pairing-help" href="http://127.0.0.1:4310/" target="_blank" rel="noopener noreferrer">Open local Dashboard to get a code ↗</a></form>
     <p id="pairing-error" class="field-error" role="alert"></p>
   </dialog>
+  <dialog id="inspect-ui-dialog" aria-labelledby="inspect-ui-title">
+    <div class="dialog-heading"><span class="dialog-icon"><i data-lucide="crosshair"></i></span><button type="button" class="icon-button close-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+    <h2 id="inspect-ui-title">Inspect UI</h2><p id="inspect-ui-device"></p>
+    <p id="inspect-ui-status" role="status"></p>
+    <p id="inspect-ui-widget" class="inspect-ui-source" hidden><strong></strong><code></code></p>
+    <p id="inspect-ui-project" class="inspect-ui-source" hidden><strong></strong><code></code></p>
+    <p id="inspect-ui-error" class="field-error" role="alert"></p>
+    <div class="dialog-footer"><button type="button" class="button close-dialog" autofocus>Close</button><button type="button" class="button primary" id="inspect-ui-open" disabled>Open in IDE</button></div>
+  </dialog>
   <dialog id="delete-device-dialog" aria-labelledby="delete-device-title" aria-describedby="delete-device-note">
     <div class="dialog-heading"><span class="dialog-icon delete-device"><i data-lucide="trash-2"></i></span><button type="button" class="icon-button close-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
     <h2 id="delete-device-title">Delete device and its data?</h2><p id="delete-device-name" class="delete-device-name"></p><p id="delete-device-note"></p>

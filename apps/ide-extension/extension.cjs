@@ -49,7 +49,8 @@ function activate(context) {
   const report = message => output.appendLine(`${new Date().toISOString()} ${message}`);
   const dashboard = require('./dashboard-debug.cjs').createDashboardDebug(vscode, { report });
   const native = require('./react-native-debug.cjs').createNativeDebug(vscode, {report});
-  const control = require('./session-control.cjs').createSessionControl(vscode, { report });
+  const inspector = require('./flutter-inspector.cjs').createFlutterInspector(vscode);
+  const control = require('./session-control.cjs').createSessionControl(vscode, { report, inspector });
   control.connect();
   const sync = createRestartSync({
     onStarting: session => dashboard.started(session),
@@ -60,7 +61,7 @@ function activate(context) {
       if (failed) void vscode.window.showWarningMessage(`Snapkit: ${message}`);
     },
   });
-  context.subscriptions.push(output, dashboard, control, native,
+  context.subscriptions.push(output, dashboard, control, native, inspector,
     vscode.debug.registerDebugAdapterTrackerFactory('*', control),
     vscode.debug.registerDebugConfigurationProvider('snapkit-react-native', native.provider),
     vscode.debug.registerDebugAdapterTrackerFactory('pwa-node', native),
@@ -82,7 +83,7 @@ function activate(context) {
       await settings.update('useDashboardTargets', enabled, vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(enabled ? 'Snapkit: Dashboard targets enabled when the local agent is available.' : 'Snapkit: Using normal IDE debug configurations.');
     }));
-  output.appendLine('Snapkit Debug Sync 1.8.1 ready. IDE Flutter profiles are preserved by default.');
+  output.appendLine(`Snapkit Debug Sync ${require('./package.json').version} ready. IDE Flutter profiles are preserved by default.`);
 }
 
 module.exports = { activate, createRestartSync };

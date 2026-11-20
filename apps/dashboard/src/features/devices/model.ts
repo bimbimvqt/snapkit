@@ -6,5 +6,6 @@ export interface Device {
 export interface DeviceView {
   device: Device; selected: boolean; starting: boolean; shutting: boolean;
   debugging: boolean; debugStopping: boolean; selectionSaving: boolean; canRunRelease: boolean; showRunRelease: boolean;
+  inspectable?: boolean;
 }
 export interface EmptyDevices { title: string; detail: string; icon?: string; actions?: { id: string; label: string }[] }

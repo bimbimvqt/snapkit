@@ -1,6 +1,7 @@
 import {demoVolumes} from '../../../../packages/domain/demo-volumes.js';
 import { agentRequest } from '../shared/api/client.ts';
 import { renderDeviceGrid } from '../features/devices/render.tsx';
+import { inspectUI } from '../features/devices/inspect-ui.js';
 const t = (...args) => window.SnapkitI18n.t(...args);
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -103,6 +104,9 @@ function render() {
   $('#reset-filters').classList.toggle('hidden', !search && !onlyOnline && filter === 'all');
   $('#filter-summary').textContent = t("{0} of {1} devices", [shown.length, devices.length]);
   const views = shown.map(device => ({ device, selected: selected.includes(device.id), starting: booting.has(device.id), shutting: shuttingDown.has(device.id), debugging: (state.debugSessions || []).some(session => session.deviceId === device.id || session.deviceId === device.flutterId), debugStopping: stoppingDebug.has(device.id) || (state.debugSessions || []).some(session => (session.deviceId === device.id || session.deviceId === device.flutterId) && session.stopping), selectionSaving: targetSaving, showRunRelease: state.settings.framework !== 'react-native' && document.body.dataset.framework !== 'react-native' && device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER, canRunRelease: device.state === 'online' && !!device.flutterId && !connection && !window.SNAPKIT_CONTROLLER && !!state.settings.workspace && !window.SNAPKIT_PREVIEW }));
+  if (state.settings.workspace && !state.demo && !connection && !window.SNAPKIT_CONTROLLER && !window.SNAPKIT_PREVIEW) {
+    for (const view of views) view.inspectable = (state.debugSessions || []).some(session => session.inspectable && [view.device.id, view.device.flutterId].includes(session.deviceId));
+  }
   renderDeviceGrid(views, { title: refreshing || state.scanning ? t('Discovering your devices…') : devices.length ? t('No matching devices') : t('Your device lab starts here'), detail: refreshing || state.scanning ? t('Checking Flutter, Android emulators, and iOS simulators. The first scan can take a moment.') : devices.length ? t('Clear the filters to see all your devices.') : t('Add a simulator or emulator, or connect a physical device to get started.'), actions: devices.length ? [{ id: 'empty-reset', label: t('Clear filters') }] : !refreshing && !state.scanning ? [{ id: 'empty-add', label: t('Add device') }, { id: 'empty-refresh', label: t('Refresh devices') }] : [] });
   $('#scan-time').textContent = state.scannedAt ? t("Last synced {0} · Device status checked every 2s", [new Date(state.scannedAt).toLocaleTimeString(window.SnapkitI18n.language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' })]) : t("Waiting for first scan");
   $('#ide-use-dashboard').checked = state.settings.ideEnabled !== false;
@@ -294,6 +298,12 @@ $('#devices-grid').addEventListener('click', e => {
   if (e.target.closest('#empty-add')) return $('#add-device').click();
   if (e.target.closest('#empty-refresh')) return refresh();
   if (e.target.closest('#empty-help')) return showProductPage('guide');
+  const inspect = e.target.closest('button[data-action="inspect-ui"]');
+  if (inspect && !inspect.disabled) {
+    const device = state.devices.find(item => item.id === inspect.closest('[data-device]').dataset.device);
+    if (device) void inspectUI(api, device, state.settings.workspace);
+    return;
+  }
   const remove = e.target.closest('button[data-action="delete"]');
   if (remove && !remove.disabled) {
     const id = remove.closest('[data-device]').dataset.device;

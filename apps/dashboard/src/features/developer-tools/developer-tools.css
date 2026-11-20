@@ -12,6 +12,7 @@
 .debug-profile-field{display:grid;gap:6px;min-width:0;font-size:12px;color:var(--muted)}
 .debug-profile-field .choice-trigger{min-height:48px}
 .debug-actions .debug-toolbar{min-width:0;height:48px}
+.inspect-ui-source{overflow-wrap:anywhere}.inspect-ui-source code{display:block;color:var(--muted)}
 .debug-actions .ide-mode{min-height:48px;margin:0}
 @media(max-width:1100px){.debug-actions{grid-template-columns:minmax(0,1fr) auto}.debug-actions .ide-mode{grid-column:1/-1;min-height:24px}}
 @media(max-width:600px){.ide-selection{padding:14px}.debug-heading{grid-template-columns:20px minmax(0,1fr)}.debug-heading .button{grid-column:2;justify-self:start;margin-left:0}.debug-actions{grid-template-columns:minmax(0,1fr);gap:12px}.debug-actions .debug-toolbar{justify-self:start}.debug-actions .ide-mode{grid-column:auto;min-height:36px}}

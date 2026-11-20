@@ -18,7 +18,7 @@ function agentRequest(base, pathname, body, token) {
     req.end(data);
   });
 }
-function createSessionControl(vscode, { request = agentRequest, report = () => {} } = {}) {
+function createSessionControl(vscode, { request = agentRequest, report = () => {}, inspector } = {}) {
   const ownerId = randomUUID(), sessions = new Map(), stopping = new Set();
   const launches = new Map(), actions = new Set(), outputSessions = new Map();
   let outputSequence = 0, outputQueue = [];
@@ -35,7 +35,7 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         credentials = { base, token: state.token };
       }
       const describe = async s => ({ workspace: await canonical(s.workspaceFolder?.uri.fsPath || s.configuration.cwd || (vscode.workspace.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : '') || '').catch(() => ''), id: s.id, deviceId: s.configuration.deviceId, name: s.name || 'App debug',...(s.configuration.__snapkitTeamSession?{teamSessionId:s.configuration.__snapkitTeamSession}:{}) });
-      const listed = await Promise.all([...sessions.values()].map(describe));
+      const listed = await Promise.all([...sessions.values()].map(async session => ({ ...await describe(session), inspection: inspector?.status(session) })));
       const folders = vscode.workspace.isTrusted ? vscode.workspace.workspaceFolders || [] : [];
       const roots = await Promise.all(folders.map(async folder => ({ folder, root: await canonical(folder.uri.fsPath).catch(() => '') })));
       const launchResults = [...launches].filter(([, result]) => result.status).map(([id, result]) => ({ id, ...result }));
@@ -74,7 +74,13 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
         if (actions.has(action.id)) continue;
         actions.add(action.id);
         const session = sessions.get(action.sessionId);
-        if (!session || session.type !== 'dart' || !['hotReload', 'hotRestart'].includes(action.command)) continue;
+        if (!session || session.type !== 'dart') continue;
+        if (['inspectUI', 'closeInspector', 'openInspectedSource'].includes(action.command)) {
+          try { await inspector?.action(session, action.command); }
+          catch { void vscode.window?.showErrorMessage?.('Snapkit: Could not open the inspected source.'); }
+          continue;
+        }
+        if (!['hotReload', 'hotRestart'].includes(action.command)) continue;
         try { await session.customRequest(action.command, { reason: 'manual' }); report(`${action.command}: ${session.name}`); }
         catch (error) { report(error.message); void vscode.window?.showErrorMessage?.(`Snapkit: ${error.message}`); }
       }
@@ -94,12 +100,14 @@ function createSessionControl(vscode, { request = agentRequest, report = () => {
       if (!vscode.workspace.isTrusted || !(['dart', 'reactnative', 'reactnativedirect'].includes(session.type) || (session.type === 'pwa-node' && session.configuration.__snapkitNativeGroup)) || session.configuration.noDebug || typeof session.configuration.deviceId !== 'string' || !session.configuration.deviceId) return;
       sessions.set(session.id, session); dirty = true; void tick();
     },
-    terminated(session) { if (!sessions.has(session.id)) return; sessions.delete(session.id); stopping.delete(session.id); clearTimeout(timer); dirty = true; void tick(); },
+    terminated(session) { inspector?.end(session); if (!sessions.has(session.id)) return; sessions.delete(session.id); stopping.delete(session.id); clearTimeout(timer); dirty = true; void tick(); },
     createDebugAdapterTracker(session) {
       return {
         onWillStartSession() { thisControl.started(session); },
         onDidSendMessage(message) {
-          if (message.type !== 'event' || message.event !== 'output' || !sessions.has(session.id) || !vscode.workspace.isTrusted) return;
+          if (message.type !== 'event' || !sessions.has(session.id) || !vscode.workspace.isTrusted) return;
+          if (message.event === 'dart.debuggerUris') { inspector?.event(session, message); return; }
+          if (message.event !== 'output') return;
           const { output, category = 'console' } = message.body || {};
           if (typeof output !== 'string' || !output || !['console', 'stdout', 'stderr', 'important'].includes(category)) return;
           // Bound both individual events and the offline queue. Adapter telemetry

@@ -39,7 +39,7 @@ manifest = f'''<?xml version="1.0" encoding="utf-8"?>
 with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
     archive.writestr('extension.vsixmanifest', manifest)
     archive.writestr('[Content_Types].xml', '''<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="md" ContentType="text/markdown"/><Default Extension="png" ContentType="image/png"/><Default Extension="json" ContentType="application/json"/><Default Extension="js" ContentType="application/javascript"/><Default Extension="mjs" ContentType="application/javascript"/><Default Extension="cjs" ContentType="application/javascript"/><Default Extension="vsixmanifest" ContentType="text/xml"/></Types>''')
-    for name in ('package.json', 'extension.cjs', 'dashboard-debug.cjs', 'session-control.cjs', 'react-native-debug.cjs', 'react-native-runtime.cjs', 'react-native-transport.cjs', 'icon.png', 'README.md', 'CHANGELOG.md'):
+    for name in ('package.json', 'extension.cjs', 'dashboard-debug.cjs', 'session-control.cjs', 'flutter-inspector.cjs', 'react-native-debug.cjs', 'react-native-runtime.cjs', 'react-native-transport.cjs', 'icon.png', 'README.md', 'CHANGELOG.md'):
         archive.write(source / name, f'extension/{name}')
     for item in dependency.rglob('*'):
         if item.is_file():

@@ -2,6 +2,12 @@
 
 Debug Flutter and React Native on the devices selected in [Snapkit](https://snapkit.vn/), from VS Code, Cursor or Antigravity. Project source and `launch.json` stay on your computer and are not rewritten.
 
+## What's new in 1.9.0
+
+**Inspect UI** in Snapkit Desktop beta.96 reads Flutter's existing widget inspector without modifying your app. Open the same trusted project in Snapkit and your IDE, start a Flutter Debug session, select **Inspect UI** on the device card, then tap a widget on the device. Snapkit shows the widget, its creation location when available, the nearest project source, and the enclosing function or method when reported by the IDE. Choose **Open in IDE** to jump to the project source. Close the dialog to resume normal touch behavior.
+
+Source locations require widget creation tracking (Flutter Debug default). The function shown contains the widget creation; it is not necessarily the tap handler. Release builds, system UI, and content rendered inside WebViews are not inspectable as Flutter widgets. The VM connection and source details stay local.
+
 ## What's new in 1.8.1
 
 Snapkit Desktop beta.94 aligns the debug toolbar in two rows, removes Quick setup from Devices, and uses the same themed Run configuration menu in Devices and Mini, with keyboard support.

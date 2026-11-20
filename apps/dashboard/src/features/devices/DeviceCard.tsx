@@ -26,5 +26,6 @@ export const DeviceCard = memo(function DeviceCard({ view }: { view: DeviceView;
     </div>
     {online && (d.platform === 'android' || d.group === 'ios') && <div className="device-tool-actions"><button className="button" data-tool-action="logs"><Icon name="terminal" />{t('Debug Console')}</button><button className="button" data-tool-action="screenshot"><Icon name="camera" />{t('Screenshot')}</button><button className="button" data-tool-action="record"><Icon name="video" />{t('Record')}</button></div>}
     {debugging && <div className="device-debug"><span><Icon name="bug" />{t('Debugging in IDE')}</span><button className="button" data-action="stop-debug" disabled={debugStopping || shutting} aria-busy={debugStopping || undefined}><Icon name={debugStopping ? 'loader-circle' : 'square'} />{t(debugStopping ? 'Stopping debug…' : 'Stop debug')}</button></div>}
+    {view.inspectable && <div className="device-tool-actions"><button type="button" className="button" data-action="inspect-ui" disabled={debugStopping || shutting}><Icon name="crosshair" />{t('Inspect UI')}</button></div>}
   </article>;
 }, (previous, next) => previous.signature === next.signature);
